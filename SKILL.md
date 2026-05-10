@@ -189,6 +189,29 @@ export function rollbackToTurn(turnId: string) {
 
 用户 swipe / 删消息后用 `rollbackToTurn` 回到对应轮次。**注意**：这只支持「整轮回退」，无法在一轮内部回退某次掷骰——需要那个就走完整方案。
 
+### 重 roll / 回滚的可行方案（只做粗粒度）
+
+agent 删不掉自己已经发出的 chat turn，所以「单条 swipe」做不干净。我们只支持**粗粒度回滚**：扔掉整段 chat、保留 state 到某个 snapshot，重开会话。
+
+```typescript
+// engine/state.ts 末尾再加一个工具
+export function markResume(turnId: string) {
+  rollbackToTurn(turnId);
+  writeFileSync(join(STATE_DIR, "resume-to.txt"), turnId);
+}
+```
+
+注册一个 `request_rollback(turnId)` 工具供 agent 调用。流程：
+
+1. 用户说「回到第 5 轮重新开始」
+2. agent 调 `request_rollback("5")`：state 已回滚 + 落下 `resume-to.txt`
+3. agent 提示用户 `/clear`（Claude Code）/ 关掉重开（pi）
+4. 启动 hook 检测 `resume-to.txt`，把 state 内容 + 一句「你回到了第 5 轮开始」前置到第一条用户消息（同开场白注入逻辑），然后删除 marker
+
+chat 全清，state 干净，下一段叙事是基于回滚后世界的全新展开。失去这几轮的具体对白，但游戏世界一致——这正是事件溯源也无法避免的代价（chat 与 state 分层）。
+
+需要保留对白的细粒度 reroll？必须靠平台原生「删最后一轮」API。pi 若有就用；Claude Code 没有干净接口，**不支持**——告诉用户走粗粒度，或在新一轮提示里写「重写上一段，避免雷同」。
+
 ## 完整 engine 方案（事件溯源 + 多 agent）
 
 需要按事件 ID 任意回退（死亡回溯、章节存档）→ `dispatch`/`apply`/`rollback` 一整套，详见 `references/ts-engine.md`。
