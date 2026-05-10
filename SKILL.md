@@ -12,7 +12,7 @@ SillyTavern 的很多机制是绕过单次 LLM 调用限制的补丁。agent 天
 
 ## 快速开始
 
-先确认输入是 SillyTavern 卡：PNG 需含 `chara` tEXt chunk，JSON 顶层应有 `data.name` + `data.description`（v2/v3 spec）。`extract_png.py` 拿不到 chunk 时会报错——这种情况直接告诉用户「不是 SillyTavern 角色卡」并停手。
+输入合法性校验见下文「边界与陷阱」第一行。
 
 ```bash
 # 如果是 PNG → 先解包
@@ -86,8 +86,11 @@ step2: 进行认知隔离
 | 情况 | 走哪条路 |
 |------|---------|
 | 没有 MVU 条目 | **纯 prompt 方案**：只写 system prompt，不写 engine |
-| 有 MVU、但只涉及轻量状态（好感度追踪、简单计数器、无骰子/战斗） | **轻量方案**：`engine/state.ts` 骨架（见下方）+ 数据文件 + 查询工具，不搞全套 engine |
-| 有 MVU、含骰子/战斗/经济/复杂状态 schema | **完整 engine 方案**：全套 engine 模块 + 多 agent 架构 |
+| 只涉及键值状态（好感度、计数器、任务标记），无骰子/战斗/公式 | **轻量方案**：10 行 state 骨架 + `get_status`/`update_status` 两个工具 |
+| 有骰子/战斗/经济/复杂 schema，但**不需要回溯/存档点** | **中等方案**：轻量 state + 按需 `engine/dice.ts`、`engine/combat.ts` 等模块；状态用 `patchState` 覆写，不上事件溯源 |
+| 含死亡回溯、章节存档、需要按事件 ID 回退 | **完整 engine 方案**：事件溯源 state + 全套模块 + 多 agent |
+
+事件溯源（events.jsonl + rollback）只为「回溯」服务。无回溯需求时上它纯属负担。
 
 ## 纯 prompt 方案
 
@@ -149,39 +152,26 @@ export function patchState(updates: Record<string, unknown>) {
 | `multi-agent-architecture.md` 多 agent 架构 |  |  | ✓ |
 | `ts-engine.md` TS 引擎参考（`initialBlankState` 是 Re:0 示例，勿照搬） |  |  | ✓ |
 
-## 不在本 skill 范围内
+## 边界与陷阱
 
-遇到下列情况，明确告知用户并停手——不要硬转：
-
-- **前端卡**：`first_mes` 是完整 HTML UI（状态面板/按钮）。可提取规则文本，但 UI 不处理。
-- **群聊卡 / Group Chat**：多角色并发对话调度，需要另一套架构。
-- **Tavern v3 嵌套 lorebook**：`character_book` 之外的 `world_info` 引用、跨卡 lorebook。
-- **依赖 ST 扩展运行时的卡**：如 `quick reply`、`expressions`、TTS 触发——这些是 ST 客户端能力，不可移植。
-
-## 常见失败模式
-
-1. **regex_scripts 里藏变量逻辑**：大部分 regex 是 HTML 格式化（`<正文>` → `<div style="...">`），直接丢弃。但如果 `findRegex` 匹配的是变量模式（如 `/{{getvar:...}}/` 或状态字段名），说明它不只是格式化——提取逻辑进 engine。
-
-2. **照搬 Re:0 的 initialBlankState**：`魔女残香`、`死亡回溯计数` 是 Re:0 特有字段。必须从当前卡的 MVU 变量定义中动态提取状态结构。
-
-3. **把强化思考链当叙事规则保留**：「请先检查变量...再进行认知隔离...」→ 这是酒馆让 LLM 模拟推理的补丁。丢弃。
+| 信号 | 处理 |
+|------|------|
+| `extract_png.py` 报「No chara/ccv3 chunk」，或 JSON 顶层没有 `data.name`/`data.description` | 不是 SillyTavern v2/v3 卡，停手 |
+| `first_mes` 是完整 HTML UI（状态面板/按钮） | 前端卡，可提取规则文本，UI 不处理 |
+| 多角色并发对话调度 | 群聊卡，另一套架构，停手 |
+| `character_book` 之外的 `world_info`、跨卡 lorebook | v3 嵌套 lorebook，停手 |
+| 依赖 `quick reply` / `expressions` / TTS 触发 | ST 客户端能力，不可移植 |
+| `regex_scripts` 中 `findRegex` 匹配 `/{{getvar:...}}/` 或状态字段名 | 不只是 UI 格式化，含变量逻辑——提取进 engine 而非整体丢弃 |
+| `engine/state.ts` 出现 `魔女残香`/`死亡回溯计数`/`is_changed_chapter` 等 Re:0 字段 | 从 ts-engine.md 例子照抄了——必须用本卡 MVU schema 重写 |
+| `<强化思考要求>` / `step1...step2...` / `认知隔离` 被原样写进 prompt | 酒馆让 LLM 模拟推理的补丁，agent 不需要，丢弃 |
 
 ## 产出确认
 
-转换完成后先跑一遍校验脚本：
+一行 grep 扫残留 + 误抄：
 
 ```bash
-python3 scripts/validate.py <生成项目目录>
-# 退出码 0=全过 / 1=有 ERROR / 2=仅 WARN
+grep -rnE "UpdateVariable|JSON Patch|<%_|\{\{getvar:|\{\{setvar:|__结束__|强化思考要求|认知隔离|魔女残香|死亡回溯计数|is_changed_chapter" \
+  agents/ engine/ data/ 2>/dev/null && echo "↑ 有残留，逐条核对" || echo "✓ 无残留"
 ```
 
-`validate.py` 自动检查：GM prompt 存在 + 规则数、酒馆补丁残留（`<UpdateVariable>`/EJS/`{{getvar:}}`/`__结束__`/强化思考链）、`engine/state.ts` 是否照抄了 Re:0 字段、`regex_scripts` 是否漏在产出中、narrator 是否被错误授予工具、`TAVERN2AGENT_STATE_DIR` 契约。
-
-人工再过一遍：
-
-- [ ] `agents/gm.md` 存在，内容 ≤ 5 条核心规则
-- [ ] `agents/narrator.md` 存在（如有游戏系统）
-- [ ] 如有 engine：模块覆盖了 MVU 条目的计算规则，state 结构与变量 schema 一致
-- [ ] `<UpdateVariable>`、JSON Patch、强化思考链、EJS 模板已丢弃
-- [ ] regex_scripts 已丢弃
-- [ ] 如有 narrator agent：`first_mes` 已剥离 HTML/状态面板，作为开场纯叙事写入 `narrator.log`
+人工再过一遍：`agents/gm.md` 核心规则 ≤5 条；如有游戏系统则 `agents/narrator.md` 存在且 `tools: []`；engine 模块覆盖 MVU 计算规则、state schema 与 MVU 变量定义一致；`first_mes` 的 HTML/状态面板已剥离，纯叙事部分作为开场写入 `narrator.log`。

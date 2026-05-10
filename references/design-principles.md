@@ -41,10 +41,4 @@ agent 的核心能力是 **loop + meta**：查询状态 → 判断 → 掷骰 �
 
 ## 6. 叙事与调试分离
 
-RP 记录和 agent 聊天记录是两种东西。
-
-**纯角色卡**：叙事和工具调用可能混在同一轮输出，用简单的文本清理写入 `narrator.log`。
-
-**游戏系统卡**：GM agent 通过 subagent 工具调用 narrator，narrator 输出天然纯叙事。用平台钩子捕获 subagent 输出写入 `narrator.log`。
-
-另一个终端 `tail -f narrator.log` 就是独立剧情窗口。
+纯叙事写入 `narrator.log`，与 agent 工具调用记录分开；用户 `tail -f` 即得独立剧情窗口。具体钩子实现见 `multi-agent-architecture.md` 与 `platform-adapters.md`。

@@ -87,6 +87,10 @@ await server.connect(new StdioServerTransport());
 
 ### 4. hooks.json（写入 narrator.log）
 
+写一个独立 `scripts/capture_narrative.py`：从 stdin 读 `$CLAUDE_TOOL_OUTPUT` 的 JSON，遍历 `content[]` 把 `type == "text"` 的文本 append 到 `narrator.log`，结尾追加 `\n---\n`。
+
+然后 hooks.json：
+
 ```json
 {
   "hooks": {
@@ -94,10 +98,7 @@ await server.connect(new StdioServerTransport());
       {
         "matcher": "task",
         "hooks": [
-          {
-            "type": "command",
-            "command": "echo \"$CLAUDE_TOOL_OUTPUT\" | python3 -c \"import sys,json; data=json.load(sys.stdin); [print(c['text']) for c in data.get('content',[]) if c.get('type')=='text']\" >> narrator.log && echo '\n---\n' >> narrator.log"
-          }
+          { "type": "command", "command": "python3 scripts/capture_narrative.py" }
         ]
       }
     ]
@@ -105,7 +106,7 @@ await server.connect(new StdioServerTransport());
 }
 ```
 
-或者更简洁：写一个 `scripts/capture_narrative.py` 然后在 hook 里调用它。
+不要把整段 Python 内联进 `command` 字符串——转义噩梦，且不可单独测试。
 
 ### 5. 三个平台的启动命令
 

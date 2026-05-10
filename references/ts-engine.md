@@ -155,14 +155,6 @@ export function getCheckpoint() {
   return readIndex().checkpoint;
 }
 
-// ── 事件构造器 ──
-export const evt = {
-  set: (path: string, value: unknown) => ({ type: "set", path, value }),
-  delta: (path: string, value: number) => ({ type: "delta", path, value }),
-  deathRewind: () => ({ type: "death_rewind", path: "", value: null }),
-  // ... 更多事件类型按需添加
-};
-
 // ⚠️ 以下初始状态以 Re:0 为例。转换其他卡片时，
 // 必须从 MVU 条目（[mvu_update] 和 [mvu_plot]）的变量定义中提取 schema 动态生成。
 // 详见 SKILL.md「分析阶段：第二步」中的提取规则。

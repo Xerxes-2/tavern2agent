@@ -13,49 +13,16 @@ MVU 条目（`[mvu_update]` 和 `[mvu_plot]`）是卡片作者写给 LLM 的「�
 
 ## 常见内容 → engine 模块映射
 
-这是**参考**，不是模板。你对每条条目做判断。
+只给识别信号和文件名。具体函数签名见 `ts-engine.md`，但那是 Re:0 形状的示例——按本卡 schema 设计，不要照抄签名。
 
-### 骰子系统
-**识别**：`{{roll:2d6}}`、掷骰规则、属性检定、DC 分级
-**→ engine/dice.ts**
-```
-- check(attrValue, targetDC, bonus?) → { success, level, roll, total }
-- rollDice(count, sides) → number[]
-- attrMod(value) → number（(value - 10) / 2 向下取整）
-```
-
-### 战斗系统
-**识别**：伤害公式、HP 管理、护甲减伤、暴击规则
-**→ engine/combat.ts**
-```
-- calcDamage(attackerStr, weaponAtk, defenderArmor, defenderEndurance) → { damage, absorbed, net }
-- applyDamage(target, damage) → state delta
-- checkKO(target) → boolean
-```
-
-### 好感度系统
-**识别**：好感度范围（如 -100~100）、增减规则（如每次 ±5）、态度阈值
-**→ engine/affection.ts**
-```
-- adjustAffection(characterId, delta) → newValue
-- getAffectionLevel(characterId) → "敌对" | "中立" | "友好" | ...
-```
-
-### 经济/声望/经验值
-**识别**：收入公式、声望计算、等级经验曲线
-**→ engine/economy.ts**（或拆为多个文件）
-
-### 死亡回溯
-**识别**：死亡条件、回溯规则、存档点机制
-**→ engine/death.ts**
-```
-- checkDeath(state) → boolean
-- triggerRewind(state) → newState（截断事件流到存档点 + 注入死亡事件）
-```
-
-### 任务系统
-**识别**：任务生成规则、完成条件、章节推进
-**→ engine/quest.ts**
+| 识别信号 | 模块 |
+|---------|------|
+| `{{roll:2d6}}`、属性检定、DC 分级 | `engine/dice.ts` |
+| 伤害公式、HP/护甲、暴击 | `engine/combat.ts` |
+| 好感度范围 + 增减规则 + 态度阈值 | `engine/affection.ts` |
+| 收入公式、声望、等级经验曲线 | `engine/economy.ts`（按需拆分） |
+| 死亡条件、回溯规则、存档点 | `engine/death.ts`（依赖事件溯源 state） |
+| 任务生成 + 完成条件 + 章节推进 | `engine/quest.ts` |
 
 ## 轻量方案：MVU → INITIAL_STATE（不写 engine 模块）
 
