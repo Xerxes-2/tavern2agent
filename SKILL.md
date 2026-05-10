@@ -1,7 +1,7 @@
 ---
 name: tavern2agent
 description: 用户提供 SillyTavern 角色卡（PNG/JSON）并要求转换、迁移、移植到 agent 平台（pi / Claude Code）时使用；覆盖纯角色卡、世界书、以及带骰子/战斗/好感度/经济等游戏系统的复杂卡。
-allowed-tools: Bash, Read, Write, Edit
+allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 ---
 
 # Tavern → Agent：角色卡迁移引擎
@@ -51,6 +51,33 @@ data.character_book.entries[]                     → 世界书条目（核心�
   entry.content  → 正文（纯文本/Markdown/JSON/EJS 模板）
 data.extensions.regex_scripts[]                   → 几乎全是 UI 格式化，丢弃
 ```
+
+## 三条 MVU 摘录 → 落点示例
+
+帮助直观判断「这条进 prompt 还是进 engine」。同一张卡里可能三种都有：
+
+```
+# 摘录 A（来自 [mvu_update]）
+好感度: 0       # 范围 -100~100
+单次互动调整: ±5（友善 +5、敌对 -5、特殊事件最多 ±15）
+```
+→ **轻量方案**。`INITIAL_STATE.好感度 = 0`；`gm.md` 里写「友善互动后调用 `update_status` ±5」。**不要**写 `engine/affection.ts`。
+
+```
+# 摘录 B（来自 [mvu_plot]）
+攻击判定: {{roll:1d20}} + 力量调整 vs 目标 AC
+暴击: 自然 20 → 伤害 ×1.5
+```
+→ **完整 engine**。`engine/dice.ts` 实现 `check()`/暴击；GM prompt 只说「攻击时调 `skill_check` 工具」。
+
+```
+# 摘录 C（来自 [mvu_update]）
+<强化思考要求>
+step1: 检查变量是否被读取
+step2: 进行认知隔离
+...
+```
+→ **丢弃**。这是酒馆补丁，agent 不需要。
 
 ## 决策：你需要什么
 
@@ -117,7 +144,7 @@ export function patchState(updates: Record<string, unknown>) {
 | 文档 | 纯 prompt | 轻量 | 完整 engine |
 |------|:---:|:---:|:---:|
 | `design-principles.md` 设计原则 | ✓ | ✓ | ✓ |
-| `mvu-mapping.md` MVU 条目映射 |  | ✓ | ✓ |
+| `mvu-mapping.md` MVU 条目映射（含「轻量方案」小节） |  | ✓ | ✓ |
 | `platform-adapters.md` pi/CC 胶水 | ✓ | ✓ | ✓ |
 | `multi-agent-architecture.md` 多 agent 架构 |  |  | ✓ |
 | `ts-engine.md` TS 引擎参考（`initialBlankState` 是 Re:0 示例，勿照搬） |  |  | ✓ |
@@ -140,6 +167,17 @@ export function patchState(updates: Record<string, unknown>) {
 3. **把强化思考链当叙事规则保留**：「请先检查变量...再进行认知隔离...」→ 这是酒馆让 LLM 模拟推理的补丁。丢弃。
 
 ## 产出确认
+
+转换完成后先跑一遍校验脚本：
+
+```bash
+python3 scripts/validate.py <生成项目目录>
+# 退出码 0=全过 / 1=有 ERROR / 2=仅 WARN
+```
+
+`validate.py` 自动检查：GM prompt 存在 + 规则数、酒馆补丁残留（`<UpdateVariable>`/EJS/`{{getvar:}}`/`__结束__`/强化思考链）、`engine/state.ts` 是否照抄了 Re:0 字段、`regex_scripts` 是否漏在产出中、narrator 是否被错误授予工具、`TAVERN2AGENT_STATE_DIR` 契约。
+
+人工再过一遍：
 
 - [ ] `agents/gm.md` 存在，内容 ≤ 5 条核心规则
 - [ ] `agents/narrator.md` 存在（如有游戏系统）

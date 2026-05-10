@@ -57,7 +57,18 @@ MVU 条目（`[mvu_update]` 和 `[mvu_plot]`）是卡片作者写给 LLM 的「�
 **识别**：任务生成规则、完成条件、章节推进
 **→ engine/quest.ts**
 
-## 变量定义 → engine/state.ts
+## 轻量方案：MVU → INITIAL_STATE（不写 engine 模块）
+
+如果 MVU 条目只描述**键值状态**（好感度、计数器、任务标记、地点/时间），**没有**骰子/伤害/经济公式：
+
+1. `get_entry.py` 读所有 `[mvu_update]` 条目的 `content`
+2. 找到变量定义块（JSON / YAML / `name: 默认值` 列表均可）
+3. 直接拷成 SKILL.md「轻量方案」中 `INITIAL_STATE` 的字面量。**不要**生成 dice.ts/combat.ts/economy.ts——那些条目本身就不该存在
+4. 对 MVU 里描述「何时变化」的自然语言（如「每次帮助 +5」），**不要**翻译成代码——写成 GM prompt 里的一行规则，让 agent 自己判断后调 `update_status`
+
+判断边界：条目里出现 `{{roll:...}}`、伤害公式、阈值分级（DC/暴击/经验曲线）→ 升级到完整 engine 方案；只有「±N」「设为 X」→ 留在轻量方案。
+
+## 变量定义 → engine/state.ts（完整 engine 方案）
 
 MVU 条目中的 JSON Schema 或变量列表是**初始状态的蓝图**。
 
