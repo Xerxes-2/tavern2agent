@@ -101,11 +101,29 @@ step2: 进行认知隔离
 
 输出物：
 ```
-agents/gm.md              # system prompt（角色+世界+规则+开场白）
+agents/gm.md              # system prompt（角色 + 世界 + 规则，不含开场白）
+narrator.log              # 种子：first_mes 剥离 HTML/状态面板后的纯叙事
 data/world.json           # 世界书条目数据（可选）
 ```
 
-`agents/gm.md` 模板：`# <世界名> — <角色名>\n\n你是 xxx 世界的叙事者。核心原则：\n- <视角/文风约束>\n- <规则不超过 5 条>\n\n<开场白>`
+`agents/gm.md` 模板：`# <世界名> — <角色名>\n\n你是 xxx 世界的叙事者。核心原则：\n- <视角/文风约束>\n- <规则不超过 5 条>`
+
+### 开场白怎么进 agent 的 context
+
+`first_mes` 不进 system prompt（一次性内容，每轮注入是浪费）；也不能只放 narrator.log（那是给用户 `tail -f` 看的，agent 看不到）。**胶水层在第一轮把 narrator.log 内容前置到用户输入**——之后开场就是 chat history 的一部分，享受正常缓存：
+
+```typescript
+// pi
+pi.on("before_agent_start", (e) => {
+  if (e.history.length === 0 && existsSync("narrator.log")) {
+    const seed = readFileSync("narrator.log", "utf-8");
+    e.userMessage =
+      `[系统：开场叙事如下，请基于此场景回复用户。不要复述开场。]\n\n${seed}\n\n[用户消息]\n${e.userMessage}`;
+  }
+});
+```
+
+Claude Code 等价：`UserPromptSubmit` hook 同样判空注入。注入只发生一次；后续轮 agent 从 chat history 里就能看到开场。
 
 ## 轻量方案（有状态但无复杂游戏系统）
 
