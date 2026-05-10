@@ -83,14 +83,14 @@ step2: 进行认知隔离
 
 看完 `--filter mvu` 的输出后，判断：
 
-| 情况 | 走哪条路 |
-|------|---------|
-| 没有 MVU 条目 | **纯 prompt 方案**：只写 system prompt，不写 engine |
-| 只涉及键值状态（好感度、计数器、任务标记），无骰子/战斗/公式 | **轻量方案**：10 行 state 骨架 + `get_status`/`update_status` 两个工具 |
-| 有骰子/战斗/经济/复杂 schema，但**不需要回溯/存档点** | **中等方案**：轻量 state + 按需 `engine/dice.ts`、`engine/combat.ts` 等模块；状态用 `patchState` 覆写，不上事件溯源 |
-| 含死亡回溯、章节存档、需要按事件 ID 回退 | **完整 engine 方案**：事件溯源 state + 全套模块 + 多 agent |
+| 情况 | 走哪条路 | state 写入 | 回滚粒度 |
+|------|---------|-----------|---------|
+| 没有 MVU 条目 | **纯 prompt 方案**：只写 system prompt，不写 engine | — | — |
+| 只涉及键值状态（好感度、计数器、任务标记），无骰子/战斗/公式 | **轻量方案**：state 骨架 + `get_status`/`update_status` 两个工具 | `patchState` | 重置即可 |
+| 有骰子/战斗/经济/复杂 schema，但**不需要在一轮内部精确回退** | **中等方案**：轻量 state + 按需 `engine/dice.ts`、`engine/combat.ts` 等模块；每轮开始前快照 `state.json` | `patchState` + `snapshotBeforeTurn(turnId)` | 整轮（用户 swipe / 删消息后能回到对应轮次） |
+| 含死亡回溯、章节存档、需要按事件 ID 回退 | **完整 engine 方案**：事件溯源 state + 全套模块 + 多 agent | `dispatch(event)` | 任意事件 |
 
-事件溯源（events.jsonl + rollback）只为「回溯」服务。无回溯需求时上它纯属负担。
+注意 swipe 场景：用户回退聊天后，state 必须跟上，否则叙事和数值发散。轻量方案不在乎（值简单，重置可接受），中等方案靠每轮快照，完整方案靠重放事件。事件溯源**只为**「一轮内部精确回退」服务，没这需求别上。
 
 ## 纯 prompt 方案
 
@@ -109,15 +109,14 @@ data/world.json           # 世界书条目数据（可选）
 
 ## 轻量方案（有状态但无复杂游戏系统）
 
-有少量状态（好感度、任务标记、计数器）但没有骰子/战斗。只需 state 骨架 + 读写工具。
-
-`engine/state.ts` 最小骨架（10 行）：
+只读写键值。`engine/state.ts`：
 
 ```typescript
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
-import { dirname } from "node:path";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, copyFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 
-const STATE_FILE = "state/state.json";
+const STATE_DIR = process.env.TAVERN2AGENT_STATE_DIR ?? "state";
+const STATE_FILE = join(STATE_DIR, "state.json");
 const INITIAL_STATE: Record<string, unknown> = { /* 从 MVU 条目提取 */ };
 
 export function getState(): Record<string, unknown> {
@@ -136,11 +135,39 @@ export function patchState(updates: Record<string, unknown>) {
 }
 ```
 
-注册两个工具：`get_status`（查状态）、`update_status`（更新状态）。不需要事件的完整 engine。agent 自己判断何时读写。
+注册两个工具：`get_status`、`update_status`。agent 自己判断何时读写。
 
-## 完整 engine 方案（复杂游戏系统）
+## 中等方案（游戏系统 + 整轮回滚）
 
-有骰子/战斗/经济/复杂状态 → 全套 engine + 多 agent。
+轻量 state + 按需的 engine 模块（`dice.ts` / `combat.ts` / ...）+ **每轮快照**。
+
+在上面 `state.ts` 末尾加：
+
+```typescript
+const SNAP_DIR = join(STATE_DIR, "snapshots");
+
+export function snapshotBeforeTurn(turnId: string) {
+  if (!existsSync(STATE_FILE)) return;
+  mkdirSync(SNAP_DIR, { recursive: true });
+  copyFileSync(STATE_FILE, join(SNAP_DIR, `${turnId}.json`));
+}
+
+export function rollbackToTurn(turnId: string) {
+  const snap = join(SNAP_DIR, `${turnId}.json`);
+  if (!existsSync(snap)) throw new Error(`无快照: ${turnId}`);
+  copyFileSync(snap, STATE_FILE);
+}
+```
+
+胶水层挂钩：每轮开始前调 `snapshotBeforeTurn`。
+- pi：`pi.on("before_agent_start", e => snapshotBeforeTurn(e.turnId))`
+- Claude Code：`UserPromptSubmit` hook，turnId 用 `session_id + 自增计数` 写到 `state/turn-counter.json`
+
+用户 swipe / 删消息后用 `rollbackToTurn` 回到对应轮次。**注意**：这只支持「整轮回退」，无法在一轮内部回退某次掷骰——需要那个就走完整方案。
+
+## 完整 engine 方案（事件溯源 + 多 agent）
+
+需要按事件 ID 任意回退（死亡回溯、章节存档）→ `dispatch`/`apply`/`rollback` 一整套，详见 `references/ts-engine.md`。
 
 ## references 索引（按需查阅）
 
