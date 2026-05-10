@@ -42,3 +42,12 @@ agent 的核心能力是 **loop + meta**：查询状态 → 判断 → 掷骰 �
 ## 6. 叙事与调试分离
 
 纯叙事写入 `narrator.log`，与 agent 工具调用记录分开；用户 `tail -f` 即得独立剧情窗口。具体钩子实现见 `multi-agent-architecture.md` 与 `platform-adapters.md`。
+
+## 7. 数据文件按类型拆分，按需注入
+
+不要把所有世界信息塞进 GM prompt。组织原则：
+- `data/world.json` — 世界设定（地理、势力、种族、核心概念），≤5KB，每次注入
+- `data/characters.json` — 角色数据（性格、背景、说话特点），仅在 GM 查 `re0_npc_detail` 时按需读取
+- GM prompt 中的角色列表 — 只列角色名 + 一句话摘要（≤20 字/角色）
+- 章节剧情模板 — 提取到 `data/chapters.json`，注册章节查询工具让 GM 按需加载当前章节；不要预注入 prompt
+- `first_mes` 为前端 HTML 说明书时 — 合成文学性开场叙事，不要留空 `narrator.log`

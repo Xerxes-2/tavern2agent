@@ -29,6 +29,8 @@ python3 scripts/list_entries.py card.json --filter mvu
 
 > 脚本均位于本 skill 目录的 `scripts/`，使用相对路径调用即可（pi 与 Claude Code 都适用）。
 
+> **大数据量卡片**（条目 ≥100、角色卡 ≥20、章节模板 ≥50）：`get_entry.py` 逐条读取效率低。直接用 `python3 -c` 写批量提取脚本—— `scripts/` 里的工具是为**探索阶段**设计的，到了**构建阶段**应切换到批量 Python。
+
 ### 脚本接口
 
 | 脚本 | 用法 | 输出 | 退出码 |
@@ -61,7 +63,8 @@ data.extensions.regex_scripts[]                   → 几乎全是 UI 格式化�
 好感度: 0       # 范围 -100~100
 单次互动调整: ±5（友善 +5、敌对 -5、特殊事件最多 ±15）
 ```
-→ **轻量方案**。`INITIAL_STATE.好感度 = 0`；`gm.md` 里写「友善互动后调用 `update_status` ±5」。**不要**写 `engine/affection.ts`。
+→ 如果这是卡里**唯一**的游戏系统 → **轻量方案**。`INITIAL_STATE.好感度 = 0`；`gm.md` 里写「友善互动后调用 `update_status` ±5」。**不要**写 `engine/affection.ts`。
+→ 但如果这张卡**已经有骰子/战斗**（即已决定走完整 engine）→ 好感度也应写成 `engine/affection.ts`，工具化处理。一致性优先。
 
 ```
 # 摘录 B（来自 [mvu_plot]）
@@ -103,8 +106,34 @@ step2: 进行认知隔离
 ```
 agents/gm.md              # system prompt（角色 + 世界 + 规则，不含开场白）
 narrator.log              # 种子：first_mes 剥离 HTML/状态面板后的纯叙事
-data/world.json           # 世界书条目数据（可选）
+data/world.json           # 世界设定数据
+data/characters.json      # 角色卡数据（角色≥5个时建议拆分）
+data/chapters.json        # 章节剧情模板（按需加载，不预注入 prompt）
 ```
+
+### 当 first_mes 是前端 HTML 说明书
+
+部分卡片（尤其复杂系统卡）用 first_mes 承载 HTML 使用说明而非开场叙事。此时：
+1. HTML 中提取可用规则文本（如系统说明、背景摘要），不处理 UI 样式
+2. **合成**一段符合卡片世界观和文风的文学性开场叙事写入 `narrator.log`——不要留空
+3. 合成开场应基于卡片背景描述和第一个可用章节剧情
+
+### 角色数据独立文件
+
+当世界书包含 ≥5 条 `<character_card>` 条目时，不要把角色描述全塞进 system prompt（token 爆炸）。提取到 `data/characters.json`，结构：
+```json
+{
+  "角色名": {
+    "性别": "…",
+    "种族": "…",
+    "外貌": "…",
+    "性格": "…",
+    "背景": "…",
+    "说话特点": "…"
+  }
+}
+```
+GM 需要角色详情时通过 NPC 查询工具按需加载——**不在每轮 prompt 中注入所有角色**。
 
 `agents/gm.md` 模板：`# <世界名> — <角色名>\n\n你是 xxx 世界的叙事者。核心原则：\n- <视角/文风约束>\n- <规则不超过 5 条>`
 
@@ -239,14 +268,22 @@ chat 全清，state 干净，下一段叙事是基于回滚后世界的全新展
 | `regex_scripts` 中 `findRegex` 匹配 `/{{getvar:...}}/` 或状态字段名 | 不只是 UI 格式化，含变量逻辑——提取进 engine 而非整体丢弃 |
 | `engine/state.ts` 出现 `魔女残香`/`死亡回溯计数`/`is_changed_chapter` 等 Re:0 字段 | 从 ts-engine.md 例子照抄了——必须用本卡 MVU schema 重写 |
 | `<强化思考要求>` / `step1...step2...` / `认知隔离` 被原样写进 prompt | 酒馆让 LLM 模拟推理的补丁，agent 不需要，丢弃 |
+| 章节剧情模板（如 `第十五卷:终章:…`）198 条全量塞入 prompt | 提取到 `data/chapters.json`，注册章节查询工具让 GM 按需加载当前章节。不要全量预注入 prompt |
+| 角色卡 ≥20 张，全部角色描述写进 agents/gm.md | token 爆炸。用 `data/characters.json` 独立存储，GM prompt 只列角色名和一句话摘要 |
 
 ## 产出确认
 
 一行 grep 扫残留 + 误抄：
 
 ```bash
-grep -rnE "UpdateVariable|JSON Patch|<%_|\{\{getvar:|\{\{setvar:|__结束__|强化思考要求|认知隔离|魔女残香|死亡回溯计数|is_changed_chapter" \
+grep -rnE "UpdateVariable|JSON Patch|<%_|\{\{getvar:|\{\{setvar:|__结束__|强化思考要求|认知隔离" \
   agents/ engine/ data/ 2>/dev/null && echo "↑ 有残留，逐条核对" || echo "✓ 无残留"
 ```
 
-人工再过一遍：`agents/gm.md` 核心规则 ≤5 条；如有游戏系统则 `agents/narrator.md` 存在且 `tools: []`；engine 模块覆盖 MVU 计算规则、state schema 与 MVU 变量定义一致；`first_mes` 的 HTML/状态面板已剥离，纯叙事部分作为开场写入 `narrator.log`。
+> 以下字段如果出现在 `engine/state.ts` / `engine/types.ts` 中且**用于本卡游戏逻辑**（非照抄 Re:0 示例），属于合理命中，不应判为残留：`魔女残香`、`死亡回溯计数`、`is_changed_chapter`、`好感度`、`生命值`、`魔法值` 等游戏系统原生字段。仅当这些字段出现在一张**非 Re:0 的卡**中时才需要核查。若需确认，额外跑：
+> ```bash
+> grep -rnE "魔女残香|死亡回溯计数|is_changed_chapter" agents/ engine/ data/ 2>/dev/null
+> ```
+> 逐条核对：是「本卡 MVU schema 定义的字段」→ 保留；是「ts-engine.md 的 Re:0 例子被照搬」→ 重写。
+
+人工再过一遍：`agents/gm.md` 核心规则 ≤5 条；如有游戏系统则 `agents/narrator.md` 存在且 `tools: []`；engine 模块覆盖 MVU 计算规则、state schema 与 MVU 变量定义一致；角色数据按需拆分到 `data/characters.json`；`first_mes` 的 HTML/状态面板已剥离，纯叙事部分（或合成叙事）作为开场写入 `narrator.log`。
