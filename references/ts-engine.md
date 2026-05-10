@@ -57,6 +57,27 @@ export function rollbackToTurn(turnId: string) {
 
 轻量方案注册 `get_status` / `update_status` 两个工具；中等方案在此基础上注册 engine 模块工具。
 
+### 中等方案：重 roll / 回滚（粗粒度）
+
+agent 删不掉自己已发出的 chat turn，不支持单条 swipe。只做粗粒度：扔掉整段 chat、回退 state 到指定 snapshot，重开会话。
+
+在 `state.ts` 末尾加：
+
+```typescript
+export function markResume(turnId: string) {
+  rollbackToTurn(turnId);
+  writeFileSync(join(STATE_DIR, "resume-to.txt"), turnId);
+}
+```
+
+注册 `request_rollback(turnId)` 工具。流程：
+1. 用户说「回到第 5 轮重新开始」
+2. agent 调 `request_rollback("5")` → state 回滚 + 写入 `resume-to.txt`
+3. agent 提示用户 `/clear`（Claude Code）/ 关掉重开（pi）
+4. 启动 hook 检测 `resume-to.txt`，把 state 内容 +「你回到了第 5 轮开始」前置到第一条用户消息（同开场白注入逻辑），然后删除 marker
+
+chat 全清，state 干净。需要保留对白的细粒度 reroll 必须靠平台原生删消息 API，pi 若有就用；Claude Code 无干净接口，告诉用户走粗粒度。
+
 ### 完整方案（事件溯源）
 
 ```typescript

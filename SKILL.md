@@ -91,4 +91,5 @@ grep -rnE "UpdateVariable|JSON Patch|<%_|\{\{getvar:|\{\{setvar:|__结束__|强�
 | `platform-adapters.md` | 全部 | pi/CC 胶水层、开场白注入、MCP 示例 |
 | `ts-engine.md` | 中等+ | TS 引擎代码（轻量 state、完整事件溯源、dice.ts） |
 | `multi-agent-architecture.md` | 完整 | 多 agent 架构（GM + Narrator） |
+| `storytelling.md` | 全部（可选） | 叙事节拍参考 |
 | `validation.md` | 全部 | 残留检测 + 人工检查清单 |

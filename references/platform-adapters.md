@@ -9,11 +9,13 @@
 ### pi
 
 ```typescript
+import { existsSync, readFileSync } from "node:fs";
+
 pi.on("input", async (event, ctx) => {
   if (!existsSync("narrator.log")) return;
   const hasUserMessage = ctx.sessionManager
     .getEntries()
-    .some((e) => e.type === "message" && e.role === "user");
+    .some((e) => e.type === "message" && e.message?.role === "user");
   if (hasUserMessage) return;
 
   const seed = readFileSync("narrator.log", "utf-8");
