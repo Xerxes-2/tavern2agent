@@ -5,6 +5,41 @@ MVU 条目（`[mvu_update]` 和 `[mvu_plot]`）是卡片作者写给 LLM 的「�
 
 > ⚠️ 关键区分：MVU 条目里**混着两类内容**——① ST 补丁（强化思考链、JSON Patch 格式、`__结束__` 标记等——丢弃）；② 真正的游戏系统设计（骰子公式、伤害计算、好感度规则、变量 schema ——这是你设计 engine 的蓝图）。**丢弃前先判断是否含游戏逻辑。**
 
+## 变量结构的三类来源（读取顺序重要！）
+
+| 来源 | 位置 | 提供什么 |
+|------|------|---------|
+| **变量结构脚本** | `tavern_helper.scripts` 中 kind=zod 的条目 | zod 4 schema：类型定义、字段约束、默认值、transform |
+| **`[initvar]` 条目** | 世界书 entry，comment 含 `[initvar]` | YAML 格式初始值（**权威来源**） |
+| **`[mvu_update]` 条目** | 世界书 entry，comment 含 `[mvu_update]` | 更新规则：何时变化、变化幅度、约束条件 |
+
+**读取顺序**：先 Zod 脚本（数据模型）→ 再 `[initvar]`（初始值）→ 最后 `[mvu_update]`（更新规则）。没有 `[initvar]` 也没有 Zod 脚本时，退回从 `[mvu_update]` 描述中提取。
+
+## 直观判断：三条 MVU 摘录 → 落点
+
+同一张卡可能同时出现以下三类，帮助快速判断「这条进 prompt 还是进 engine」：
+
+```
+# A（来自 [mvu_update]）
+好感度: 0       # 范围 -100~100
+单次互动调整: ±5
+```
+→ 如果这是**唯一**游戏系统 → **轻量方案**。`INITIAL_STATE.好感度 = 0`；`gm.md` 写「友善互动后调 `update_status` ±5」。不要写 `engine/affection.ts`。
+→ 但如果这张卡**已经有骰子/战斗** → 好感度也应写成 engine 模块，一致性优先。
+
+```
+# B（来自 [mvu_plot]）
+攻击判定: {{roll:1d20}} + 力量调整 vs 目标 AC
+暴击: 自然 20 → 伤害 ×1.5
+```
+→ **完整 engine**。`engine/dice.ts`；GM prompt 只说「攻击时调 `skill_check`」。
+
+```
+# C（来自 [mvu_update]）
+<强化思考要求> step1: 检查变量 step2: 认知隔离 ...
+```
+→ **丢弃**。酒馆补丁，agent 不需要。
+
 ## 三大去向
 
 | 内容性质 | 去向 | 示例 |
@@ -30,8 +65,8 @@ MVU 条目（`[mvu_update]` 和 `[mvu_plot]`）是卡片作者写给 LLM 的「�
 
 如果 MVU 条目只描述**键值状态**（好感度、计数器、任务标记、地点/时间），**没有**骰子/伤害/经济公式：
 
-1. `get_entry.py` 读所有 `[mvu_update]` 条目的 `content`
-2. 找到变量定义块（JSON / YAML / `name: 默认值` 列表均可）
+1. **优先读取 `[initvar]` 条目**（如有）→ 这是卡片作者定义的实际初始值（YAML 格式），直接转化为 `INITIAL_STATE` 对象
+2. 如果没有 `[initvar]`，退而求其次：`get_entry.py` 读所有 `[mvu_update]` 条目的 `content`，找到变量定义块（JSON / YAML / `name: 默认值` 列表均可）
 3. 直接拷成 SKILL.md「轻量方案」中 `INITIAL_STATE` 的字面量。**不要**生成 dice.ts/combat.ts/economy.ts——那些条目本身就不该存在
 4. 对 MVU 里描述「何时变化」的自然语言（如「每次帮助 +5」），**不要**翻译成代码——写成 GM prompt 里的一行规则，让 agent 自己判断后调 `update_status`
 
@@ -61,8 +96,8 @@ MVU 条目（`[mvu_update]` 和 `[mvu_plot]`）是卡片作者写给 LLM 的「�
 MVU 条目中的 JSON Schema 或变量列表是**初始状态的蓝图**。
 
 ### 提取方法
-1. 用 `get_entry.py` 读 MVU 条目
-2. 找到变量定义块（通常是 JSON 或 YAML 结构）
+1. **优先用 `get_entry.py` 读 `[initvar]` 条目** → YAML 格式的初始值，直接转为 `initialState()` 返回值
+2. 如果没有 `[initvar]`：用 `get_entry.py` 读 MVU 条目，找到变量定义块（通常是 JSON 或 YAML 结构）
 3. 转化为 `initialState()` 函数返回的对象
 
 ### 常见模式

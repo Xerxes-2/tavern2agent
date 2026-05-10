@@ -5,6 +5,7 @@ Usage:
     python3 list_entries.py card.json                  # 列出所有条目
     python3 list_entries.py card.json --filter mvu     # 只看 MVU 条目
     python3 list_entries.py card.json --filter mvu_update  # 只看 [mvu_update]
+    python3 list_entries.py card.json --filter initvar     # 只看 [initvar]
     python3 list_entries.py card.json --search 战斗      # 搜索含关键词的条目
 """
 
@@ -24,17 +25,18 @@ def list_entries(card: dict, filter_tag: str | None = None, search: str | None =
         content = entry.get("content", "") or ""
         content_preview = content[:80].replace("\n", " ").replace("\r", "") if content else "(空)"
 
-        # 提取 MVU 标签
+        # 提取标签
         comment_lower = comment.lower()
 
         # 过滤
         if filter_tag:
-            if filter_tag in ("mvu", "mvu_plot", "mvu_update"):
+            if filter_tag in ("mvu", "mvu_plot", "mvu_update", "initvar"):
                 if filter_tag == "mvu":
                     if "[mvu" not in comment_lower:
                         continue
-                elif filter_tag not in comment_lower:
-                    continue
+                else:
+                    if f"[{filter_tag}]" not in comment_lower:
+                        continue
 
         if search:
             combined = comment + " ".join(keys) + content[:200]
@@ -47,6 +49,8 @@ def list_entries(card: dict, filter_tag: str | None = None, search: str | None =
             tags.append("📖plot")
         elif "[mvu_update]" in comment_lower:
             tags.append("📝update")
+        if "[initvar]" in comment_lower:
+            tags.append("🔰initvar")
         if "[mvu" in comment_lower:
             pass  # already tagged
         if entry.get("constant"):

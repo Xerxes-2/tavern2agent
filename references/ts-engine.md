@@ -8,6 +8,57 @@
 
 ## 状态引擎 (state.ts)
 
+### 轻量 / 中等方案
+
+适用于键值状态或整轮回滚场景（不需要事件溯源）：
+
+```typescript
+import { readFileSync, writeFileSync, existsSync, mkdirSync, copyFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+
+const STATE_DIR = process.env.TAVERN2AGENT_STATE_DIR ?? "state";
+const STATE_FILE = join(STATE_DIR, "state.json");
+const INITIAL_STATE: Record<string, unknown> = { /* 从 initvar 或 MVU 条目提取 */ };
+
+export function getState(): Record<string, unknown> {
+  if (!existsSync(STATE_FILE)) {
+    mkdirSync(dirname(STATE_FILE), { recursive: true });
+    writeFileSync(STATE_FILE, JSON.stringify(INITIAL_STATE, null, 2));
+    return { ...INITIAL_STATE };
+  }
+  return JSON.parse(readFileSync(STATE_FILE, "utf-8"));
+}
+
+export function patchState(updates: Record<string, unknown>) {
+  const state = getState();
+  Object.assign(state, updates);
+  writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
+}
+
+// — 仅中等方案需要以下 —
+const SNAP_DIR = join(STATE_DIR, "snapshots");
+
+export function snapshotBeforeTurn(turnId: string) {
+  if (!existsSync(STATE_FILE)) return;
+  mkdirSync(SNAP_DIR, { recursive: true });
+  copyFileSync(STATE_FILE, join(SNAP_DIR, `${turnId}.json`));
+}
+
+export function rollbackToTurn(turnId: string) {
+  const snap = join(SNAP_DIR, `${turnId}.json`);
+  if (!existsSync(snap)) throw new Error(`无快照: ${turnId}`);
+  copyFileSync(snap, STATE_FILE);
+}
+```
+
+胶水层挂钩（每轮开始前）：
+- pi：`pi.on("before_agent_start", e => snapshotBeforeTurn(e.turnId))`
+- Claude Code：`UserPromptSubmit` hook，turnId 用 `session_id + 自增计数`
+
+轻量方案注册 `get_status` / `update_status` 两个工具；中等方案在此基础上注册 engine 模块工具。
+
+### 完整方案（事件溯源）
+
 ```typescript
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";

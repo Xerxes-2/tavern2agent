@@ -2,6 +2,32 @@
 
 `engine/*.ts`、`data/`、`scripts/` 是跨平台的。不同平台只换胶水层。
 
+## 开场白注入（通用模式）
+
+`first_mes` 不进 system prompt（一次性内容）。胶水层在第一轮把 `narrator.log` 前置到用户输入，之后开场就在 chat history 里享受正常缓存。注入只发生一次，用 session 判空避免 `/resume` 误注入。
+
+### pi
+
+```typescript
+pi.on("input", async (event, ctx) => {
+  if (!existsSync("narrator.log")) return;
+  const hasUserMessage = ctx.sessionManager
+    .getEntries()
+    .some((e) => e.type === "message" && e.role === "user");
+  if (hasUserMessage) return;
+
+  const seed = readFileSync("narrator.log", "utf-8");
+  return {
+    action: "transform",
+    text: `[系统：开场叙事如下，请基于此场景回复用户。不要复述开场。]\n\n${seed}\n\n[用户消息]\n${event.text}`,
+  };
+});
+```
+
+### Claude Code
+
+`UserPromptSubmit` hook 同样判空注入。turnId 用 `session_id + 自增计数`，写入时同步调用 `snapshotBeforeTurn`。
+
 ## 职责对照
 
 | 职责 | pi | Claude Code |
