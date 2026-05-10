@@ -44,40 +44,46 @@ project/
 
 ### 3. MCP server 示例
 
-游戏工具做成 MCP server，tool handler 直接 import engine：
+游戏工具做成 MCP server，tool handler 直接 import engine。SDK 用 `@modelcontextprotocol/sdk`（不是 `@anthropic-ai/sdk`）：
 
 ```typescript
 // mcp-server.ts
-import { Server } from "@anthropic-ai/sdk/mcp";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { z } from "zod";
 import { getCurrentState, dispatch, rollback } from "./engine/state";
 import { check, calcDamage } from "./engine/dice";
 
-const server = new Server({
-  name: "re0-game-engine",
-  version: "1.0.0",
-});
+const server = new McpServer({ name: "re0-game-engine", version: "1.0.0" });
 
 server.tool("re0_status", "查看主角完整面板", {}, async () => {
   const state = getCurrentState();
   return { content: [{ type: "text", text: JSON.stringify(state.主角, null, 2) }] };
 });
 
-server.tool("re0_skill_check", "属性检定", {
-  attribute: { type: "string", description: "属性名" },
-  difficulty: { type: "string", description: "简单/普通/困难/极难/噩梦" },
-}, async (params) => {
-  const state = getCurrentState();
-  const attrs = state.主角.属性列表 as Record<string, number>;
-  const dcMap: Record<string, number> = { 简单: 8, 普通: 12, 困难: 16, 极难: 20, 噩梦: 25 };
-  const dc = dcMap[params.difficulty || "普通"] || 12;
-  const result = check(attrs[params.attribute] || 10, dc);
-  return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-});
+server.tool(
+  "re0_skill_check",
+  "属性检定",
+  {
+    attribute: z.string().describe("属性名"),
+    difficulty: z.enum(["简单", "普通", "困难", "极难", "噩梦"]).optional(),
+  },
+  async ({ attribute, difficulty }) => {
+    const state = getCurrentState();
+    const attrs = (state.主角 as Record<string, unknown>).属性列表 as Record<string, number>;
+    const dcMap: Record<string, number> = { 简单: 8, 普通: 12, 困难: 16, 极难: 20, 噩梦: 25 };
+    const dc = dcMap[difficulty ?? "普通"];
+    const result = check(attrs[attribute] ?? 10, dc);
+    return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+  },
+);
 
 // ... 其他工具
 
-server.start();
+await server.connect(new StdioServerTransport());
 ```
+
+注册到 Claude Code：在项目根的 `.mcp.json` 中加入 `{ "mcpServers": { "re0": { "command": "node", "args": ["mcp-server.js"], "env": { "TAVERN2AGENT_STATE_DIR": "state" } } } }`。
 
 ### 4. hooks.json（写入 narrator.log）
 

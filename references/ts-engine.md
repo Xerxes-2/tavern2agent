@@ -10,7 +10,10 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 
-const STATE_DIR = join(process.cwd(), ".pi/extensions/re0/state");
+// 跨平台契约：胶水层通过 TAVERN2AGENT_STATE_DIR 注入。
+// pi extension 通常设为 `.pi/extensions/<name>/state`；
+// Claude Code / 独立运行默认落到项目根的 `state/`。
+const STATE_DIR = process.env.TAVERN2AGENT_STATE_DIR ?? join(process.cwd(), "state");
 const EVENTS_FILE = join(STATE_DIR, "events", "events.jsonl");
 const INDEX_FILE = join(STATE_DIR, "index.json");
 
@@ -302,5 +305,5 @@ export function registerAllTools(pi: ExtensionAPI) {
 1. **state.ts 是核心**——所有引擎模块依赖它，所有工具通过它读写
 2. **工具 execute 直接调引擎函数**——不需要 spawn 子进程
 3. **TypeBox 做参数校验**——pi 自带，不需要额外安装
-4. **state 目录放在 extension 内部**——`.pi/extensions/re0/state/`，不污染项目根目录
+4. **state 目录由胶水层决定**——通过 `TAVERN2AGENT_STATE_DIR` 注入。pi extension 一般放 `.pi/extensions/<name>/state/`；Claude Code / 独立运行默认 `state/`
 5. **系统 prompt 每次注入当前状态**——agent 始终知道最新游戏局面

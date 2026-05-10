@@ -29,6 +29,16 @@ python3 scripts/list_entries.py card.json --filter mvu
 
 > 脚本均位于本 skill 目录的 `scripts/`，使用相对路径调用即可（pi 与 Claude Code 都适用）。
 
+### 脚本接口
+
+| 脚本 | 用法 | 输出 | 退出码 |
+|------|------|------|-------|
+| `extract_png.py <png> [out.json]` | 从 PNG `tEXt` chunk（`chara` 或 `ccv3`）提取 base64 解码后的卡片 JSON | 给了 `out.json` 写文件并打印 `Saved to ...`；否则 JSON 打到 stdout | 找不到 chunk → `ValueError` traceback，非 0 |
+| `list_entries.py <card.json> [--filter mvu\|mvu_plot\|mvu_update] [--search 关键词]` | 概览 `data.character_book.entries[]` | 人类可读列表（`[索引] 标签 注释` + 触发词 + 80 字内容预览），末尾 `显示 N / M 条` | 参数错误非 0；条目为 0 仍是 0 |
+| `get_entry.py <card.json> <索引谱>` | 读单条/多条完整内容；索引谱形如 `0`、`0,3,5`、`0-5`、`0,3-5,8` | 每条打印所有字段 + 完整 `content`（不截断） | 索引全部越界非 0 |
+
+注意：`list_entries.py`/`get_entry.py` 的输出**是给人/agent 读的格式化文本，不是机器可解析的 JSON**。需要结构化数据时直接 `python3 -c` 或加 `--json` 选项前先扩展脚本，不要 grep 现有输出。
+
 ## card.json 结构速查
 
 ```
