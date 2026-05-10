@@ -113,13 +113,19 @@ data/world.json           # 世界书条目数据（可选）
 `first_mes` 不进 system prompt（一次性内容，每轮注入是浪费）；也不能只放 narrator.log（那是给用户 `tail -f` 看的，agent 看不到）。**胶水层在第一轮把 narrator.log 内容前置到用户输入**——之后开场就是 chat history 的一部分，享受正常缓存：
 
 ```typescript
-// pi
-pi.on("before_agent_start", (e) => {
-  if (e.history.length === 0 && existsSync("narrator.log")) {
-    const seed = readFileSync("narrator.log", "utf-8");
-    e.userMessage =
-      `[系统：开场叙事如下，请基于此场景回复用户。不要复述开场。]\n\n${seed}\n\n[用户消息]\n${e.userMessage}`;
-  }
+// pi：input 事件 + transform。用 sessionManager 判空更准确（/resume 旧会话不会误注入）
+pi.on("input", async (event, ctx) => {
+  if (!existsSync("narrator.log")) return;
+  const hasUserMessage = ctx.sessionManager
+    .getEntries()
+    .some((e) => e.type === "message" && e.role === "user");
+  if (hasUserMessage) return;
+
+  const seed = readFileSync("narrator.log", "utf-8");
+  return {
+    action: "transform",
+    text: `[系统：开场叙事如下，请基于此场景回复用户。不要复述开场。]\n\n${seed}\n\n[用户消息]\n${event.text}`,
+  };
 });
 ```
 
