@@ -202,6 +202,7 @@ export function rollbackToTurn(turnId: string) {
 | `platform-adapters.md` pi/CC 胶水 | ✓ | ✓ | ✓ |
 | `multi-agent-architecture.md` 多 agent 架构 |  |  | ✓ |
 | `ts-engine.md` TS 引擎参考（`initialBlankState` 是 Re:0 示例，勿照搬） |  |  | ✓ |
+| `storytelling.md` 叙事节拍参考（GM 可选） | △ | △ | ✓ |
 
 ## 边界与陷阱
 
