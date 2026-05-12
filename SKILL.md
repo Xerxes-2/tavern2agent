@@ -202,9 +202,9 @@ grep -rnE "UpdateVariable|JSON Patch|<%_|\{\{getvar:|\{\{setvar:|__结束__|强�
   agents/ engine/ data/ 2>/dev/null && echo "↑ 有残留" || echo "✓"
 ```
 
-### 第二层：agent 下场玩（推荐）
+### 第二层：下场玩（推荐）
 
-直接对 pi agent 说「你作为玩家帮我测试这张卡」，agent 会 spawn 另一个 agent 作为 GM，自己以玩家身份读输出、想回应、逐轮交互。这是**唯一能验证「GM 真的按规则运行了吗」的方法**。详见 `references/validation.md` → SDK 交互测试。
+**你就是测试玩家。** 用 SDK 创建 GM session，以玩家身份逐轮交互——读 GM 输出、按人设回应、观察 GM 行为是否合理。这是唯一能验证「GM 真的按规则运行了吗」的方法。步骤详见 `references/validation.md`。
 
 ### 第三层：人工核对
 

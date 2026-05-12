@@ -35,44 +35,29 @@ grep -rnE "魔女残香|死亡回溯计数|is_changed_chapter" agents/ engine/ d
 
 ---
 
-# SDK 交互测试（推荐）
+# SDK 交互测试
 
-人工检查清单只能验证"文件是否存在、是否残留 ST 痕迹"，无法回答核心问题：**GM 真的会按开局 skill 逐项收集角色信息吗？工具调用链路通不通？state 是否正确写入？**
+grep 和人工清单只能验证"文件是否存在、是否残留 ST 痕迹"，回答不了核心问题：**GM 真的会按开局 skill 逐项收集角色信息吗？工具调用链路通不通？state 是否正确写入？**
 
-答案只有一个办法：**真的进去玩一遍。**
+答案是：**你下场去玩。**
 
-## 核心原则：让 agent 替你玩
+## 你的角色
 
-测试一个角色卡的最佳方式不是写死板脚本，也不是人肉手动点——而是**派另一个 agent 以玩家身份去玩**。
+读到这里的你（pi agent）就是测试玩家。用户把卡交给你验证时，你的任务不是 grep、不是审阅文件——是**以玩家身份进入游戏，亲身走完交互链路**。
 
-agent 作为玩家天然具备死板脚本没有的能力：
-- **读** GM 的每一轮输出，理解当前情境
-- **想** 作为玩家角色该如何回应（符合人设、推动剧情）
-- **变** GM 措辞变化、问法不同时自动适应，不依赖正则
-- **判断** GM 的行为是否合理（问了两个问题？跳过了某项？数值写错了？）
+你作为玩家天然具备死板脚本没有的能力：
+- **读**：看 GM 的每一轮输出，理解他问了什么、情境是什么
+- **想**：构思一个合理的玩家角色（姓名、背景、目标），按人设回应
+- **变**：GM 措辞变化、问法不同时自动适应，不依赖正则或硬编码
+- **判**：GM 问了两个问题？跳过某项？数值写错了？你作为玩家能当场察觉
 
-死板脚本盲打回答串、正则匹配不到就崩溃、`--print` 逐轮手动——都不需要。
+## 你怎么做
 
-## 实操：pi agent 下场玩
+### 1. 创建 GM session
 
-在卡片项目目录下，对 pi 说：
-
-> 你作为玩家帮我测试一下这张卡，你 spawn 另一个 pi agent 作为 GM，你作为玩家和它交互
-
-pi agent 会：
-1. 用 SDK 创建 session，加载 extension
-2. 订阅 GM 的流式输出，实时阅读
-3. 以玩家身份逐轮回应——每轮都先读完 GM 问什么，再决定答什么
-4. 角色创建完成后继续自由交互，验证游戏循环
-
-这个过程等同于"真人玩家 + pi -e extension.ts"，但 agent 阅读更仔细、回应更一致、事后还能跑断言。
-
-## SDK 骨架
-
-agent 下场玩的时候，底层用的就是这个骨架。如果你需要可复现的 CI 测试，把它抽成脚本：
+用 SDK 加载 extension，启动一个 GM agent：
 
 ```typescript
-// test_agent_play.ts
 import {
   createAgentSession,
   DefaultResourceLoader,
@@ -91,8 +76,13 @@ const { session } = await createAgentSession({
   resourceLoader,
   sessionManager: SessionManager.inMemory(),
 });
+```
 
-// 等 GM 说完 → 返回本轮全部输出
+### 2. 订阅 GM 输出，逐轮交互
+
+每轮：等 GM 说完 → 读输出 → 想好回应 → 发送。循环直到开场叙事完成并进入自由交互。
+
+```typescript
 function ask(text: string): Promise<string> {
   return new Promise((resolve) => {
     let output = "";
@@ -111,45 +101,48 @@ function ask(text: string): Promise<string> {
   });
 }
 
-// agent 作为玩家，读 GM 输出后决定下一轮说什么
-// 这里的"决定"由 agent 自己做——正则、状态机、硬编码回应表都不需要
-
+// 开局
 let gmOutput = await ask("开始游戏");
-// agent 读完 gmOutput，判断 GM 在问姓名 → 回答
-let playerResponse = "佐藤花音";
-gmOutput = await ask(playerResponse);
-// agent 读完 gmOutput，判断 GM 在问性别 → 回答
-playerResponse = "女";
-gmOutput = await ask(playerResponse);
-// ... agent 持续读→想→答，直到开场叙事完成
+
+// 逐轮阅读 GM 输出，按 GM 的提问逐项回应
+// 你在每一轮中：读完 gmOutput → 判断 GM 在问什么 → 以玩家身份回答
+// 直到角色创建完成，GM 交付开场叙事并进入自由交互
 ```
 
-## 断言（可选）
+### 3. 构造一个玩家角色
 
-交互完成后跑断言，验证 state 和工具调用链：
+你需要在开局前想好一个玩家角色（姓名、背景、目标、出道路线等），确保能覆盖开局 skill 清单里的每一项。角色要有基本的合理性——不要刻意刁难 GM，但也不要用完美人设掩盖问题。
+
+### 4. 交互中注意
+
+- 每轮只回答 GM 当前问的那一项，不要抢答后面几项
+- 观察 GM 是否真的逐项询问、每次只问一个问题
+- GM 交付开场叙事时，检查是否包含时间/地点/具体情境（而非空洞的"新的一天开始"）
+- 开场完成后，继续 2-3 轮自由交互，验证游戏循环不崩溃
+
+### 5. 跑断言（可选）
+
+交互完成后，检查 state 和工具调用链：
 
 ```typescript
 import { deepGet } from "./engine/state.js";
 
 const name = deepGet("个人信息.姓名");
-console.assert(name === "佐藤花音",
-  `姓名应为 佐藤花音，实际: ${name}`);
+console.assert(name !== "待初始化", "姓名未写入");
 
 const date = deepGet("世界状态.日期");
-console.assert(typeof date === "string" && date.length > 0,
-  "日期不应为空");
+console.assert(typeof date === "string" && date.length > 0, "日期未初始化");
 ```
 
-## agent 玩 vs 其他方式
+## 常见问题 & 你的判断
 
-| | 人工玩 (`pi -e`) | 正则脚本 | agent 玩 |
-|---|:---:|:---:|:---:|
-| 读 GM 输出并理解 | 人脑 | 正则匹配 | ✓ agent 理解 |
-| GM 措辞变化时适应 | ✓ | ✗ 崩溃 | ✓ 自动适应 |
-| 一致性（不跳项、不重复） | 看人 | ✓ | ✓ |
-| 可复现 | ✗ | ✓ | ✓ |
-| 能判断 GM 行为是否合理 | ✓ | ✗ | ✓ |
-| 能自由交互（非开局阶段） | ✓ | ✗ | ✓ |
-| 零代码 | ✓ | ✗ | ✓（口头指令） |
+| 你观察到 | 结论 |
+|---------|------|
+| GM 第一轮没提角色创建，直接开始叙事 | 开局 skill 未加载或未生效 |
+| GM 一轮问了两个以上问题 | 逐项收集规则被违反 |
+| GM 跳过了某项（如没问性经历就结束了） | 开局 skill 清单有遗漏 |
+| GM 开场叙事中裸露数值（如"粉丝+200"） | 叙事风格违反 gm.md 规则 |
+| narrator.log 为空 | narrator 子代理未触发 |
+| 自由交互第 2-3 轮 GM 输出的 state 仍为"待初始化" | idol_update 未被调用 |
 
-**推荐流程**：口头指令让 pi agent 下场玩 → 发现问题就修 → 修完再让 agent 玩一遍。不需要正则、不需要状态机、不需要硬编码回应表。
+遇到任何问题，直接向用户报告，指出具体哪一轮、GM 说了什么、预期应该怎样。
