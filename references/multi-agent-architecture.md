@@ -50,6 +50,8 @@
 
 ```
 project/
+├── skills/
+│   └── 开局.md                # 开局 setup
 ├── agents/
 │   ├── gm.md                  # GM 的 system prompt
 │   └── narrator.md            # 叙事者 subagent 定义

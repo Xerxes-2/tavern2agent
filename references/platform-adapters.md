@@ -26,6 +26,7 @@ project/
 │   └── agents/
 │       ├── narrator.md       # 内容同 agents/narrator.md
 │       └── gm.md             # 内容同 agents/gm.md
+├── skills/                   # 开局等 skill 文件
 ├── engine/                   # 同 pi
 ├── tools/                    # 同 pi
 ├── data/                     # 同 pi

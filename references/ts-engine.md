@@ -231,7 +231,7 @@ export function getCheckpoint() {
 
 // ⚠️ 以下初始状态以 Re:0 为例。转换其他卡片时，
 // 必须从 MVU 条目（[mvu_update] 和 [mvu_plot]）的变量定义中提取 schema 动态生成。
-// 详见 SKILL.md「分析阶段：第二步」中的提取规则。
+// 详见 SKILL.md「卡片分析」中的提取规则。
 function initialBlankState() {
   return {
     主角: {

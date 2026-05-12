@@ -13,7 +13,7 @@ MVU 条目（`[mvu_update]` 和 `[mvu_plot]`）是卡片作者写给 LLM 的「�
 | **`[initvar]` 条目** | 世界书 entry，comment 含 `[initvar]` | YAML 格式初始值（**权威来源**） |
 | **`[mvu_update]` 条目** | 世界书 entry，comment 含 `[mvu_update]` | 更新规则：何时变化、变化幅度、约束条件 |
 
-**读取顺序**：先 Zod 脚本（数据模型）→ 再 `[initvar]`（初始值）→ 最后 `[mvu_update]`（更新规则）。没有 `[initvar]` 也没有 Zod 脚本时，退回从 `[mvu_update]` 描述中提取。
+**读取顺序**：先 Zod 脚本（数据模型）→ 再 `[initvar]`（初始值）→ 最后 `[mvu_update]`（更新规则）。没有 `[initvar]` 也没有 Zod 脚本时，自行从 `[mvu_update]` 描述中提取。
 
 ## 直观判断：三条 MVU 摘录 → 落点
 

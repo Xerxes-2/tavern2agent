@@ -39,7 +39,7 @@ python3 scripts/list_entries.py card.json --filter initvar # 看初始值
 | 3 | 世界书 `[initvar]` 条目 | 初始状态权威来源（YAML） | `references/mvu-mapping.md` |
 | 4 | 世界书 `[mvu_update]`/`[mvu_plot]` 条目 | 骰子公式？伤害规则？变量定义？ | `references/mvu-mapping.md` |
 
-**数据读取顺序**：Zod 脚本（模型）→ `[initvar]`（初始值）→ `[mvu_update]`（更新规则）。没有前两者时退回从 MVU 条目提取。
+**数据读取顺序**：Zod 脚本（模型）→ `[initvar]`（初始值）→ `[mvu_update]`（更新规则）。前两者都没有时从 MVU 条目自行提取。
 
 ### 开局 setup 分析（必须）
 
@@ -62,7 +62,7 @@ python3 scripts/list_entries.py card.json --filter initvar # 看初始值
 
 ### 纯 prompt 方案
 
-产出 `agents/gm.md`（角色+世界+规则，核心规则≤5条）+ `data/world.json` + `data/characters.json`（≥5角色时拆分）+ `data/chapters.json`。
+产出 `agents/gm.md`（角色+世界+规则，核心规则≤5条）+ `data/world.json` + `data/characters.json`（≥5角色时拆分）+ `data/chapters.json`（如有）。
 
 开场白：生成 `skills/开局.md`。`first_mes` 在开局 skill 中由 agent 主动交付。详见 `references/setup.md`。
 
