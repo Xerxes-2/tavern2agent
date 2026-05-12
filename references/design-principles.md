@@ -39,9 +39,9 @@ agent 的核心能力是 **loop + meta**：查询状态 → 判断 → 掷骰 �
 
 包括但不限于：强化思考链、MVU 更新规则、JSON Patch 格式、变量修改格式、`__结束__` 标记、角色强制输出格式、合理性审查独立模块。agent 不需要这些。
 
-## 6. 叙事与调试分离
+## 6. 叙事即对话
 
-纯叙事写入 `narrator.log`，与 agent 工具调用记录分开；用户 `tail -f` 即得独立剧情窗口。具体钩子实现见 `multi-agent-architecture.md` 与 `platform-adapters.md`。
+agent 的对话输出本身就是叙事。不需要额外分离到独立日志文件——用户直接看 agent 对话即可。GM 决定叙事节奏：简单状态更新一句带过，重大剧情推进可调用 narrator subagent 生成详细场景。
 
 ## 7. 数据文件按类型拆分，按需注入
 
@@ -50,5 +50,5 @@ agent 的核心能力是 **loop + meta**：查询状态 → 判断 → 掷骰 �
 - `data/characters.json` — 角色数据（性格、背景、说话特点），仅在 GM 查 `re0_npc_detail` 时按需读取
 - GM prompt 中的角色列表 — 只列角色名 + 一句话摘要（≤20 字/角色）
 - 章节剧情模板 — 提取到 `data/chapters.json`，注册章节查询工具让 GM 按需加载当前章节；不要预注入 prompt
-- `first_mes` 为前端 HTML 说明书时 — 合成文学性开场叙事，不要留空 `narrator.log`
+- `first_mes` 为前端 HTML 说明书时 — 合成文学性开场叙事，内联到 `skills/开局.md`
 - 开场白：生成 `skills/开局.md`，agent 首轮 call 它。详见 `references/setup.md`。

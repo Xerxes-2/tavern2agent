@@ -67,7 +67,6 @@ project/
 ├── state/                     # 运行时（自动创建）
 │   ├── events/
 │   └── index.json
-└── narrator.log               # 纯叙事输出（tail -f 查看）
 ```
 
 没有战斗系统就不用 `combat.ts`，没有经济系统就不用 `economy.ts`。按卡片实际系统决定。
@@ -133,13 +132,12 @@ model:  # 叙事用较好的 model，按需选
 
 1. **注入 system prompt + 当前游戏状态**（每轮都要，保证状态不陈旧）
 2. **注册所有游戏工具**（dice、combat、state 查询/更新等）
-3. **捕获 subagent 输出写入 narrator.log**
 
 ### pi 实现
 
 ```typescript
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { readFileSync, appendFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { getCurrentState } from "./engine/state";
 import { registerAllTools } from "./tools/registry";
@@ -156,20 +154,6 @@ export default function (pi: ExtensionAPI) {
 
   // 2. 注册游戏工具
   registerAllTools(pi);
-
-  // 3. 捕获 subagent 输出 → narrator.log
-  pi.on("tool_result_end", async (event) => {
-    if (event.toolCall?.name === "subagent") {
-      const content = event.message?.content;
-      if (content && Array.isArray(content)) {
-        for (const part of content) {
-          if (part.type === "text" && part.text?.trim()) {
-            appendFileSync("narrator.log", part.text + "\n\n---\n\n");
-          }
-        }
-      }
-    }
-  });
 }
 ```
 

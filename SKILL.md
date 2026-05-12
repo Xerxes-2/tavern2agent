@@ -79,7 +79,7 @@ for i,e in enumerate(entries):
 | 路径 | 内容 |
 |------|------|
 | `data.name` / `data.description` / `data.personality` / `data.scenario` | 角色基础设定 |
-| `data.first_mes` | 开场白（迁移时改写为 `narrator.log`） |
+| `data.first_mes` | 开场白（迁移时改写后内联到 `skills/开局.md`） |
 | `data.system_prompt` / `data.post_history_instructions` | 卡片自带 system prompt（可能含规则） |
 | `data.character_book.entries[]` | 世界书条目数组。每条有 `comment`（标签，如 `[mvu_update]`）、`content`（正文）、`keys`（触发词）、`enabled` |
 | `data.extensions.tavern_helper.scripts[]` | TH 脚本（Zod 模型 / 游戏逻辑） |
@@ -191,7 +191,7 @@ state 骨架代码见 `references/ts-engine.md`「轻量/中等方案」。中�
 | `data/world.json` | ✅ 必须 | 世界设定 |
 | `data/characters.json` | ≥5 角色时 | 角色数据 |
 | `data/user.json` | 需要 user 卡时 | 用户角色 |
-| `narrator.log` | ✅ 必须 | 开场叙事，纯散文。**不能含 HTML/状态面板/`<thinking>` 标签**——会污染后续 agent 的上下文 |
+
 
 ## 六、校验
 

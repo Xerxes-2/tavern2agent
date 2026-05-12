@@ -90,30 +90,7 @@ await server.connect(new StdioServerTransport());
 
 注册到 Claude Code：在项目根的 `.mcp.json` 中加入 `{ "mcpServers": { "re0": { "command": "node", "args": ["mcp-server.js"], "env": { "TAVERN2AGENT_STATE_DIR": "state" } } } }`。
 
-### 4. hooks.json（写入 narrator.log）
-
-写一个独立 `scripts/capture_narrative.py`：从 stdin 读 `$CLAUDE_TOOL_OUTPUT` 的 JSON，遍历 `content[]` 把 `type == "text"` 的文本 append 到 `narrator.log`，结尾追加 `\n---\n`。
-
-然后 hooks.json：
-
-```json
-{
-  "hooks": {
-    "PostToolUse": [
-      {
-        "matcher": "task",
-        "hooks": [
-          { "type": "command", "command": "python3 scripts/capture_narrative.py" }
-        ]
-      }
-    ]
-  }
-}
-```
-
-不要把整段 Python 内联进 `command` 字符串——转义噩梦，且不可单独测试。
-
-### 5. 三个平台的启动命令
+### 4. 启动命令
 
 ```bash
 # pi
@@ -121,9 +98,6 @@ cd project && pi
 
 # Claude Code
 cd project && claude
-
-# 另一个终端：纯叙事流
-tail -f project/narrator.log
 ```
 
 ## pi 完整示例

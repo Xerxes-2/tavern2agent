@@ -24,7 +24,7 @@ grep -rnE "魔女残香|死亡回溯计数|is_changed_chapter" agents/ engine/ d
 - [ ] engine 模块覆盖 MVU 计算规则
 - [ ] state schema 与 MVU 变量定义一致
 - [ ] 角色数据按需拆分到 `data/characters.json`（≥5 个角色时）
-- [ ] `first_mes` 的 HTML/状态面板已剥离，纯叙事（或合成叙事）写入 `narrator.log`
+- [ ] `first_mes` 的 HTML/状态面板已剥离，纯叙事（或合成叙事）内联到 `skills/开局.md`
 - [ ] `skills/开局.md` 已生成，且正确反映 user 卡/设置需求
 - [ ] 需要 user 卡时 `data/user.json` 已生成（含已知字段，缺失字段标注 `"TODO"`）
 - [ ] `[initvar]` 已被读取并转化为 `INITIAL_STATE`（如有）
