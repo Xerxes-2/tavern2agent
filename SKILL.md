@@ -202,9 +202,9 @@ grep -rnE "UpdateVariable|JSON Patch|<%_|\{\{getvar:|\{\{setvar:|__结束__|强�
   agents/ engine/ data/ 2>/dev/null && echo "↑ 有残留" || echo "✓"
 ```
 
-### 第二层：SDK 自动化测试（推荐）
+### 第二层：agent 下场玩（推荐）
 
-用 pi SDK 写一个程序化玩家脚本，真实走完开局→角色创建→自由交互链路，断言工具调用和 state 正确性。这是**唯一能验证「GM 真的按规则运行了吗」的方法**。详见 `references/validation.md` → SDK 自动化测试。
+直接对 pi agent 说「你作为玩家帮我测试这张卡」，agent 会 spawn 另一个 agent 作为 GM，自己以玩家身份读输出、想回应、逐轮交互。这是**唯一能验证「GM 真的按规则运行了吗」的方法**。详见 `references/validation.md` → SDK 交互测试。
 
 ### 第三层：人工核对
 
