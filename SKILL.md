@@ -195,10 +195,18 @@ state 骨架代码见 `references/ts-engine.md`「轻量/中等方案」。中�
 
 ## 六、校验
 
+### 第一层：grep 残留扫描
+
 ```bash
 grep -rnE "UpdateVariable|JSON Patch|<%_|\{\{getvar:|\{\{setvar:|__结束__|强化思考要求|认知隔离" \
   agents/ engine/ data/ 2>/dev/null && echo "↑ 有残留" || echo "✓"
 ```
+
+### 第二层：SDK 自动化测试（推荐）
+
+用 pi SDK 写一个程序化玩家脚本，真实走完开局→角色创建→自由交互链路，断言工具调用和 state 正确性。这是**唯一能验证「GM 真的按规则运行了吗」的方法**。详见 `references/validation.md` → SDK 自动化测试。
+
+### 第三层：人工核对
 
 完整检查清单见 `references/validation.md`。
 
