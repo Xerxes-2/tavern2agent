@@ -10,6 +10,17 @@ SillyTavern 的很多机制是绕过单次 LLM 调用限制的补丁。agent 天
 
 ---
 
+## 〇、开工前确认
+
+动手分析之前先向用户确认两件事，避免做完返工：
+
+1. **目标平台**：pi coding agent / Claude Code / 两者都要？两者的胶水层差异较大（extension API vs hooks），engine 和 data 部分可共用，但 `tools/registry.ts`、启动钩子、skill 调用方式都要按平台写。详见 `references/platform-adapters.md`。
+2. **是否已有同名 port**：如果工作目录里已存在 `agents/`、`engine/`、`skills/开局.md` 等，先和用户确认是覆盖、增量更新、还是另开目录。
+
+用户没明说时直接问一句，不要默认两个平台都做。
+
+---
+
 ## 一、快速开始
 
 ```bash
@@ -24,7 +35,11 @@ python3 scripts/list_entries.py card.json --filter initvar # 看初始值
 | `list_entries.py <json> [--filter mvu\|initvar]` | 世界书条目概览 |
 | `get_entry.py <json> <索引>` | 读条目完整内容 |
 
-**大数据量卡片（条目 ≥100）**：脚本工具仅供探索阶段使用；构建阶段直接用 `python3 -c` 批量提取，避免几百次 `get_entry.py` 调用。样例：
+> **仅支持 v2 卡**：JSON 顶层应有 `spec: "chara_card_v2"` 且 `data.character_book` 存在。如果是 v1 老卡（字段直接挂在顶层、无 `data` 包装），请用户先用 SillyTavern 或第三方工具升级到 v2 再迁移，本 skill 不处理兼容。
+
+**大数据量卡片（条目 ≥100）**：脚本工具仅供探索阶段使用；构建阶段直接用 `python3 -c` 批量提取，避免几百次 `get_entry.py` 调用。
+
+**提取策略**：先建紧凑索引（每条只留 `comment` + 前几行 + 长度，整张 5-10K tokens），再按需 lazy load 完整正文。不要一次性 dump 所有条目（轻松 200K+ tokens）。样例：
 
 ```bash
 # 一次性提取所有 [mvu_update] 条目正文到独立文件
@@ -40,19 +55,40 @@ for e in entries:
 print(f'dumped {len(list(out.iterdir()))} entries')
 "
 
-# 或者批量按关键字索引正文
+# 建紧凑索引（comment + 前 5 行预览）
 python3 -c "
 import json
 entries = json.load(open('card.json'))['data']['character_book']['entries']
 for i,e in enumerate(entries):
-    if '骰' in e['content'] or 'roll' in e['content'].lower():
-        print(i, e['comment'][:60])
-"
+    if not e.get('enabled', True): continue
+    preview = '\n'.join(e['content'].splitlines()[:5])
+    print(f'--- [{i}] {e.get(\"comment\",\"\")} ({len(e[\"content\"])} chars) ---')
+    print(preview)
+    print()
+" > index.md
 ```
 
 ---
 
 ## 二、卡片分析
+
+### 卡片 JSON 速览（v2）
+
+提取后的 `card.json` 关键路径：
+
+| 路径 | 内容 |
+|------|------|
+| `data.name` / `data.description` / `data.personality` / `data.scenario` | 角色基础设定 |
+| `data.first_mes` | 开场白（迁移时改写为 `narrator.log`） |
+| `data.system_prompt` / `data.post_history_instructions` | 卡片自带 system prompt（可能含规则） |
+| `data.character_book.entries[]` | 世界书条目数组。每条有 `comment`（标签，如 `[mvu_update]`）、`content`（正文）、`keys`（触发词）、`enabled` |
+| `data.extensions.tavern_helper.scripts[]` | TH 脚本（Zod 模型 / 游戏逻辑） |
+| `data.extensions.regex_scripts[]` | 正则脚本（UI 渲染 / 内容注入） |
+| `data.creator_notes` | 作者使用说明（往往透露隐藏机制） |
+
+> 实际操作前先 `python3 -c "import json; print(list(json.load(open('card.json'))['data'].keys()))"` 看一眼，不同卡片可能省略部分字段。
+
+### 信息源排查
 
 按顺序排查四个信息源，详情见对应 reference：
 
@@ -63,7 +99,7 @@ for i,e in enumerate(entries):
 | 3 | 世界书 `[initvar]` 条目 | 初始状态权威来源（YAML） | `references/mvu-mapping.md` |
 | 4 | 世界书 `[mvu_update]`/`[mvu_plot]` 条目 | 骰子公式？伤害规则？变量定义？ | `references/mvu-mapping.md` |
 
-**数据读取顺序**：Zod 脚本（模型）→ `[initvar]`（初始值）→ `[mvu_update]`（更新规则）。前两者都没有时从 MVU 条目自行提取。
+按表格顺序读取；前面信息源都没有时从 MVU 条目自行提取。
 
 ### 开局 setup 分析（必须）
 
@@ -82,10 +118,11 @@ for i,e in enumerate(entries):
 
 **辅助判定信号**（综合考量，非硬性流程；矛盾时偏向上一档）：
 
-- 决定走 prompt 还是带 state：`[mvu_update]` / `[mvu_plot]` 条目是否存在、`tavern_helper.scripts` 里有无 Zod 模型或游戏脚本。
-- 决定轻量 vs 中等：是否出现骰子（`d20`/`roll`/`掷骰`）、战斗判定、伤害公式、好感度阈值、经济流通——任一明显存在即倾向中等。
-- 决定中等 vs 完整 engine：卡片是否定义了"死亡回溯""读档重来""章节存档""撤销上一回合"等机制（搜 `revert`/`undo`/`restore`/`存档`/`回档`/`重来`）。仅有"剧情回忆"不算，要看是否影响 state。
-- 临界情况：若状态键值 ≤10 且只有 1-2 处简单加减，倾向更轻一档；若 prompt 里反复强调"严格按公式""不许 LLM 自由发挥"，倾向更重一档。
+- `[mvu_update]`/`[mvu_plot]` 条目或 `tavern_helper.scripts` 里的 Zod 模型——存在则走带 state 方案。
+- 骰子（`d20`/`roll`/`掷骰`）、战斗判定、伤害公式、好感度阈值、经济流通——任一明显存在即倾向中等。
+- 死亡回溯/读档/章节存档/撤销上一回合（搜 `revert`/`undo`/`restore`/`存档`/`回档`/`重来`，且影响 state）——倾向完整 engine。"剧情回忆"不算。
+- 临界：状态键值 ≤10 且只有 1-2 处简单加减，偏轻一档；prompt 反复强调"严格按公式""不许 LLM 自由发挥"，偏重一档。
+- 非 MVU 状态系统（极少数卡在 `tavern_helper.scripts` 自定义变量）：按语义手工映射到等价档位，不单开方案。
 
 ---
 
@@ -111,10 +148,6 @@ state 骨架代码见 `references/ts-engine.md`「轻量/中等方案」。中�
 
 **中间检查点（中等+ 方案建议）**：在动手写 `engine/*.ts` 之前，先把 state schema（TS 类型或 JSON 例样）和事件清单（中等：操作清单；完整：事件名+payload）单独输出一份给用户 review。MVU 模型误读是后期返工最大的成本，前置确认比写完再改便宜得多。轻量方案可跳过。
 
-### narrator.log 为什么是纯文本
-
-`narrator.log` 是开场叙事的归档，给后续 agent 读上下文用——不是给前端渲染的产物。HTML/状态面板/`<thinking>` 标签会污染上下文窗口，让后续叙事 agent 误以为这些是"输出格式约定"。所以这里硬约束：只留人能读、模型能续写的纯散文。
-
 ---
 
 ## 五、产出清单
@@ -132,7 +165,7 @@ state 骨架代码见 `references/ts-engine.md`「轻量/中等方案」。中�
 | `data/world.json` | ✅ 必须 | 世界设定 |
 | `data/characters.json` | ≥5 角色时 | 角色数据 |
 | `data/user.json` | 需要 user 卡时 | 用户角色 |
-| `narrator.log` | ✅ 必须 | 开场叙事（纯文本，无 HTML/状态面板） |
+| `narrator.log` | ✅ 必须 | 开场叙事，纯散文。**不能含 HTML/状态面板/`<thinking>` 标签**——会污染后续 agent 的上下文 |
 
 ## 六、校验
 
