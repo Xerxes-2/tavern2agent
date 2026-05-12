@@ -74,7 +74,7 @@ export function markResume(turnId: string) {
 1. 用户说「回到第 5 轮重新开始」
 2. agent 调 `request_rollback("5")` → state 回滚 + 写入 `resume-to.txt`
 3. agent 提示用户 `/clear`（Claude Code）/ 关掉重开（pi）
-4. 启动 hook 检测 `resume-to.txt`，把 state 内容 +「你回到了第 5 轮开始」前置到第一条用户消息（同开场白注入逻辑），然后删除 marker
+4. 启动 hook 检测 `resume-to.txt`，把 state 内容 +「你回到了第 5 轮开始」前置到第一条用户消息，然后删除 marker
 
 chat 全清，state 干净。需要保留对白的细粒度 reroll 必须靠平台原生删消息 API，pi 若有就用；Claude Code 无干净接口，告诉用户走粗粒度。
 

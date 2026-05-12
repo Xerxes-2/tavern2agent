@@ -6,7 +6,7 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 
 # Tavern → Agent：角色卡迁移引擎
 
-SillyTavern 的很多机制是绕过单次 LLM 调用限制的补丁。agent 天生能推理、调工具、自主决策——这些补丁不需要了。核心优势：agent 可以 loop（查询→掷骰→计算→更新→叙事）、自我纠正（算错了 dispatch 修正事件）、动态管理上下文（数据文件 + 查询工具，而非全塞 prompt）。
+SillyTavern 的很多机制是绕过单次 LLM 调用限制的补丁。agent 天生能推理、调工具、自主决策。核心优势：agent 可以 loop（查询→掷骰→计算→更新→叙事）、自我纠正（算错了 dispatch 修正事件）、动态管理上下文（数据文件 + 查询工具）。
 
 ---
 
@@ -41,6 +41,10 @@ python3 scripts/list_entries.py card.json --filter initvar # 看初始值
 
 **数据读取顺序**：Zod 脚本（模型）→ `[initvar]`（初始值）→ `[mvu_update]`（更新规则）。没有前两者时退回从 MVU 条目提取。
 
+### 开局 setup 分析（必须）
+
+扫描 `first_mes` 和世界书，汇总「缺失信息清单」——user 卡定义、开局选项等。详见 `references/setup.md`。
+
 ---
 
 ## 三、决策表
@@ -58,7 +62,13 @@ python3 scripts/list_entries.py card.json --filter initvar # 看初始值
 
 ### 纯 prompt 方案
 
-产出 `agents/gm.md`（角色+世界+规则，核心规则≤5条）+ `data/world.json` + `data/characters.json`（≥5角色时拆分）+ `data/chapters.json`。开场白不进 system prompt——胶水层第一轮从 `narrator.log` 注入用户输入，详见 `references/platform-adapters.md`「开场白注入」。
+产出 `agents/gm.md`（角色+世界+规则，核心规则≤5条）+ `data/world.json` + `data/characters.json`（≥5角色时拆分）+ `data/chapters.json`。
+
+开场白：生成 `skills/开局.md`。`first_mes` 在开局 skill 中由 agent 主动交付。详见 `references/setup.md`。
+
+### 开局 skill（所有方案都必须生成）
+
+每个卡片迁移**必须产出** `skills/开局.md`。模板和 checklist 生成规则见 `references/setup.md`。
 
 ### 轻量 / 中等方案
 
@@ -70,7 +80,24 @@ state 骨架代码见 `references/ts-engine.md`「轻量/中等方案」。中�
 
 ---
 
-## 五、校验
+## 五、产出清单
+
+迁移完成后，确保以下文件齐全：
+
+| 文件 | 必需？ | 说明 |
+|------|:-----:|------|
+| `skills/开局.md` | ✅ 必须 | 游戏入口 skill，处理 user 卡/配置/开场 |
+| `agents/gm.md` | ✅ 必须 | GM system prompt |
+| `agents/narrator.md` | 有游戏系统时 | 纯叙事 subagent |
+| `engine/state.ts` | 轻量+ | 状态引擎 |
+| `engine/dice.ts` 等 | 中等+ | 按需 |
+| `tools/registry.ts` | 轻量+ | 工具注册 |
+| `data/world.json` | ✅ 必须 | 世界设定 |
+| `data/characters.json` | ≥5 角色时 | 角色数据 |
+| `data/user.json` | 需要 user 卡时 | 用户角色 |
+| `narrator.log` | ✅ 必须 | 开场叙事（纯文本，无 HTML/状态面板） |
+
+## 六、校验
 
 ```bash
 grep -rnE "UpdateVariable|JSON Patch|<%_|\{\{getvar:|\{\{setvar:|__结束__|强化思考要求|认知隔离" \
@@ -88,7 +115,8 @@ grep -rnE "UpdateVariable|JSON Patch|<%_|\{\{getvar:|\{\{setvar:|__结束__|强�
 | `design-principles.md` | 全部 | 设计原则（TS vs Python、一致性等） |
 | `script-analysis.md` | MVU 卡 | tavern_helper 脚本 + regex_scripts 分类与迁移 |
 | `mvu-mapping.md` | 轻量+ | MVU 条目 → engine 映射、initvar 读取、直观示例 |
-| `platform-adapters.md` | 全部 | pi/CC 胶水层、开场白注入、MCP 示例 |
+| `setup.md` | 全部 | 开局 setup 分析、开局 skill 模板、平台集成 |
+| `platform-adapters.md` | 全部 | pi/CC 胶水层、MCP 示例 |
 | `ts-engine.md` | 中等+ | TS 引擎代码（轻量 state、完整事件溯源、dice.ts） |
 | `multi-agent-architecture.md` | 完整 | 多 agent 架构（GM + Narrator） |
 | `storytelling.md` | 全部（可选） | 叙事节拍参考 |

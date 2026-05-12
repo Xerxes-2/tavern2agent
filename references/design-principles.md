@@ -51,3 +51,4 @@ agent 的核心能力是 **loop + meta**：查询状态 → 判断 → 掷骰 �
 - GM prompt 中的角色列表 — 只列角色名 + 一句话摘要（≤20 字/角色）
 - 章节剧情模板 — 提取到 `data/chapters.json`，注册章节查询工具让 GM 按需加载当前章节；不要预注入 prompt
 - `first_mes` 为前端 HTML 说明书时 — 合成文学性开场叙事，不要留空 `narrator.log`
+- 开场白：生成 `skills/开局.md`，agent 首轮 call 它。详见 `references/setup.md`。
