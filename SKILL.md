@@ -88,6 +88,32 @@ for i,e in enumerate(entries):
 
 > 实际操作前先 `python3 -c "import json; print(list(json.load(open('card.json'))['data'].keys()))"` 看一眼，不同卡片可能省略部分字段。
 
+### 条目全量审计（⚠️ 必须，写任何产出文件前执行）
+
+**不先看全所有条目就动手，是本次迁移中最常见的返工原因。**
+
+```bash
+# 第一步：无过滤列出全部条目（只输出 comment + keys + 前 3 行正文 + 字符数）
+python3 scripts/list_entries.py card.json
+```
+
+得到完整条目清单后，**逐条分类决策去向**——不要跳到「条目 0 看起来够了」就收工：
+
+| 条目类型 | 判断信号 | 去向 |
+|---------|---------|------|
+| 系统规则 | `comment` 含「系统设定」/ `constant: true`（常驻） | `data/world.json` 对应 section |
+| 地区/场景 | `comment` 含「地区设定」/ 城市名/区域名 | `data/regions.json` 或按需拆分 |
+| 角色/NPC 模板 | `comment` 含 `<character_card>` / 角色名 | `data/characters.json` |
+| 章节剧情 | `comment` 含「第X卷」「章节」 | `data/chapters.json` + 查询工具 |
+| 术语表 | `comment` 含「术语」「黑话」 | `data/world.json` → `terminology` section |
+| 骰子/伤害公式 | `content` 含 `{{roll:` / 伤害公式 / DC 分级 | `engine/dice.ts` 等 |
+| 键值状态 | `comment` 含 `[initvar]` / `[mvu_update]` | `engine/state.ts` → `initialState()` |
+| ST 补丁 | `content` 含「强化思考」「JSON Patch」「`__结束__`」 | **丢弃** |
+
+**做完这一步再决定方案档位**——条目数量决定了 world.json 的规模：纯地理念卡 world.json ≤5KB 合理；大量常驻系统条目的卡，world.json 自然 20-30KB。
+
+> 大数据量（≥100 条）用紧凑索引法（见上文「提取策略」），但分类决策这一步不能省。
+
 ### 信息源排查
 
 按顺序排查四个信息源，详情见对应 reference：
