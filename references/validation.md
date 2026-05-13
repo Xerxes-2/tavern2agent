@@ -55,25 +55,34 @@ grep 和人工清单只能验证"文件是否存在、是否残留 ST 痕迹"，
 
 ### 1. 创建 GM session
 
-用 SDK 加载 extension，启动一个 GM agent：
+用 SDK 加载 extension（即转换产物中的胶水层，默认文件名为 `extension.ts`，放在项目根目录，负责加载 `agents/gm.md` 并注册工具），启动一个 GM agent：
 
 ```typescript
 import {
+  AuthStorage,
   createAgentSession,
   DefaultResourceLoader,
   getAgentDir,
+  ModelRegistry,
   SessionManager,
 } from "@earendil-works/pi-coding-agent";
+
+// 如果有自定义 models.json 或 auth.json，传入对应路径；否则用默认
+const authStorage = AuthStorage.create();
+const modelRegistry = ModelRegistry.create(authStorage);
 
 const resourceLoader = new DefaultResourceLoader({
   cwd: process.cwd(),
   agentDir: getAgentDir(),
+  // 胶水层 extension 文件名取决于转换时生成的名字，通常为 extension.ts
   additionalExtensionPaths: ["./extension.ts"],
 });
 await resourceLoader.reload();
 
 const { session } = await createAgentSession({
   resourceLoader,
+  authStorage,
+  modelRegistry,
   sessionManager: SessionManager.inMemory(),
 });
 ```
@@ -84,7 +93,7 @@ const { session } = await createAgentSession({
 
 ```typescript
 function ask(text: string): Promise<string> {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     let output = "";
     const unsub = session.subscribe((event) => {
       if (event.type === "message_update"
@@ -97,7 +106,11 @@ function ask(text: string): Promise<string> {
         resolve(output);
       }
     });
-    session.prompt(text);
+    // prompt() 返回 Promise<void>，agent_end 事件在内部 resolve 前触发
+    session.prompt(text).catch((err) => {
+      unsub();
+      reject(err);
+    });
   });
 }
 
@@ -122,17 +135,21 @@ let gmOutput = await ask("开始游戏");
 
 ### 5. 跑断言（可选）
 
-交互完成后，检查 state 和工具调用链：
+交互完成后，检查 state 是否正确写入。注意 `engine/state.ts` 的公开 API 是 `getState()`（轻量方案）或 `getCurrentState()`（完整方案），而非内部的 `deepGet`：
 
 ```typescript
-import { deepGet } from "./engine/state.js";
+// 轻量 / 中等方案
+import { getState } from "./engine/state.js";
 
-const name = deepGet("个人信息.姓名");
-console.assert(name !== "待初始化", "姓名未写入");
+const state = getState() as Record<string, unknown>;
+console.assert((state as any).个人?.姓名 !== "待初始化", "姓名未写入");
 
-const date = deepGet("世界状态.日期");
-console.assert(typeof date === "string" && date.length > 0, "日期未初始化");
+// 完整方案（事件溯源）
+// import { getCurrentState } from "./engine/state.js";
+// const state = getCurrentState();
 ```
+
+断言路径依据实际 state schema 调整，字段名从 `[initvar]` 和 `[mvu_update]` 条目中提取。
 
 ## 常见问题 & 你的判断
 
