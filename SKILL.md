@@ -6,18 +6,16 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 
 # Tavern → Agent：角色卡迁移引擎
 
-SillyTavern 的很多机制是绕过单次 LLM 调用限制的补丁。agent 天生能推理、调工具、自主决策。核心优势：agent 可以 loop（查询→掷骰→计算→更新→叙事）、自我纠正（算错了 dispatch 修正事件）、动态管理上下文（数据文件 + 查询工具）。
+SillyTavern 的很多机制是绕过单次 LLM 调用限制的补丁。agent 天生能推理、调工具、自主决策。核心优势：agent 可以 loop（查询→掷骰→计算→更新→叙事）、自我纠正（算错了重新发事件修正）、动态管理上下文（数据文件 + 查询工具）。
+
+目标平台是 pi coding agent，详见 `references/platform-adapters.md`。
 
 ---
 
 ## 〇、开工前确认
 
-动手分析之前先向用户确认两件事，避免做完返工：
-
-1. **目标平台**：pi coding agent。engine 和 data 部分可共用。详见 `references/platform-adapters.md`。
-2. **是否已有同名 port**：如果工作目录里已存在 `agents/`、`engine/`、`skills/开局.md` 等，先和用户确认是覆盖、增量更新、还是另开目录。
-
-用户没明说时直接问一句。
+1. **先读 `references/design-principles.md`**——七条核心原则（agent 是程序本身、所有计算进引擎、prompt 极简、砍掉强化思考链等）决定了产出的形态，不读会写出"翻译 ST 咒语"风格的代码。
+2. **检查工作目录**：如果已存在 `agents/`、`engine/`、`skills/开局.md` 等，先和用户确认是覆盖、增量更新、还是另开目录。用户没明说时直接问一句。
 
 ---
 
@@ -88,9 +86,9 @@ for i,e in enumerate(entries):
 
 > 实际操作前先 `python3 -c "import json; print(list(json.load(open('card.json'))['data'].keys()))"` 看一眼，不同卡片可能省略部分字段。
 
-### 条目全量审计（⚠️ 必须，写任何产出文件前执行）
+### 条目全量审计（写任何产出文件前必须执行）
 
-**不先看全所有条目就动手，是本次迁移中最常见的返工原因。**
+不先看全所有条目就动手，是本次迁移中最常见的返工原因。
 
 ```bash
 # 第一步：无过滤列出全部条目（只输出 comment + keys + 前 3 行正文 + 字符数）
@@ -125,7 +123,7 @@ python3 scripts/list_entries.py card.json
 | 3 | 世界书 `[initvar]` 条目 | 初始状态权威来源（YAML） | `references/mvu-mapping.md` |
 | 4 | 世界书 `[mvu_update]`/`[mvu_plot]` 条目 | 骰子公式？伤害规则？变量定义？ | `references/mvu-mapping.md` |
 
-按表格顺序读取；前面信息源都没有时从 MVU 条目自行提取。
+按表格顺序排查；如脚本（步骤 1-2）没有线索，再从世界书 MVU 条目（步骤 3-4）自行提取规则。
 
 ### 开局 setup 分析（必须）
 
@@ -175,7 +173,20 @@ python3 scripts/list_entries.py card.json
 - 骰子（`d20`/`roll`/`掷骰`）、战斗判定、伤害公式、好感度阈值、经济流通——任一明显存在即倾向中等。
 - 死亡回溯/读档/章节存档/撤销上一回合（搜 `revert`/`undo`/`restore`/`存档`/`回档`/`重来`，且影响 state）——倾向完整 engine。"剧情回忆"不算。
 - 临界：状态键值 ≤10 且只有 1-2 处简单加减，偏轻一档；prompt 反复强调"严格按公式""不许 LLM 自由发挥"，偏重一档。
-- 非 MVU 状态系统（极少数卡在 `tavern_helper.scripts` 自定义变量）：按语义手工映射到等价档位，不单开方案。
+- 非 MVU 状态系统（极少数卡在 `tavern_helper.scripts` 里自定义变量）：按语义手工映射到等价档位，不单开方案。
+
+**归档样例**（拿到具体卡时按这种粒度落档，不要纠结临界条款的字面）：
+
+| 卡片特征 | 落档 | 理由 |
+|---------|------|------|
+| 纯地理/势力设定 + 几个 NPC 模板，无变量、无骰子 | 纯 prompt | 没有状态需要维护，data/ 够用 |
+| `first_mes` 末尾有"选难度/选阵营"问句，但游戏本身无系统 | 纯 prompt + 开局 skill 收 setup | 选项落到 `skills/开局.md` 而非 engine |
+| 30+ 键值状态（好感度、日期、地点），但变化全是 ±1/±5 这类直接加减 | 轻量 | `patchState` 够用，不需要事件溯源 |
+| 有 `{{roll:1d6}}` 偶尔用于占卜，其余推进靠 prompt | 轻量 | 1-2 次偶发掷骰直接写进 GM 规则，不值得开 `dice.ts` |
+| 有伤害公式 + 装备护甲 + 命中检定，但允许玩家"接受这一击就过" | 中等 | 战斗逻辑进 engine，无需事件溯源式回退 |
+| 死亡循环叙事性出现（"你回想起上次失败时…"），但不真回退 state | 中等 | 是叙事手法不是机制，事件溯源是 over-engineering |
+| 真死亡回溯：死后变量回到上次存档点、保留"记忆"标记 | 完整 engine | 唯一站得住脚的事件溯源用例 |
+| 多结局章节存档，玩家可读档到任一章节起点 | 完整 engine | 同上 |
 
 ---
 
@@ -185,11 +196,7 @@ python3 scripts/list_entries.py card.json
 
 产出 `agents/gm.md`（角色+世界+规则，核心规则≤5条）+ `data/world.json` + `data/characters.json`（≥5角色时拆分）+ `data/chapters.json`（如有）。
 
-开场白：生成 `skills/开局.md`。`first_mes` 在开局 skill 中由 agent 主动交付。详见 `references/setup.md`。
-
-### 开局 skill（所有方案都必须生成）
-
-每个卡片迁移**必须产出** `skills/开局.md`。模板和 checklist 生成规则见 `references/setup.md`。
+开场白：所有方案都必须生成 `skills/开局.md`，`first_mes` 改写后内联其中、由 agent 在开局时主动交付。模板和 checklist 生成规则详见 `references/setup.md`。
 
 ### 轻量 / 中等方案
 
@@ -199,7 +206,14 @@ state 骨架代码见 `references/ts-engine.md`「轻量/中等方案」。中�
 
 事件溯源，详见 `references/ts-engine.md`。如果同时触发多 agent 条件（见上文），则叠加多 agent 架构，详见 `references/multi-agent-architecture.md`。
 
-**中间检查点（中等+ 方案建议）**：在动手写 `engine/*.ts` 之前，先把 state schema（TS 类型或 JSON 例样）和事件清单（中等：操作清单；完整：事件名+payload）单独输出一份给用户 review。MVU 模型误读是后期返工最大的成本，前置确认比写完再改便宜得多。轻量方案可跳过。
+### 中间检查点（中等+ 方案必走）
+
+在动手写 `engine/*.ts` 之前，**先把以下两份输出单独发给用户 review**：
+
+1. **state schema**——TS interface 或 JSON 示例，列出所有字段及其类型/初值
+2. **事件清单**——中等方案给操作列表（`update_status`、`snapshot`、`rollback` 等）；完整方案给事件名 + payload（`set` / `delta` / `death_rewind` 等）
+
+MVU 模型误读是后期返工最大的成本，前置 5 分钟对齐比写完一整套 engine 再改便宜得多。轻量方案 schema 通常一眼能看完，可跳过此步。
 
 ---
 
@@ -229,9 +243,22 @@ grep -rnE "UpdateVariable|JSON Patch|<%_|\{\{getvar:|\{\{setvar:|__结束__|强�
   agents/ engine/ data/ 2>/dev/null && echo "↑ 有残留" || echo "✓"
 ```
 
-### 第二层：下场玩（推荐）
+### 第二层：下场玩（强烈推荐）
 
-**你就是测试玩家。** 用 SDK 创建 GM session，以玩家身份逐轮交互——读 GM 输出、按人设回应、观察 GM 行为是否合理。这是唯一能验证「GM 真的按规则运行了吗」的方法。步骤详见 `references/validation.md`。
+**你就是测试玩家。** 用 SDK 创建 GM session，以玩家身份逐轮交互——这是唯一能验证「GM 真的按规则运行了吗」的方法。
+
+**最小可行流程**：
+
+1. **想一个玩家角色**——姓名、背景、目标各一句话，能覆盖开局 skill 清单每一项
+2. **跑至少 5 轮**：第 1 轮发「开始游戏」触发开局；第 2 轮回答 setup（或直接说「开始」用默认）；第 3-5 轮进入自由交互
+3. **观察 4 点**：
+   - 开局是否**一轮内列完所有缺失项 + 默认值**（违反："逐项追问"或"漏问关键字段"，详见 setup.md 的交互原则）
+   - 开场叙事是否**含具体时空 + 情境**（"新的一天开始"算空洞，扣分）
+   - **state 是否真的写入**（看工具调用日志或 `state/state.json`，不是 GM 嘴上说"已记录"）
+   - **裸数值不应出现在叙事里**（"粉丝+200" → 应该是「粉丝数量明显上涨」）
+4. 如有 engine 模块：第 3-5 轮**主动触发一次**骰子/战斗/经济动作，确认工具被调用而非 LLM 脑补结果
+
+完整 SDK 代码骨架 + 常见问题对照表见 `references/validation.md`。
 
 ### 第三层：人工核对
 

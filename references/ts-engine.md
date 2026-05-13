@@ -2,9 +2,7 @@
 
 以下是 TypeScript 原生引擎的核心模块骨架。extensions 直接 import，工具零开销调用。
 
-> **重要**：以下代码中的 `initialBlankState()` 和部分事件处理器以 Re:0 为例，包含 `魔女残香`、`死亡回溯计数`、`chapter.is_changed_chapter` 等 **Re:0 特有字段（以 `// ← Re:0 特有` 标注）**。转换其他卡片时，状态结构必须从卡片 MVU 条目的变量定义中动态提取——不要照搬这些字段。
->
-> **如果你转换的卡本身就是 Re:0 主题**：这些字段是合法的游戏系统字段，保留并实现。残留检测 grep 命中它们时不是误报。
+> **重要**：以下代码中的 `initialBlankState()`、`death_rewind` 事件处理器、`get_status` / `skill_check` 工具都是**通用示例骨架**，演示模式而非提供可照搬的 schema。转换其他卡片时，状态结构必须从卡片 MVU 条目（`[mvu_update]` / `[mvu_plot]`）的变量定义中动态提取，事件类型也按本卡机制设计——不要照搬示例字段名。
 
 ## 状态引擎 (state.ts)
 
@@ -183,10 +181,9 @@ function applyEvent(state: Record<string, unknown>, evt: Event) {
       break;
     }
     case "death_rewind": {
-      const dc = (deepGet(state, "主角.死亡回溯计数") as number) || 0;
-      const scent = (deepGet(state, "主角.魔女残香") as number) || 0;
-      deepSet(state, "主角.死亡回溯计数", dc + 1);
-      deepSet(state, "主角.魔女残香", scent + 1);
+      // 演示：死亡回溯类机制把多个字段一并更新，事件溯源天然支持
+      const count = (deepGet(state, "主角.回溯次数") as number) || 0;
+      deepSet(state, "主角.回溯次数", count + 1);
       break;
     }
     // ... 其他事件类型按需添加
@@ -230,7 +227,7 @@ export function getCheckpoint() {
   return readIndex().checkpoint;
 }
 
-// ⚠️ 以下初始状态以 Re:0 为例。转换其他卡片时，
+// ⚠️ 以下是通用骨架示例。转换具体卡片时，
 // 必须从 MVU 条目（[mvu_update] 和 [mvu_plot]）的变量定义中提取 schema 动态生成。
 // 详见 SKILL.md「卡片分析」中的提取规则。
 function initialBlankState() {
@@ -246,14 +243,11 @@ function initialBlankState() {
       物品列表: {},
       装备栏: {},
       技能列表: {},
-      死亡回溯计数: 0,    // ← Re:0 特有（非 Re:0 卡移除此字段）
-      魔女残香: 0,          // ← Re:0 特有（非 Re:0 卡移除此字段）
     },
     关系列表: {},
     敌人列表: {},
     任务列表: {},
     时间: { 年月日: "", 时间: "" },
-    chapter: { is_changed_chapter: "NO" },  // ← Re:0 特有（非 Re:0 卡移除此字段）
   };
 }
 ```
@@ -324,7 +318,7 @@ import { check, calcDamage } from "../engine/dice";
 export function registerAllTools(pi: ExtensionAPI) {
   // 查询工具
   pi.registerTool({
-    name: "re0_status",
+    name: "get_status",  // 工具名按本卡主题命名
     label: "角色状态",
     description: "查看主角完整面板",
     promptSnippet: "查询主角当前的生命值、魔法值、属性、装备和技能",
@@ -341,7 +335,7 @@ export function registerAllTools(pi: ExtensionAPI) {
 
   // 行动工具
   pi.registerTool({
-    name: "re0_skill_check",
+    name: "skill_check",
     label: "属性检定",
     description: "进行属性检定，掷骰判定成功/失败",
     promptSnippet: "掷骰进行属性检定",
