@@ -8,11 +8,65 @@ SillyTavern 用大量机制（MVU 更新、强化思考链、JSON Patch 等）�
 
 支持从纯设定卡到带骰子/战斗/好感度/经济系统的复杂游戏卡。
 
-## 用法
+## 能不能用
 
-本仓库是 pi coding agent 的一个 skill。放到 `~/.pi/agent/skills/tavern2agent/` 下，给 agent 一张角色卡，它就会自动按 skill 流程完成迁移。输出的具体目录和文件取决于卡的复杂程度。
+- **角色卡**：SillyTavern v2（`spec: "chara_card_v2"`）。v1 老卡请先用 ST 或第三方工具升级到 v2 再迁移
+- **推荐模型**：DeepSeek V4 Pro / GPT-5.5 / Claude Sonnet 4.6+ / Opus 4.5+。弱模型（Flash 档）能跑但可能需要反复调试
+- **平台**：pi coding agent。其他平台理论上替换胶水层即可，但未官方支持
 
-生成的卡有问题或者不知道怎么用，直接问 agent。
+## 最小示例
+
+```bash
+# 1. 安装为 pi skill
+git clone https://github.com/Xerxes-2/tavern2agent ~/.pi/agent/skills/tavern2agent
+
+# 2. 在工作目录放一张角色卡
+mkdir my-card && cd my-card
+cp ~/Downloads/某角色卡.png .
+
+# 3. 启动 pi 告诉 agent
+pi
+> 帮我把这张卡迁移成 agent 跑团环境
+```
+
+agent 会自动按 skill 流程：解包 PNG → 分析世界书 → 决定方案档位 → 生成 engine/agents/data → 校验。中等以上复杂度的卡会在写代码前发一份 state schema 给你 review，避免后期返工。
+
+迁移完成后，agent 自带交互式调试能力——「这条规则没生效」「这个 NPC 该有秘密」直接告诉它。
+
+## 产出形态
+
+最简（纯设定卡，无游戏系统）：
+
+```
+project/
+├── agents/gm.md
+├── data/world.json
+├── data/characters.json     # ≥5 角色时拆分
+└── skills/开局.md
+```
+
+最复杂（带战斗 + 死亡回溯 + 多 NPC 信息隔离）：
+
+```
+project/
+├── agents/
+│   ├── gm.md
+│   └── npc_*.md             # 每个有秘密的 NPC 一个
+├── engine/
+│   ├── state.ts             # 事件溯源
+│   ├── dice.ts
+│   ├── combat.ts
+│   └── death.ts
+├── tools/registry.ts
+├── extension.ts             # pi 入口
+├── data/
+│   ├── world.json
+│   ├── characters.json
+│   └── chapters.json
+└── skills/开局.md
+```
+
+中间还有「轻量」「中等」两档，按卡片复杂度自动落档，决策表见 `SKILL.md`。
 
 ## 目录
 
