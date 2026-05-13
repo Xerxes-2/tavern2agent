@@ -240,7 +240,7 @@ MVU 模型误读是后期返工最大的成本，前置 5 分钟对齐比写完�
 
 **不要等用户提醒漏项。** 在你认为迁移完成、准备说「迁移完毕」之前，**主动**逐项核对：
 
-- [ ] `first_mes` 已处理：改写后内联进 `skills/开局.md` 的开场叙事参考
+- [ ] `first_mes` 已处理：改写后内联进 `skills/开局.md` 的开场叙事参考，**ST 宏（`{{user}}`/`{{char}}`/`{{random}}`/`{{roll}}` 等）已剥离/替换**（详见 setup.md「改写时必须剥离的 ST 宏」）
 - [ ] **`alternate_greetings` 已处理**：每条都有去向（路线选项 / 合并 setup / 显式丢弃并说明原因）
 - [ ] **所有 `enabled: true` 的世界书条目都有去向**：按条目分类表落到 `data/*.json` / `engine/*.ts` / 显式丢弃。**不允许"看起来不重要就跳过"**
 - [ ] `extension.ts` 已生成且只做注册：顶层 `import`（无动态 `import()`）、`registerAllTools(pi)` 被调用
@@ -260,6 +260,10 @@ MVU 模型误读是后期返工最大的成本，前置 5 分钟对齐比写完�
 ```bash
 grep -rnE "UpdateVariable|JSON Patch|<%_|\{\{getvar:|\{\{setvar:|__结束__|强化思考要求|认知隔离" \
   agents/ engine/ data/ 2>/dev/null && echo "↑ 有残留" || echo "✓"
+
+# ST 宏残留（开局/GM prompt 里不允许出现 {{user}}/{{char}}/{{random}}/{{roll}} 字面量）
+grep -rnE '\{\{(user|char|random|roll|pick|getvar|setvar)' \
+  agents/ skills/ data/ 2>/dev/null && echo "↑ 有 ST 宏残留" || echo "✓"
 ```
 
 ### 第二层：下场玩（强烈推荐）
