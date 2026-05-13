@@ -33,7 +33,7 @@ python3 scripts/list_entries.py card.json --filter initvar # 看初始值
 | `list_entries.py <json> [--filter mvu\|initvar]` | 世界书条目概览 |
 | `get_entry.py <json> <索引>` | 读条目完整内容 |
 
-> **仅支持 v2 卡**：JSON 顶层应有 `spec: "chara_card_v2"` 且 `data.character_book` 存在。如果是 v1 老卡（字段直接挂在顶层、无 `data` 包装），请用户先用 SillyTavern 或第三方工具升级到 v2 再迁移，本 skill 不处理兼容。
+> **支持 v2 / v3 卡**：JSON 顶层 `spec` 为 `chara_card_v2` 或 `chara_card_v3`，且 `data.character_book` 存在即可。v3 新增字段（`assets` / `group_only_greetings` / `creator_notes_multilingual` / `source` 等）当前不专门处理：`group_only_greetings` 与 `alternate_greetings` 同等对待（路线选项 / 合并 setup），其余视为元数据忽略。v1 老卡（字段直接挂在顶层、无 `data` 包装）请先用 SillyTavern 或第三方工具升级到 v2/v3 再迁移。
 
 **大数据量卡片（条目 ≥100）**：脚本工具仅供探索阶段使用；构建阶段直接用 `python3 -c` 批量提取，避免几百次 `get_entry.py` 调用。
 
@@ -78,7 +78,7 @@ for i,e in enumerate(entries):
 |------|------|
 | `data.name` / `data.description` / `data.personality` / `data.scenario` | 角色基础设定 |
 | `data.first_mes` | 开场白（迁移时改写后内联到 `skills/开局.md`） |
-| `data.alternate_greetings[]` | 替选开场白数组。**不要忽略**——通常是不同路线/分支的开局。处理方式：作为开局 skill 的路线选项让用户选，或合并入 setup checklist |
+| `data.alternate_greetings[]`（v3 另含 `data.group_only_greetings[]`） | 替选开场白数组。**不要忽略**——通常是不同路线/分支的开局。处理方式：作为开局 skill 的路线选项让用户选，或合并入 setup checklist |
 | `data.system_prompt` / `data.post_history_instructions` | 卡片自带 system prompt（可能含规则） |
 | `data.character_book.entries[]` | 世界书条目数组。每条有 `comment`（标签，如 `[mvu_update]`）、`content`（正文）、`keys`（触发词）、`enabled` |
 | `data.extensions.tavern_helper.scripts[]` | TH 脚本（Zod 模型 / 游戏逻辑） |
