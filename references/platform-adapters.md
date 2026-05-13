@@ -12,7 +12,7 @@
 |------|-----|
 | System prompt 注入 | `pi.on("before_agent_start")` extension hook |
 | 工具注册 | `pi.registerTool(...)` |
-| Subagent | pi 自带 `subagent` 工具，定义放 `agents/*.md` |
+| NPC 上下文隔离 | `pi-subagents` 包，定义放 `agents/*.md`。常用于 NPC 信息隔离，防止秘密泄漏 |
 | 钩子（日志等） | `pi.on("tool_result_end")` |
 | 状态文件 | 任意目录，建议 `state/` |
 

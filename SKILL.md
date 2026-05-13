@@ -142,6 +142,33 @@ python3 scripts/list_entries.py card.json
 | 有骰子/战斗/经济，不需一轮内精确回退 | **中等** | `patchState` + 每轮快照 | 上者 + `engine/dice.ts` 等模块 |
 | 需死亡回溯/章节存档/事件级回退 | **完整 engine** | `dispatch(event)` | 事件溯源 + 全套模块 + 多 agent |
 
+### 多 agent 判定（独立维度，不跟 engine 档位绑定）
+
+多 agent 的唯一正确用途是 **NPC 上下文隔离**——防止模型在单一 context 中读到 NPC A 的秘密后，让 NPC B 做出不该有的反应。GM 仍然是主叙事者，NPC subagent 只负责"这个 NPC 在当前情境下说什么、做什么"。
+
+**多 agent 的决策跟 game engine 复杂度无关**。一张无骰子的纯 prompt 卡，如果 NPC ≥5 且有隐藏信息/秘密关系，就该走多 agent。
+
+| 触发信号 | 行动 |
+|----------|------|
+| NPC ≤4 且无隐藏信息 | 单 agent（GM 自己扮演所有 NPC） |
+| NPC ≥5 且有隐藏信息/秘密/阵营 | 多 agent：每个有秘密的 NPC 独立 subagent，GM 织入叙事 |
+| NPC 之间信息不对等（A 知道 B 不知道的事）| 多 agent——这正是上下文隔离的核心价值 |
+
+> **不要用多 agent 搞 GM+Narrator 模式**——把叙事外包给 subagent 是本末倒置：GM 才是讲故事的人，subagent 的输出要 Ctrl+O 展开才能看，token 翻倍。Narrator 模式只在极少数场景（并行多视角叙事 + 模型分层省钱）有微弱优势。
+
+### subagent 适用场景速查
+
+判断标准：**该角色不该看到的东西**（信息隔离）、**跟 GM 完全不同的人格/文风**（角色分离）、**适合异步/并行**（进程隔离）。三者至少占一个才用。
+
+| 类别 | 适用 | 不适用（反模式） |
+|------|------|-----------------|
+| 信息隔离 | NPC 秘密、PC 信息不对等、GM 隐藏剧情 | 单 agent 能靠 prompt 约束的信息边界 |
+| 角色分离 | 反派 AI（和 GM 人格冲突）、吟游诗人/旁白（不同文风）、队友 AI | 普通 NPC 扮演（GM 自己就能演） |
+| 进程隔离 | 战斗结算器（确定性）、经济模拟（异步）、章节存档校验 | 简单规则引擎、状态存储、频繁轻量操作 |
+| 并行天然适合 | 多地点同时叙事、多 NPC 同时反应 | 单线程场景拆成并行是徒增复杂度 |
+
+详见 `references/multi-agent-architecture.md`。
+
 **辅助判定信号**（综合考量，非硬性流程；矛盾时偏向上一档）：
 
 - `[mvu_update]`/`[mvu_plot]` 条目或 `tavern_helper.scripts` 里的 Zod 模型——存在则走带 state 方案。
@@ -170,7 +197,7 @@ state 骨架代码见 `references/ts-engine.md`「轻量/中等方案」。中�
 
 ### 完整 engine 方案
 
-事件溯源 + 多 agent，详见 `references/ts-engine.md` 和 `references/multi-agent-architecture.md`。
+事件溯源，详见 `references/ts-engine.md`。如果同时触发多 agent 条件（见上文），则叠加多 agent 架构，详见 `references/multi-agent-architecture.md`。
 
 **中间检查点（中等+ 方案建议）**：在动手写 `engine/*.ts` 之前，先把 state schema（TS 类型或 JSON 例样）和事件清单（中等：操作清单；完整：事件名+payload）单独输出一份给用户 review。MVU 模型误读是后期返工最大的成本，前置确认比写完再改便宜得多。轻量方案可跳过。
 
@@ -184,7 +211,7 @@ state 骨架代码见 `references/ts-engine.md`「轻量/中等方案」。中�
 |------|:-----:|------|
 | `skills/开局.md` | ✅ 必须 | 游戏入口 skill，处理 user 卡/配置/开场 |
 | `agents/gm.md` | ✅ 必须 | GM system prompt |
-| `agents/narrator.md` | 有游戏系统时 | 纯叙事 subagent |
+| `agents/<npc_xxx>.md` | NPC≥5 且有隐藏信息 | NPC subagent（每 NPC 一个，上下文隔离） |
 | `engine/state.ts` | 轻量+ | 状态引擎 |
 | `engine/dice.ts` 等 | 中等+ | 按需 |
 | `tools/registry.ts` | 轻量+ | 工具注册 |
@@ -222,6 +249,6 @@ grep -rnE "UpdateVariable|JSON Patch|<%_|\{\{getvar:|\{\{setvar:|__结束__|强�
 | `setup.md` | 全部 | 开局 setup 分析、开局 skill 模板、平台集成 |
 | `platform-adapters.md` | 全部 | pi 胶水层 |
 | `ts-engine.md` | 中等+ | TS 引擎代码（轻量 state、完整事件溯源、dice.ts） |
-| `multi-agent-architecture.md` | 完整 | 多 agent 架构（GM + Narrator） |
+| `multi-agent-architecture.md` | NPC 隔离场景 | 多 agent 架构（GM + NPC subagent 上下文隔离，含适用场景速查） |
 | `storytelling.md` | 全部（可选） | 叙事节拍参考 |
 | `validation.md` | 全部 | 残留检测 + 人工检查清单 |
