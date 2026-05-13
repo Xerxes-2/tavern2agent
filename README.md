@@ -12,6 +12,8 @@ SillyTavern 用大量机制（MVU 更新、强化思考链、JSON Patch 等）�
 
 本仓库是 pi coding agent 的一个 skill。放到 `~/.pi/agent/skills/tavern2agent/` 下，给 agent 一张角色卡，它就会自动按 skill 流程完成迁移。输出的具体目录和文件取决于卡的复杂程度。
 
+生成的卡有问题或者不知道怎么用，直接问 agent。
+
 ## 目录
 
 ```
