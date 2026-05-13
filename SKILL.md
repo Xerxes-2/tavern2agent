@@ -78,6 +78,7 @@ for i,e in enumerate(entries):
 |------|------|
 | `data.name` / `data.description` / `data.personality` / `data.scenario` | 角色基础设定 |
 | `data.first_mes` | 开场白（迁移时改写后内联到 `skills/开局.md`） |
+| `data.alternate_greetings[]` | 替选开场白数组。**不要忽略**——通常是不同路线/分支的开局。处理方式：作为开局 skill 的路线选项让用户选，或合并入 setup checklist |
 | `data.system_prompt` / `data.post_history_instructions` | 卡片自带 system prompt（可能含规则） |
 | `data.character_book.entries[]` | 世界书条目数组。每条有 `comment`（标签，如 `[mvu_update]`）、`content`（正文）、`keys`（触发词）、`enabled` |
 | `data.extensions.tavern_helper.scripts[]` | TH 脚本（Zod 模型 / 游戏逻辑） |
@@ -106,6 +107,7 @@ python3 scripts/list_entries.py card.json
 | 术语表 | `comment` 含「术语」「黑话」 | `data/world.json` → `terminology` section |
 | 骰子/伤害公式 | `content` 含 `{{roll:` / 伤害公式 / DC 分级 | `engine/dice.ts` 等 |
 | 键值状态 | `comment` 含 `[initvar]` / `[mvu_update]` | `engine/state.ts` → `initialState()` |
+| 路线/分支专属 | `comment` 含路线名（如「NTR 路线」「真结局」）/ 仅在特定条件下 enabled | 与 `alternate_greetings` 联动：每条路线对应一个开局选项，路线专属设定挂到 `data/routes/<路线名>.json`，开局选定后按需注入 |
 | ST 补丁 | `content` 含「强化思考」「JSON Patch」「`__结束__`」 | **丢弃** |
 
 **做完这一步再决定方案档位**——条目数量决定了 world.json 的规模：纯地理念卡 world.json ≤5KB 合理；大量常驻系统条目的卡，world.json 自然 20-30KB。
@@ -228,11 +230,28 @@ MVU 模型误读是后期返工最大的成本，前置 5 分钟对齐比写完�
 | `agents/<npc_xxx>.md` | NPC≥5 且有隐藏信息 | NPC subagent（每 NPC 一个，上下文隔离） |
 | `engine/state.ts` | 轻量+ | 状态引擎 |
 | `engine/dice.ts` 等 | 中等+ | 按需 |
-| `tools/registry.ts` | 轻量+ | 工具注册 |
+| `tools/registry.ts` | 轻量+ | 工具实现集中地（**不要内联到 extension.ts**） |
+| `extension.ts` | 轻量+ | pi 入口，只做注册：注入 system prompt + 调用 `registerAllTools(pi)` + hooks。详见 `references/platform-adapters.md` |
 | `data/world.json` | ✅ 必须 | 世界设定 |
 | `data/characters.json` | ≥5 角色时 | 角色数据 |
 | `data/user.json` | 需要 user 卡时 | 用户角色 |
 
+### 完工自检清单（向用户报告"完成"之前必须逐项对照）
+
+**不要等用户提醒漏项。** 在你认为迁移完成、准备说「迁移完毕」之前，**主动**逐项核对：
+
+- [ ] `first_mes` 已处理：改写后内联进 `skills/开局.md` 的开场叙事参考
+- [ ] **`alternate_greetings` 已处理**：每条都有去向（路线选项 / 合并 setup / 显式丢弃并说明原因）
+- [ ] **所有 `enabled: true` 的世界书条目都有去向**：按条目分类表落到 `data/*.json` / `engine/*.ts` / 显式丢弃。**不允许"看起来不重要就跳过"**
+- [ ] `extension.ts` 已生成且只做注册：顶层 `import`（无动态 `import()`）、`registerAllTools(pi)` 被调用
+- [ ] `tools/registry.ts` 不是死代码：extension.ts 真的引用了它
+- [ ] 中间检查点已交付（中等+ 方案）：state schema + 事件清单单独发给用户 review 过
+- [ ] 第一层 grep 残留扫描通过
+- [ ] 至少跑过 1 轮下场玩（第二层校验），观察 4 点全部 ✓
+
+任何一项打不上 ✓，**继续做完再报告**，不要把"还差 X"作为收工话术。
+
+---
 
 ## 六、校验
 

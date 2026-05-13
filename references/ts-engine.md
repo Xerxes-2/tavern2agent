@@ -309,6 +309,9 @@ export function calcDamage(
 
 ## 工具注册模式 (tools/registry.ts)
 
+> **`tools/registry.ts` 是工具实现的唯一聚集地**。`extension.ts` 只调用 `registerAllTools(pi)`，不要在 extension 里内联工具——否则 registry.ts 沦为死代码。extension 入口契约见 `references/platform-adapters.md`。
+
+
 ```typescript
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
