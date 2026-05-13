@@ -10,9 +10,35 @@ SillyTavern 用大量机制（MVU 更新、强化思考链、JSON Patch 等）�
 
 ## 能不能用
 
-- **角色卡**：SillyTavern v2（`spec: "chara_card_v2"`）。v1 老卡请先用 ST 或第三方工具升级到 v2 再迁移
-- **推荐模型**：DeepSeek V4 Pro / GPT-5.5 / Claude Sonnet 4.6+ / Opus 4.5+。弱模型（Flash 档）能跑但可能需要反复调试
+- **角色卡**：SillyTavern v2 / v3（`spec: "chara_card_v2"` 或 `"chara_card_v3"`）。v1 老卡请先用 ST 或第三方工具升级
 - **平台**：pi coding agent。其他平台理论上替换胶水层即可，但未官方支持
+
+### 推荐模型
+
+迁移阶段与运行阶段对模型的要求不同，分开看：
+
+**迁移阶段**（跑 skill 把卡转成 agent 项目）——吃指令遵循 + 长上下文 + 代码 + 自检：
+
+| 模型 | 适配点 |
+|---|---|
+| Claude Sonnet 4.6 / Opus 4.7 | 隐性约定推断最稳、SWE-bench 顶档；skill 默认环境 |
+| DeepSeek V4 Pro（Max 推理） | 1M context 整卡塞得下、中文母语级、价格友好 |
+| GPT-5.4 | Terminal-Bench 最强，重 agent loop 场景适用 |
+
+**运行阶段**（产出的 GM 跑游戏）——吃中文叙事 + 工具调用 + 长会话一致性：
+
+| 模型 | 适配点 |
+|---|---|
+| **DeepSeek V4 Pro** ⭐ | 已实测，中文叙事强、1M context、按 token 算极便宜 |
+| Kimi K2.6 | 256K 上下文 + 角色扮演场景调优，长跑游戏一致性好 |
+| GLM-5 | 国产 agent 调优、中文工具调用稳，比 Pro 更便宜 |
+| Claude Sonnet 4.6 | 规则遵循扎实、破第四墙概率低；预算够时优先 |
+
+### ⚠️ 不推荐
+
+- **DeepSeek V4 Flash / Flash@max** 等"省钱档"——实测会漏 `{{user}}`/`{{char}}` 字面量、自报"我已加载设定"破第四墙，隐性约定全靠 prompt 兜底。省下的钱不够调试时间
+- **<30B 激活参数的开源小模型**——跑得动 ≠ 跑得对
+- **GPT-4o / Gemini 1.5 等旧世代**——上下文小、工具调用绕
 
 ## 最小示例
 
