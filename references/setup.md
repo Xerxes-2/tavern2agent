@@ -71,13 +71,7 @@ description: 开始/重新开始游戏。收集缺失信息后交付开场叙事
 
 ## 平台集成
 
-### pi
-
 extension 负责 system prompt 注入 + 工具注册。首轮用户无输入时 agent 自动 call 开局 skill；用户也可以随时说「开局」手动触发。
-
-### Claude Code
-
-`/init` 加载 `agents/gm.md`，用户说「开局」后 agent 读 skill 文件执行。
 
 流程：
 

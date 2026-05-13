@@ -1,6 +1,6 @@
 ---
 name: tavern2agent
-description: 用户提供 SillyTavern 角色卡（PNG/JSON）并要求转换、迁移、移植到 agent 平台（pi coding agent / Claude Code）时使用；覆盖纯角色卡、世界书、以及带骰子/战斗/好感度/经济等游戏系统的复杂卡。
+description: 用户提供 SillyTavern 角色卡（PNG/JSON）并要求转换、迁移、移植到 pi coding agent 时使用；覆盖纯角色卡、世界书、以及带骰子/战斗/好感度/经济等游戏系统的复杂卡。
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 ---
 
@@ -14,10 +14,10 @@ SillyTavern 的很多机制是绕过单次 LLM 调用限制的补丁。agent 天
 
 动手分析之前先向用户确认两件事，避免做完返工：
 
-1. **目标平台**：pi coding agent / Claude Code / 两者都要？两者的胶水层差异较大（extension API vs hooks），engine 和 data 部分可共用，但 `tools/registry.ts`、启动钩子、skill 调用方式都要按平台写。详见 `references/platform-adapters.md`。
+1. **目标平台**：pi coding agent。engine 和 data 部分可共用。详见 `references/platform-adapters.md`。
 2. **是否已有同名 port**：如果工作目录里已存在 `agents/`、`engine/`、`skills/开局.md` 等，先和用户确认是覆盖、增量更新、还是另开目录。
 
-用户没明说时直接问一句，不要默认两个平台都做。
+用户没明说时直接问一句。
 
 ---
 
@@ -220,7 +220,7 @@ grep -rnE "UpdateVariable|JSON Patch|<%_|\{\{getvar:|\{\{setvar:|__结束__|强�
 | `script-analysis.md` | MVU 卡 | tavern_helper 脚本 + regex_scripts 分类与迁移 |
 | `mvu-mapping.md` | 轻量+ | MVU 条目 → engine 映射、initvar 读取、直观示例 |
 | `setup.md` | 全部 | 开局 setup 分析、开局 skill 模板、平台集成 |
-| `platform-adapters.md` | 全部 | pi/CC 胶水层、MCP 示例 |
+| `platform-adapters.md` | 全部 | pi 胶水层 |
 | `ts-engine.md` | 中等+ | TS 引擎代码（轻量 state、完整事件溯源、dice.ts） |
 | `multi-agent-architecture.md` | 完整 | 多 agent 架构（GM + Narrator） |
 | `storytelling.md` | 全部（可选） | 叙事节拍参考 |

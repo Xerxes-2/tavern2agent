@@ -157,6 +157,4 @@ export default function (pi: ExtensionAPI) {
 }
 ```
 
-### Claude Code 实现
 
-见 `references/platform-adapters.md`。

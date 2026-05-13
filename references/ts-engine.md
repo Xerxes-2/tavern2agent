@@ -55,7 +55,6 @@ export function rollbackToTurn(turnId: string) {
 
 胶水层挂钩（每轮开始前）：
 - pi：`pi.on("before_agent_start", e => snapshotBeforeTurn(e.turnId))`
-- Claude Code：`UserPromptSubmit` hook，turnId 用 `session_id + 自增计数`
 
 轻量方案注册 `get_status` / `update_status` 两个工具；中等方案在此基础上注册 engine 模块工具。
 
@@ -75,10 +74,10 @@ export function markResume(turnId: string) {
 注册 `request_rollback(turnId)` 工具。流程：
 1. 用户说「回到第 5 轮重新开始」
 2. agent 调 `request_rollback("5")` → state 回滚 + 写入 `resume-to.txt`
-3. agent 提示用户 `/clear`（Claude Code）/ 关掉重开（pi）
+3. agent 提示用户关掉重开
 4. 启动 hook 检测 `resume-to.txt`，把 state 内容 +「你回到了第 5 轮开始」前置到第一条用户消息，然后删除 marker
 
-chat 全清，state 干净。需要保留对白的细粒度 reroll 必须靠平台原生删消息 API，pi 若有就用；Claude Code 无干净接口，告诉用户走粗粒度。
+chat 全清，state 干净。需要保留对白的细粒度 reroll 必须靠平台原生删消息 API，pi 若有就用。
 
 ### 完整方案（事件溯源）
 
@@ -88,7 +87,7 @@ import { join } from "node:path";
 
 // 跨平台契约：胶水层通过 TAVERN2AGENT_STATE_DIR 注入。
 // pi extension 通常设为 `.pi/extensions/<name>/state`；
-// Claude Code / 独立运行默认落到项目根的 `state/`。
+// 独立运行默认落到项目根的 `state/`。
 const STATE_DIR = process.env.TAVERN2AGENT_STATE_DIR ?? join(process.cwd(), "state");
 const EVENTS_FILE = join(STATE_DIR, "events", "events.jsonl");
 const INDEX_FILE = join(STATE_DIR, "index.json");
@@ -373,5 +372,5 @@ export function registerAllTools(pi: ExtensionAPI) {
 1. **state.ts 是核心**——所有引擎模块依赖它，所有工具通过它读写
 2. **工具 execute 直接调引擎函数**——不需要 spawn 子进程
 3. **TypeBox 做参数校验**——pi 自带，不需要额外安装
-4. **state 目录由胶水层决定**——通过 `TAVERN2AGENT_STATE_DIR` 注入。pi extension 一般放 `.pi/extensions/<name>/state/`；Claude Code / 独立运行默认 `state/`
+4. **state 目录由胶水层决定**——通过 `TAVERN2AGENT_STATE_DIR` 注入。pi extension 一般放 `.pi/extensions/<name>/state/`；独立运行默认 `state/`
 5. **系统 prompt 每次注入当前状态**——agent 始终知道最新游戏局面
