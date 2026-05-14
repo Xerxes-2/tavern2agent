@@ -13,7 +13,7 @@ grep -rnE "UpdateVariable|JSON Patch|<%_|\{\{getvar:|\{\{setvar:|__结束__|强�
 ## 人工检查清单
 
 - [ ] `agents/gm.md` 核心规则 ≤5 条
-- [ ] 如有游戏系统则 `agents/narrator.md` 存在且 `tools: []`
+- [ ] 如走多 agent，每个隔离 NPC 有独立 `agents/npc_*.md` 且 `tools:` 为空
 - [ ] engine 模块覆盖 MVU 计算规则
 - [ ] state schema 与 MVU 变量定义一致
 - [ ] 角色数据按需拆分到 `data/characters.json`（≥5 个角色时）

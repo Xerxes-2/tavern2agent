@@ -144,17 +144,16 @@ python3 scripts/list_entries.py card.json
 
 ### 多 agent 判定（独立维度，不跟 engine 档位绑定）
 
-多 agent 的唯一正确用途是 **NPC 上下文隔离**——防止模型在单一 context 中读到 NPC A 的秘密后，让 NPC B 做出不该有的反应。GM 仍然是主叙事者，NPC subagent 只负责"这个 NPC 在当前情境下说什么、做什么"。
+多 agent 的核心用途是 **认知隔离**——任何"某个视角不该看到的信息"都可以拆进独立 context。NPC 秘密只是最常见的一种：模型在单一 context 里读到 NPC A 的秘密，就会让 NPC B 做出不该有的反应。但隔离对象不限于 NPC——悬疑/侦探题材里凶手身份、未揭晓的真相、玩家尚未推理出的线索，都该挡在主 context 之外，否则 GM 会"剧透式叙事"。GM 仍是主叙事者，subagent 只负责自己那块被隔离的视角。
 
-**多 agent 的决策跟 game engine 复杂度无关**。一张无骰子的纯 prompt 卡，如果 NPC ≥5 且有隐藏信息/秘密关系，就该走多 agent。
+**多 agent 的决策跟 game engine 复杂度无关**。一张无骰子的纯 prompt 卡，只要存在认知隔离需求（NPC 秘密、信息不对等、隐藏真相），就该走多 agent。
 
 | 触发信号 | 行动 |
 |----------|------|
-| NPC ≤4 且无隐藏信息 | 单 agent（GM 自己扮演所有 NPC） |
+| NPC ≤4 且无隐藏信息、无隐藏剧情 | 单 agent（GM 自己扮演所有 NPC） |
 | NPC ≥5 且有隐藏信息/秘密/阵营 | 多 agent：每个有秘密的 NPC 独立 subagent，GM 织入叙事 |
-| NPC 之间信息不对等（A 知道 B 不知道的事）| 多 agent——这正是上下文隔离的核心价值 |
-
-> **不要用多 agent 搞 GM+Narrator 模式**——把叙事外包给 subagent 是本末倒置：GM 才是讲故事的人，subagent 的输出要 Ctrl+O 展开才能看，token 翻倍。Narrator 模式只在极少数场景（并行多视角叙事 + 模型分层省钱）有微弱优势。
+| 视角间信息不对等（NPC 之间、PC 之间，或 GM 不该看到的真相）| 多 agent——这正是认知隔离的核心价值 |
+| 悬疑/侦探等"答案不能泄漏给叙事者"的题材 | 多 agent：真相/凶手视角独立 context，主 GM 只拿到该揭晓的部分 |
 
 ### subagent 适用场景速查
 
