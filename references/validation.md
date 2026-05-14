@@ -144,6 +144,58 @@ console.assert((state as any).个人?.姓名 !== "待初始化", "姓名未写�
 
 断言路径依据实际 state schema 调整，字段名从 `[initvar]` 和 `[mvu_update]` 条目中提取。
 
+## 脚本编写注意事项（已知坑）
+
+以下是从实际下场测试中踩出来的问题，写测试脚本时留意。
+
+### 1. pi SDK 的 ESM 模块解析
+
+`@earendil-works/pi-coding-agent` 是纯 ESM 包（`"type": "module"`），`import` 只在 pi 自身的加载器下能直接解析。跑独立测试脚本时：
+
+- 脚本扩展名用 `.mjs`
+- 用 `node --experimental-vm-modules` 启动
+- 在项目 `node_modules/` 下建一个指向全局 pi 安装位置的软链接：
+  ```bash
+  mkdir -p node_modules/@earendil-works
+  ln -s $(dirname $(dirname $(which pi)))/lib/node_modules/@earendil-works/pi-coding-agent \
+    node_modules/@earendil-works/pi-coding-agent
+  ```
+- 测试完记得删掉这个软链接（它不是迁移产物的一部分）
+
+### 2. `agent_end` 后立即 `prompt()` 的竞态
+
+`agent_end` 事件触发时，session 的内部状态可能尚未完全回到 idle。紧接着调用 `session.prompt()` 会抛 `"Agent is already processing"`。修复方式：
+
+```typescript
+if (event.type === "agent_end") {
+  // 给 session 一点时间完成内部清理
+  setTimeout(() => { unsub(); resolve(output); }, 100);
+}
+```
+
+每轮之间也加一个 `await new Promise(r => setTimeout(r, 500))` 做间隔。
+
+### 3. TypeBox `Record` 陷阱：混合类型字段
+
+`Type.Record(Type.String(), Type.String())` 会把对象里**所有值**都转成字符串——包括 boolean 和 number。如果你的 presence/状态对象里混了 `isTransformed: boolean` 和 `Lust: number` 这类非字符串字段，必须用 `Type.Object({...})` 逐个声明字段类型：
+
+```typescript
+// ❌ 错误——所有值变成 string
+Type.Record(Type.String(), Type.String())
+
+// ✅ 正确——保留各自类型
+Type.Object({
+  Thought: Type.Optional(Type.String()),
+  Action: Type.Optional(Type.String()),
+  isTransformed: Type.Optional(Type.Boolean()),
+  Lust: Type.Optional(Type.Number()),
+})
+```
+
+如果确实需要自由键名 + 混合类型，在 execute 里做运行时类型转换（`Boolean(v)` / `Number(v)`）作为兜底。
+
+---
+
 ## 常见问题 & 你的判断
 
 | 你观察到 | 结论 |
