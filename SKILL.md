@@ -10,6 +10,8 @@ SillyTavern 的很多机制是绕过单次 LLM 调用限制的补丁。agent 天
 
 目标平台是 pi coding agent，详见 `references/platform-adapters.md`。
 
+**能力边界**：本 skill 只产出**文字交互**的 agent。前端面板/状态条 HTML、文生图（SD/NAI/ComfyUI）提示词、预设与上下文模板等一律剥离或丢弃——不是做不到，而是这些大多是 ST 运行时补丁，agent 不需要，强行复刻反而锁死灵活性。需要的人转换完成后自行接入。
+
 ---
 
 ## 〇、开工前确认
