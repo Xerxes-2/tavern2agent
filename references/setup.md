@@ -20,7 +20,12 @@
 
 ## 产出：开局 skill
 
-每个卡片迁移**必须产出** `skills/开局.md`。把 `first_mes` 改写成纯叙事散文（去掉 HTML/状态面板/`<thinking>` 等 ST 渲染标签），保留场景、人物、氛围、关键对白，内联到 skill 模板中作为叙事参考。下面是模板。
+每个卡片迁移**必须产出**开局 skill。pi 的 Agent Skills 规范要求：
+- 技能文件路径：`skills/<skill-name>/SKILL.md`（目录名 = 技能名）
+- name 只允许小写 a-z / 0-9 / 连字符，最长 64 字符，**必须与目录名一致**
+- 推荐默认用 `skills/start-game/SKILL.md`（name: `start-game`）
+
+把 `first_mes` 改写成纯叙事散文（去掉 HTML/状态面板/`<thinking>` 等 ST 渲染标签），保留场景、人物、氛围、关键对白，内联到 skill 模板中作为叙事参考。下面是模板。
 
 > **改写时必须剥离的 ST 宏**（出现在 `first_mes` / `description` / `system_prompt` / 任何写入产出文件的字段中）:
 > - `{{user}}` → 改成 `data/user.json` 中的姓名变量引用，或保留为「你」/「玩家」等第二人称代词。**绝对不能让 `{{user}}` 字面量出现在开局叙事或 GM prompt 里**——agent 端没有宏展开。
@@ -35,8 +40,8 @@
 
 ```markdown
 ---
-name: 开局
-description: 开始/重新开始游戏。收集缺失信息后交付开场叙事。
+name: start-game
+description: 开始/重新开始《卡片名》游戏。收集用户角色信息后交付开场叙事。当用户说「开始」「开局」「开始游戏」「重新开始」时使用此技能。
 ---
 
 # 开局
@@ -99,7 +104,7 @@ extension 负责 system prompt 注入 + 工具注册。首轮用户无输入时 
 用户说「开始」/ 首轮触发
         │
         ▼
-  agent 读 skills/开局.md
+  agent 读 skills/start-game/SKILL.md
         │
         ▼
   ┌─ setup 阶段 ─────────────────────────────┐

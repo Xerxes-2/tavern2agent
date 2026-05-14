@@ -18,7 +18,7 @@ SillyTavern 的很多机制是绕过单次 LLM 调用限制的补丁。agent 天
 
 1. **先读 `references/design-principles.md`**——七条核心原则（agent 是程序本身、所有计算进引擎、prompt 极简、砍掉强化思考链等）决定了产出的形态，不读会写出"翻译 ST 咒语"风格的代码。
 2. **确认输出目录**：用户如果说「输出到 xxx 目录」「放到 cards/ 下」，直接照做。如果用户只说「转换这张卡」没指定路径，主动问一句：「输出到哪个目录？目录名用卡片名还是自定义？」用户没指定命名规则时，默认取卡片 `data.name` 作为目录名（非法字符替换为下划线），放在卡片 PNG 同级目录下。
-3. **检查工作目录**：如果目标目录已存在 `agents/`、`engine/`、`skills/开局.md` 等，先和用户确认是覆盖、增量更新、还是另开目录。用户没明说时直接问一句。
+3. **检查工作目录**：如果目标目录已存在 `agents/`、`engine/`、`skills/start-game/SKILL.md` 等，先和用户确认是覆盖、增量更新、还是另开目录。用户没明说时直接问一句。
 
 ---
 
@@ -80,7 +80,7 @@ for i,e in enumerate(entries):
 | 路径 | 内容 |
 |------|------|
 | `data.name` / `data.description` / `data.personality` / `data.scenario` | 角色基础设定 |
-| `data.first_mes` | 开场白（迁移时改写后内联到 `skills/开局.md`） |
+| `data.first_mes` | 开场白（迁移时改写后内联到开局 skill） |
 | `data.alternate_greetings[]`（v3 另含 `data.group_only_greetings[]`） | 替选开场白数组。**不要忽略**——通常是不同路线/分支的开局。处理方式：作为开局 skill 的路线选项让用户选，或合并入 setup checklist |
 | `data.system_prompt` / `data.post_history_instructions` | 卡片自带 system prompt（可能含规则） |
 | `data.character_book.entries[]` | 世界书条目数组。每条有 `comment`（标签，如 `[mvu_update]`）、`content`（正文）、`keys`（触发词）、`enabled` |
@@ -184,7 +184,7 @@ python3 scripts/list_entries.py card.json
 | 卡片特征 | 落档 | 理由 |
 |---------|------|------|
 | 纯地理/势力设定 + 几个 NPC 模板，无变量、无骰子 | 纯 prompt | 没有状态需要维护，data/ 够用 |
-| `first_mes` 末尾有"选难度/选阵营"问句，但游戏本身无系统 | 纯 prompt + 开局 skill 收 setup | 选项落到 `skills/开局.md` 而非 engine |
+| `first_mes` 末尾有"选难度/选阵营"问句，但游戏本身无系统 | 纯 prompt + 开局 skill 收 setup | 选项落到开局 skill 而非 engine |
 | 30+ 键值状态（好感度、日期、地点），但变化全是 ±1/±5 这类直接加减 | 轻量 | `patchState` 够用，不需要事件溯源 |
 | 有 `{{roll:1d6}}` 偶尔用于占卜，其余推进靠 prompt | 轻量 | 1-2 次偶发掷骰直接写进 GM 规则，不值得开 `dice.ts` |
 | 有伤害公式 + 装备护甲 + 命中检定，但允许玩家"接受这一击就过" | 中等 | 战斗逻辑进 engine，无需事件溯源式回退 |
@@ -200,7 +200,7 @@ python3 scripts/list_entries.py card.json
 
 产出 `agents/gm.md`（角色+世界+规则，核心规则≤5条）+ `data/world.json` + `data/characters.json`（≥5角色时拆分）+ `data/chapters.json`（如有）。
 
-开场白：所有方案都必须生成 `skills/开局.md`，`first_mes` 改写后内联其中、由 agent 在开局时主动交付。模板和 checklist 生成规则详见 `references/setup.md`。
+开场白：所有方案都必须生成开局 skill（`skills/<skill-name>/SKILL.md`），`first_mes` 改写后内联其中、由 agent 在开局时主动交付。**技能名必须 ASCII（a-z/0-9/-）且与目录名一致**，推荐 `skills/start-game/SKILL.md`。模板和 checklist 生成规则详见 `references/setup.md`。
 
 ### 轻量 / 中等方案
 
@@ -227,7 +227,7 @@ MVU 模型误读是后期返工最大的成本，前置 5 分钟对齐比写完�
 
 | 文件 | 必需？ | 说明 |
 |------|:-----:|------|
-| `skills/开局.md` | ✅ 必须 | 游戏入口 skill，处理 user 卡/配置/开场 |
+| `skills/<skill-name>/SKILL.md` | ✅ 必须 | 游戏入口 skill（如 `skills/start-game/SKILL.md`），处理 user 卡/配置/开场 |
 | `agents/gm.md` | ✅ 必须 | GM system prompt |
 | `agents/<npc_xxx>.md` | NPC≥5 且有隐藏信息 | NPC subagent（每 NPC 一个，上下文隔离） |
 | `engine/state.ts` | 轻量+ | 状态引擎 |
@@ -242,7 +242,7 @@ MVU 模型误读是后期返工最大的成本，前置 5 分钟对齐比写完�
 
 **不要等用户提醒漏项。** 在你认为迁移完成、准备说「迁移完毕」之前，**主动**逐项核对：
 
-- [ ] `first_mes` 已处理：改写后内联进 `skills/开局.md` 的开场叙事参考，**ST 宏（`{{user}}`/`{{char}}`/`{{random}}`/`{{roll}}` 等）已剥离/替换**（详见 setup.md「改写时必须剥离的 ST 宏」）
+- [ ] `first_mes` 已处理：改写后内联进开局 skill 的开场叙事参考，**ST 宏（`{{user}}`/`{{char}}`/`{{random}}`/`{{roll}}` 等）已剥离/替换**（详见 setup.md「改写时必须剥离的 ST 宏」）
 - [ ] **`alternate_greetings` 已处理**：每条都有去向（路线选项 / 合并 setup / 显式丢弃并说明原因）
 - [ ] **所有 `enabled: true` 的世界书条目都有去向**：按条目分类表落到 `data/*.json` / `engine/*.ts` / 显式丢弃。**不允许"看起来不重要就跳过"**
 - [ ] `extension.ts` 已生成且只做注册：顶层 `import`（无动态 `import()`）、`registerAllTools(pi)` 被调用

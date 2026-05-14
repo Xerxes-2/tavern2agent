@@ -4,9 +4,9 @@
 
 ## 开场白
 
-由 `skills/开局.md` 处理，详见 `references/setup.md`。agent 首轮 call 开局 skill，pi extension 通过 skill 完成开场。
+由开局 skill 处理（`skills/start-game/SKILL.md`），详见 `references/setup.md`。agent 首轮 call 开局 skill，pi extension 通过 skill 完成开场。
 
-> **注意**：`skills/` 不在 pi 默认技能发现路径中。extension 必须通过 `resources_discover` 钩子注册技能路径，否则 `skills/开局.md` 不会被 pi 加载。详见下方「技能路径注册」。
+> **注意**：`skills/` 不在 pi 默认技能发现路径中。extension 必须通过 `resources_discover` 钩子注册技能路径，否则开局 skill 不会被 pi 加载。pi 会递归扫描注册目录，查找 `<name>/SKILL.md` 子目录结构。详见下方「技能路径注册」。
 
 ## pi 职责
 
@@ -14,7 +14,7 @@
 |------|-----|
 | System prompt 注入 | `pi.on("before_agent_start")` extension hook |
 | 工具注册 | `pi.registerTool(...)` |
-| 技能路径注册 | `pi.on("resources_discover")` — 注册 `skills/` 让 pi 发现 `skills/开局.md` |
+| 技能路径注册 | `pi.on("resources_discover")` — 注册 `skills/` 目录，pi 递归发现其中的 `<name>/SKILL.md` 技能文件 |
 | NPC 上下文隔离 | `pi-subagents` 包，定义放 `agents/*.md`。常用于 NPC 信息隔离，防止秘密泄漏 |
 | 钩子（日志等） | `pi.on("tool_result_end")` |
 | 状态文件 | 任意目录，建议 `state/` |
@@ -38,7 +38,7 @@ pi 通过 **jiti** 加载 `extension.ts`，几个坑：
 - **路径用相对 `./` 或 `../` 可能按 `cwd` 解析**——对外部文件和 `resources_discover` 路径注册一律用绝对路径，通过 `import.meta.url` 获取当前文件目录
 - **环境变量在 extension 顶层读取一次缓存**——别在工具 execute 里反复 `process.env.X`
 
-**技能路径注册**：pi 默认只从 `~/.pi/agent/skills/` 和 `.pi/skills/` 发现技能（见 skills.md）。项目自己的 `skills/` 需要通过 `resources_discover` 显式注册：
+**技能路径注册**：pi 默认只从 `~/.pi/agent/skills/` 和 `.pi/skills/` 发现技能。项目自己的 `skills/` 需要通过 `resources_discover` 显式注册。pi 扫描注册目录时查找 `<name>/SKILL.md` 子目录结构（name 必须 ASCII a-z/0-9/-，且与目录名一致）：
 
 ```typescript
 import { fileURLToPath } from "node:url";
@@ -66,7 +66,7 @@ import { dirname, join } from "node:path";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export default function extension(pi: ExtensionAPI) {
-  // 技能路径注册（让 pi 发现 skills/开局.md）
+  // 技能路径注册（pi 递归扫描 skills/ 发现 <name>/SKILL.md）
   pi.on("resources_discover", async () => {
     return { skillPaths: [join(__dirname, "skills")] };
   });

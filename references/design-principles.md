@@ -50,5 +50,5 @@ agent 的对话输出本身就是叙事。不需要额外分离到独立日志�
 - `data/characters.json` — 角色数据（性格、背景、说话特点），通过角色详情查询工具（如 `get_character_detail`）按需读取，不预注入 prompt
 - GM prompt 中的角色列表 — 只列角色名 + 一句话摘要（≤20 字/角色）
 - 章节剧情模板 — 提取到 `data/chapters.json`，注册章节查询工具让 GM 按需加载当前章节；不要预注入 prompt
-- `first_mes` 为前端 HTML 说明书时 — 合成文学性开场叙事，内联到 `skills/开局.md`
-- 开场白：生成 `skills/开局.md`，agent 首轮 call 它。详见 `references/setup.md`。
+- `first_mes` 为前端 HTML 说明书时 — 合成文学性开场叙事，内联到开局 skill
+- 开场白：生成开局 skill（`skills/<name>/SKILL.md`，如 `skills/start-game/SKILL.md`），agent 首轮 call 它。详见 `references/setup.md`。

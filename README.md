@@ -69,7 +69,9 @@ project/
 ├── agents/gm.md
 ├── data/world.json
 ├── data/characters.json     # ≥5 角色时拆分
-└── skills/开局.md
+└── skills/
+    └── start-game/
+        └── SKILL.md
 ```
 
 最复杂（带战斗 + 死亡回溯 + 多 NPC 信息隔离）：
@@ -90,7 +92,9 @@ project/
 │   ├── world.json
 │   ├── characters.json
 │   └── chapters.json
-└── skills/开局.md
+└── skills/
+    └── start-game/
+        └── SKILL.md
 ```
 
 中间还有「轻量」「中等」两档，按卡片复杂度自动落档，决策表见 `SKILL.md`。
