@@ -52,7 +52,7 @@ export function rollbackToTurn(turnId: string) {
 ```
 
 胶水层挂钩（每轮开始前）：
-- pi：`pi.on("before_agent_start", e => snapshotBeforeTurn(e.turnId))`
+- pi：`before_agent_start` 事件没有 `turnId` 字段；用 `event.prompt` 的前 20 字符 + `Date.now()` 做简易 ID，或自行维护递增计数器
 
 轻量方案注册 `get_status` / `update_status` 两个工具；中等方案在此基础上注册 engine 模块工具。
 

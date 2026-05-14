@@ -47,10 +47,14 @@ import { readFileSync } from "node:fs";
 
 export default function extension(pi: ExtensionAPI) {
   const gmPrompt = readFileSync("./agents/gm.md", "utf-8");
-  pi.on("before_agent_start", (e) => {
-    pi.injectSystemPrompt(gmPrompt);
-    snapshotBeforeTurn(e.turnId);
+  pi.on("before_agent_start", async (event) => {
+    snapshotBeforeTurn(event.prompt); // 用 prompt 做简易 turn 标识
+    return {
+      systemPrompt: event.systemPrompt + "\n\n" + gmPrompt,
+    };
   });
   registerAllTools(pi);
 }
 ```
+
+> **注**：`before_agent_start` 通过 `return { systemPrompt }` 修改 system prompt，不存在 `pi.injectSystemPrompt()`。查看当前 prompt 用 `event.systemPrompt` 或 `ctx.getSystemPrompt()`。
