@@ -42,10 +42,25 @@ export function writeState(state: Record<string, unknown>) {
   writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
 }
 
-/** JSON Patch (RFC 6902) — 原地修改 state */
+/** JSON Patch (RFC 6902) — 递归创建缺失中间对象后原地修改 state */
 export function patchState(ops: Array<{ op: string; path: string; value?: unknown }>) {
   const state = getState();
-  applyPatch(state, ops);
+  // rfc6902 不自动创建中间对象 — 预处理：逐段 ensure 路径存在
+  const raw = state as unknown as Record<string, unknown>;
+  for (const op of ops) {
+    if (op.op === "remove") continue;
+    const segments = op.path.split("/").filter(Boolean);
+    if (segments.length <= 1) continue; // 顶层 key 不需要预创建
+    let cur: Record<string, unknown> = raw;
+    for (let i = 0; i < segments.length - 1; i++) {
+      const key = segments[i];
+      if (!(key in cur) || typeof cur[key] !== "object" || cur[key] === null) {
+        cur[key] = {};
+      }
+      cur = cur[key] as Record<string, unknown>;
+    }
+  }
+  applyPatch(raw, ops);
   writeState(state);
 }
 
