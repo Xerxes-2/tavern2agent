@@ -144,7 +144,8 @@ project/
 │   ├── world.json             # 世界设定（所有 NPC 的公开信息）
 │   └── characters.json        # 角色数据
 └── skills/
-    └── 开局.md
+    └── start-game/
+        └── SKILL.md
 ```
 
 ## pi 胶水层要点
