@@ -15,4 +15,12 @@ cd "$(dirname "$(readlink -f "$0")")"
 echo "启动《$(basename "$PWD")》..."
 # 会话存档放在项目内，方便打包带走
 mkdir -p ./sessions
-exec pi -e ./extension.ts --session-dir ./sessions "$@"
+
+# -ne (--no-extensions): 禁用全局/项目自动发现的扩展，只加载本项目的 extension.ts
+# -ns (--no-skills):    禁用全局/项目自动发现的技能，只加载 extension 注册的 skills/
+# 如果你需要额外扩展或技能，去掉对应 flag 或在命令行显式加 -e/-skill 参数
+exec pi \
+  -e ./extension.ts \
+  --session-dir ./sessions \
+  -ne -ns \
+  "$@"
