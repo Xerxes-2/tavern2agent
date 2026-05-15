@@ -9,7 +9,7 @@ MVU 角色卡携带两类脚本：`tavern_helper.scripts` 和 `regex_scripts`。
 | 脚本类型 | 识别特征 | 迁移方式 |
 |---------|---------|---------|
 | **Zod 变量结构** | content 含 `registerMvuSchema` + `z.object({…})` | 提取 `export const Schema`，去掉首尾酒馆注册代码。用于理解数据模型、生成 `INITIAL_STATE` 结构 |
-| **MVU 引擎** | content 是 `import '…MagVarUpdate…'` | **丢弃**。agent 用 `get_status`/`update_status`/`dispatch` 工具替代 |
+| **MVU 引擎** | content 是 `import '…MagVarUpdate…'` | **丢弃**。agent 用 `get_status`/`patch_state`/`dispatch` 工具替代 |
 | **游戏系统脚本** | content 是 `import '…性斗学园脚本…'` 等自定义 URL | 外链脚本不在卡 JSON 内。① 读 MVU 条目中的公式/规则 ② 尝试 `curl` 抓取 ③ 抓不到则从 MVU 条目推断 engine 模块 |
 | **ST 工具类** | content 是 `import '…世界书强制…'` / `import '…自动更新…'` | **丢弃**。ST 客户端能力，agent 不需要 |
 | **UI 悬浮窗** | content 是 HTML/CSS/JS 状态面板 | **丢弃 UI 代码**，但提取状态字段名作为 `INITIAL_STATE` 交叉校验 |

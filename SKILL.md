@@ -141,7 +141,7 @@ python3 scripts/list_entries.py card.json
 | 情况 | 方案 | state 写入 | 产出 |
 |------|------|-----------|------|
 | 没有 MVU 条目 | **纯 prompt** | — | `agents/gm.md`、`data/` |
-| 只有键值状态，无骰子/公式 | **轻量** | `patchState` | 上者 + `engine/state.ts` + `get_status`/`update_status` 工具 |
+| 只有键值状态，无骰子/公式 | **轻量** | `patchState` | 上者 + `engine/state.ts` + `get_status`/`patch_state` 工具 |
 | 有骰子/战斗/经济，不需一轮内精确回退 | **中等** | `patchState` + 每轮快照 | 上者 + `engine/dice.ts` 等模块 |
 | 需死亡回溯/章节存档/事件级回退 | **完整 engine** | `dispatch(event)` | 事件溯源 + 全套模块 + 多 agent |
 
@@ -215,7 +215,7 @@ state 骨架代码见 `references/ts-engine.md`「轻量/中等方案」。中�
 在动手写 `engine/*.ts` 之前，**先把以下两份输出单独发给用户 review**：
 
 1. **state schema**——TS interface 或 JSON 示例，列出所有字段及其类型/初值
-2. **事件清单**——中等方案给操作列表（`update_status`、`snapshot`、`rollback` 等）；完整方案给事件名 + payload（`set` / `delta` / `death_rewind` 等）
+2. **事件清单**——中等方案给操作列表（`patch_state`、`snapshot`、`rollback` 等）；完整方案给事件名 + payload（`set` / `delta` / `death_rewind` 等）
 
 MVU 模型误读是后期返工最大的成本，前置 5 分钟对齐比写完一整套 engine 再改便宜得多。轻量方案 schema 通常一眼能看完，可跳过此步。
 

@@ -10,11 +10,20 @@
 
 ### 轻量 / 中等方案
 
-适用于键值状态或整轮回滚场景（不需要事件溯源）：
+适用于键值状态或整轮回滚场景（不需要事件溯源）。
+
+**状态更新使用 JSON Patch（RFC 6902）**：`patch_state` 工具只传变化字段路径，不传整个 state。省 token 且防 LLM 覆盖无关字段。
+
+依赖 `rfc6902`（同时提供 `applyPatch` + `createPatch` 做 diff）：
+
+```bash
+npm install rfc6902
+```
 
 ```typescript
 import { readFileSync, writeFileSync, existsSync, mkdirSync, copyFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { applyPatch } from "rfc6902";
 
 const STATE_DIR = process.env.TAVERN2AGENT_STATE_DIR ?? "state";
 const STATE_FILE = join(STATE_DIR, "state.json");
@@ -29,10 +38,27 @@ export function getState(): Record<string, unknown> {
   return JSON.parse(readFileSync(STATE_FILE, "utf-8"));
 }
 
-export function patchState(updates: Record<string, unknown>) {
-  const state = getState();
-  Object.assign(state, updates);
+export function writeState(state: Record<string, unknown>) {
   writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
+}
+
+/** JSON Patch (RFC 6902) — 原地修改 state */
+export function patchState(ops: Array<{ op: string; path: string; value?: unknown }>) {
+  const state = getState();
+  applyPatch(state, ops);
+  writeState(state);
+}
+
+/** 按 dot-separated 路径读嵌套值，如 deepGet(state, "主角.生命值.当前值") */
+export function deepGet(obj: Record<string, unknown>, path: string): unknown {
+  const keys = path.split(".");
+  let current: unknown = obj;
+  for (const k of keys) {
+    if (current && typeof current === "object" && k in (current as any)) {
+      current = (current as Record<string, unknown>)[k];
+    } else return undefined;
+  }
+  return current;
 }
 
 // — 仅中等方案需要以下 —
@@ -54,7 +80,7 @@ export function rollbackToTurn(turnId: string) {
 胶水层挂钩（每轮开始前）：
 - pi：`before_agent_start` 事件没有 `turnId` 字段；用 `event.prompt` 的前 20 字符 + `Date.now()` 做简易 ID，或自行维护递增计数器
 
-轻量方案注册 `get_status` / `update_status` 两个工具；中等方案在此基础上注册 engine 模块工具。
+轻量方案注册 `get_status` / `patch_state` 两个工具；中等方案在此基础上注册 engine 模块工具。
 
 ### 中等方案：重 roll / 回滚（粗粒度）
 
@@ -314,12 +340,13 @@ export function calcDamage(
 
 ```typescript
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { Container, Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
-import { getCurrentState, dispatch, evt } from "../engine/state";
+import { getState, patchState, deepGet } from "../engine/state";
 import { check, calcDamage } from "../engine/dice";
 
 export function registerAllTools(pi: ExtensionAPI) {
-  // 查询工具
+  // ── 状态查询 ──
   pi.registerTool({
     name: "get_status",  // 工具名按本卡主题命名
     label: "角色状态",
@@ -327,7 +354,7 @@ export function registerAllTools(pi: ExtensionAPI) {
     promptSnippet: "查询主角当前的生命值、魔法值、属性、装备和技能",
     parameters: Type.Object({}),
     async execute() {
-      const s = getCurrentState();
+      const s = getState();
       const p = s.主角 as Record<string, unknown>;
       return {
         content: [{ type: "text", text: JSON.stringify(p, null, 2) }],
@@ -336,7 +363,56 @@ export function registerAllTools(pi: ExtensionAPI) {
     },
   });
 
-  // 行动工具
+  // ── 状态写入（JSON Patch）──
+  pi.registerTool({
+    name: "patch_state",
+    label: "Patch State",
+    description: "用 JSON Patch (RFC 6902) 更新游戏状态。只传变化字段的路径和值，不需要传整个 state。",
+    promptSnippet: "用 JSON Patch 更新游戏状态，只传要改的字段",
+    promptGuidelines: [
+      "使用 patch_state 更新状态，每次只传要修改的字段路径。不需要传整个 state 对象。",
+      "patch_state 的 path 是 / 分隔的 JSON Pointer，如 /主角/生命值/当前值",
+      "op 可选: replace（修改）、add（新增/替换）、remove（删除）",
+    ],
+    parameters: Type.Object({
+      ops: Type.Array(Type.Object({
+        op: Type.Union([Type.Literal("add"), Type.Literal("replace"), Type.Literal("remove")]),
+        path: Type.String({ description: "JSON Pointer 路径，如 /主角/生命值/当前值" }),
+        value: Type.Optional(Type.Unknown()),
+      })),
+    }),
+    async execute(_id, params) {
+      const before = getState();
+      patchState(params.ops);
+      const after = getState();
+      // 每行一条变化摘要，给 LLM 和玩家都能读懂
+      const changes = params.ops.map(op => {
+        const label = op.path.split("/").filter(Boolean).join("→");
+        const oldVal = deepGet(before, op.path.slice(1).replace(/\//g, "."));
+        if (op.op === "remove") return `- ${label}（已移除）`;
+        return `${label}: ${oldVal} → ${op.value}`;
+      });
+      return {
+        content: [{ type: "text", text: changes.join("\n") }],
+        details: params.ops,
+      };
+    },
+    renderResult(result, { expanded }, theme) {
+      const text = result.content[0];
+      if (!text || text.type !== "text") return new Container();
+      const lines = text.text.split("\n");
+      if (!expanded && lines.length > 3) {
+        return new Text(
+          lines.slice(0, 3).map(l => theme.fg("muted", l)).join("\n") +
+            "\n" + theme.fg("dim", `... 共 ${lines.length} 项`),
+          0, 0,
+        );
+      }
+      return new Text(lines.map(l => theme.fg("muted", l)).join("\n"), 0, 0);
+    },
+  });
+
+  // ── 行动工具 ──
   pi.registerTool({
     name: "skill_check",
     label: "属性检定",
@@ -347,7 +423,7 @@ export function registerAllTools(pi: ExtensionAPI) {
       difficulty: Type.Optional(Type.String({ description: "难度：简单/普通/困难/极难/噩梦" })),
     }),
     async execute(_id, params) {
-      const s = getCurrentState();
+      const s = getState();
       const attrs = (s.主角 as Record<string, unknown>).属性列表 as Record<string, number>;
       const dcMap: Record<string, number> = { 简单: 8, 普通: 12, 困难: 16, 极难: 20, 噩梦: 25 };
       const dc = dcMap[params.difficulty || "普通"] || 12;

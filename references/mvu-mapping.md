@@ -24,7 +24,7 @@ MVU 条目（`[mvu_update]` 和 `[mvu_plot]`）是卡片作者写给 LLM 的「�
 好感度: 0       # 范围 -100~100
 单次互动调整: ±5
 ```
-→ 如果这是**唯一**游戏系统 → **轻量方案**。`INITIAL_STATE.好感度 = 0`；`gm.md` 写「友善互动后调 `update_status` ±5」。不要写 `engine/affection.ts`。
+→ 如果这是**唯一**游戏系统 → **轻量方案**。`INITIAL_STATE.好感度 = 0`；`gm.md` 写「友善互动后调 `patch_state` ±5」。不要写 `engine/affection.ts`。
 → 但如果这张卡**已经有骰子/战斗** → 好感度也应写成 engine 模块，一致性优先。
 
 ```
@@ -68,7 +68,7 @@ MVU 条目（`[mvu_update]` 和 `[mvu_plot]`）是卡片作者写给 LLM 的「�
 1. **优先读取 `[initvar]` 条目**（如有）→ 这是卡片作者定义的实际初始值（YAML 格式），直接转化为 `INITIAL_STATE` 对象
 2. 如果没有 `[initvar]`，退而求其次：`get_entry.py` 读所有 `[mvu_update]` 条目的 `content`，找到变量定义块（JSON / YAML / `name: 默认值` 列表均可）
 3. 直接拷成 SKILL.md「轻量方案」中 `INITIAL_STATE` 的字面量。**不要**生成 dice.ts/combat.ts/economy.ts——那些条目本身就不该存在
-4. 对 MVU 里描述「何时变化」的自然语言（如「每次帮助 +5」），**不要**翻译成代码——写成 GM prompt 里的一行规则，让 agent 自己判断后调 `update_status`
+4. 对 MVU 里描述「何时变化」的自然语言（如「每次帮助 +5」），**不要**翻译成代码——写成 GM prompt 里的一行规则，让 agent 自己判断后调 `patch_state`
 
 判断边界：条目里出现 `{{roll:...}}`、伤害公式、阈值分级（DC/暴击/经验曲线）→ 升级到完整 engine 方案；只有「±N」「设为 X」→ 留在轻量方案。
 

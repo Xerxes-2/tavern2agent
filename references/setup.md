@@ -31,7 +31,7 @@
 > - `{{user}}` → 改成 `data/user.json` 中的姓名变量引用，或保留为「你」/「玩家」等第二人称代词。**绝对不能让 `{{user}}` 字面量出现在开局叙事或 GM prompt 里**——agent 端没有宏展开。
 > - `{{char}}` → 替换为角色名。
 > - `{{random:a,b,c}}` / `{{roll:1d6}}` / `{{pick:...}}` → 迁移阶段就敲定一个值，或挪到 engine 的对应工具。
-> - `{{getvar::x}}` / `{{setvar::x::y}}` → 转成 `get_status`/`update_status` 工具调用,叙事文本里删除。
+> - `{{getvar::x}}` / `{{setvar::x::y}}` → 转成 `get_status`/`patch_state` 工具调用,叙事文本里删除。
 > - `<thinking>` / `<status>` / `<%_ ... _%>` 等模板标签 → 全删。
 >
 > 改写完后 grep 一遍产出文件: `grep -rnE '\{\{(user|char|random|roll|pick|getvar|setvar)' agents/ skills/ data/`,**不允许任何残留**。

@@ -154,14 +154,12 @@ Tool 调用 → 返回英文内容（JSON 键名/代码）
 #### 工具参数 schema 中文化
 
 ```typescript
-// update_status 参数：全中文
+// patch_state 参数：全中文
 parameters: Type.Object({
-  stat: Type.Optional(Type.String({ description: "属性: 好感|魔力|堕落|情欲" })),
-  stats: Type.Optional(Type.Record(Type.String(), Type.Number(), {
-    description: "初始属性: { 好感, 魔力, 堕落, 情欲 }"
-  })),
-  presence: Type.Optional(Type.Record(Type.String(), Type.Unknown(), {
-    description: "在场状态: { 内心想法, 当前动作, 状态, 已变身 }"
+  ops: Type.Array(Type.Object({
+    op: Type.Union([Type.Literal("add"), Type.Literal("replace"), Type.Literal("remove")]),
+    path: Type.String({ description: "JSON Pointer 路径，如 /角色列表/星原樱/好感" }),
+    value: Type.Optional(Type.Unknown({ description: "（add/replace 时必填）要设置的值" })),
   })),
 }),
 ```
@@ -171,15 +169,20 @@ parameters: Type.Object({
 数据文件和引擎内部可以用英文键名（TypeScript 属性名），只需要在工具层做一次单向映射：
 
 ```typescript
-// tools/registry.ts —— 单向映射，LLM 不可见
-const TO_ENG = {
-  好感: "Favor", 魔力: "Magic", 堕落: "Corruption", 情欲: "Lust",
-  内心想法: "Thought", 当前动作: "Action", 状态: "State", 已变身: "isTransformed",
-} as const;
+// tools/registry.ts —— 路径映射，LLM 不可见
+// LLM 传 path: "/角色列表/星原樱/好感" → 引擎内部用英文键名
+const PATH_MAP: Record<string, string> = {
+  "好感": "Favor", "魔力": "Magic", "堕落": "Corruption", "情欲": "Lust",
+  "内心想法": "Thought", "当前动作": "Action", "状态": "State", "已变身": "isTransformed",
+};
 
-// 使用时：
-const eng = TO_ENG[params.stat as string] || params.stat;
-updateCharacterStat(name, eng, delta);
+// patch_state execute 中：
+const state = getState();
+const mapped = params.ops.map(op => {
+  const segments = op.path.split("/").filter(Boolean);
+  return { ...op, path: "/" + segments.map(s => PATH_MAP[s] || s).join("/") };
+});
+patchState(mapped);
 ```
 
 **不要做双语兼容**（同时接受中英文键名）。没用——用户不会切回英文，只会增加复杂度。
