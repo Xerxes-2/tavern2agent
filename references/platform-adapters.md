@@ -25,47 +25,15 @@
 
 ## 启动脚本
 
-每个转换产出的项目目录**必须**包含 `start.sh`：
+每个转换产出的项目目录**必须**包含 `start.sh`，模板见 `tavern2agent/scripts/start.sh`，迁移时直接复制到项目根目录并 `chmod +x`。
 
-```bash
-#!/usr/bin/env bash
-# 启动脚本 —— 在转换产出的项目目录中运行
-# 自动检测 pi、加载 extension.ts 并进入游戏，支持透传参数（如 --model）
-set -euo pipefail
-
-if ! command -v pi &>/dev/null; then
-  echo "错误: pi 未安装，请先安装 pi coding agent" >&2
-  echo "安装指引: https://github.com/earendil-works/pi-coding-agent" >&2
-  exit 1
-fi
-
-# 切换到脚本所在目录（项目根目录）
-cd "$(dirname "$(readlink -f "$0")")"
-
-echo "启动《$(basename "$PWD")》..."
-
-# 会话存档放在项目内，方便打包带走
-mkdir -p ./sessions
-
-# -ne (--no-extensions): 禁用全局/项目自动发现的扩展，只加载本项目的 extension.ts
-# -ns (--no-skills):    禁用全局/项目自动发现的技能，只加载 extension 注册的 skills/
-# 如果你需要额外扩展或技能，去掉对应 flag 或在命令行显式加 -e/-skill 参数
-exec pi \
-  -e ./extension.ts \
-  --session-dir ./sessions \
-  -ne -ns \
-  "$@"
-```
-
-玩家直接 `./start.sh` 进游戏，不需记 `cd project && pi -e ./extension.ts`。支持透传参数：
+模板已内置 `-ne -ns`（隔离外部扩展/技能），玩家直接 `./start.sh` 进游戏，支持透传参数：
 
 ```bash
 ./start.sh                          # 默认模型
 ./start.sh --model deepseek/v4-pro  # 指定模型
 ./start.sh --continue               # 继续上次会话
 ```
-
-模板文件位于 `tavern2agent/scripts/start.sh`，迁移时直接复制到项目目录即可。
 
 ## extension 加载限制 + 技能路径注册（必读）
 
