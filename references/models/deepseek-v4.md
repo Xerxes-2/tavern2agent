@@ -204,7 +204,7 @@ updateCharacterStat(name, eng, delta);
 - [GitHub #1255](https://github.com/deepseek-ai/DeepSeek-V3/issues/1255) — reasoning 语言漂移的复现实验与根因分析
 - [GitHub #1257](https://github.com/deepseek-ai/DeepSeek-V3/issues/1257) — DeepSeek 官方确认 `reasoning_content` 语言锚定缺失
 - [Thinking Mode 官方文档](https://api-docs.deepseek.com/guides/thinking_mode) — tool calling 场景下 `reasoning_content` 回传要求
-- 类脑社区 [三明月](https://discord.com/channels/类脑) 的 V4 提示词处理心得（2026-05）
+- 类脑社区 [三明月](https://discord.com/channels/1134557553011998840/1504799207394119893) 的 V4 提示词处理心得（2026-05）
 
 ## 社区实战经验（三明月 @ 类脑，2026-05）
 
