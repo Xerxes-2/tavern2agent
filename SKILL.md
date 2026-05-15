@@ -306,3 +306,4 @@ grep -rnE '\{\{(user|char|random|roll|pick|getvar|setvar)' \
 | `multi-agent-architecture.md` | NPC 隔离场景 | 多 agent 架构（GM + NPC subagent 上下文隔离，含适用场景速查） |
 | `storytelling.md` | 全部（可选） | 叙事节拍参考 |
 | `validation.md` | 全部 | 残留检测 + 人工检查清单 |
+| `models/deepseek-v4.md` | V4 目标 | DeepSeek V4 特化：system 极简 + 规则入 user 流 + 全链路中文化 |
