@@ -20,9 +20,10 @@ DeepSeek V4 的消息权重分配与 Claude/GPT 有根本性差异：**user mess
 │ ① system prompt 极简                             │
 │    只放角色身份（1-2句），不放规则                  │
 ├─────────────────────────────────────────────────┤
-│ ② 规则搬到 user message 流                        │
-│    注入到最后一条 user message 紧前面               │
-│    → 注意力最高区域 + user role = 最强效力          │
+│ ② 规则搬到 user message 流，按重要性分层注入        │
+│    上下文（世界观/角色/工具）→ 用户消息上方           │
+│    铁则（硬性规则/叙事规范）→ 用户消息下方            │
+│    → 铁则离生成最近，注意力权重最高                  │
 ├─────────────────────────────────────────────────┤
 │ ③ 全链路中文化                                    │
 │    data/ JSON 键名、工具返回值、routes 数据          │
@@ -39,7 +40,19 @@ DeepSeek V4 的消息权重分配与 Claude/GPT 有根本性差异：**user mess
 
 就两句话。不要放世界观、规则、角色列表、叙事风格——这些全搬到②。
 
-### ② 规则注入 user message 流
+### ② 规则注入 user message 流（分层注入）
+
+不是把所有规则无差别地塞到用户消息上方。要按**重要性分层**：上下文级放上方，铁则级放下方。
+
+**原理**：DS V4 对消息流中越靠近模型输出的内容，注意力权重越高。用户消息下方（用户输入 → 模型生成）是整条链中注意力最高的区域。
+
+```
+...历史消息...
+[CONTEXT_USER_MESSAGE]   ← 上下文（世界观/角色/工具）—— 低注意力区
+[用户的最新消息]           ← 用户输入
+[RULES_USER_MESSAGE]     ← 铁则（必须遵守的硬规则）—— 离生成最近，注意力最高
+→ 模型开始生成
+```
 
 在 pi 的 `extension.ts` 中通过 `context` 钩子实现：
 
@@ -47,20 +60,22 @@ DeepSeek V4 的消息权重分配与 Claude/GPT 有根本性差异：**user mess
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 const gmSystemPrompt = readFileSync(join(__dirname, "agents", "gm-system.md"), "utf-8");
+const gmContext = readFileSync(join(__dirname, "agents", "gm-context.md"), "utf-8");
 const gmRules = readFileSync(join(__dirname, "agents", "gm.md"), "utf-8");
 
+// 上下文消息：世界观/角色/工具等参考信息，放在最后一条用户消息上方
+const CONTEXT_USER_MESSAGE = {
+  role: "user" as const,
+  content: [{ type: "text" as const, text: `[以下为世界观与参考信息]\n\n${gmContext}` }],
+  timestamp: 0,
+};
+
+// 铁则消息：必须遵守的硬性规则，放在最后一条用户消息下方（离模型生成最近，注意力最高）
 const RULES_USER_MESSAGE = {
   role: "user" as const,
   content: [{
     type: "text" as const,
-    text: `[以下是你必须严格遵守的叙事规则——视为最高优先级指令]
-
-${gmRules}
-
----
-以上规则已加载完毕。请注意：
-1. 上述所有规则（叙事风格、核心规则、角色设定、世界观等）均为硬性约束。
-2. 你的思考过程和最终输出都请优先使用中文。`,
+    text: `[以下是你必须严格遵守的叙事铁则——视为最高优先级指令]\n\n${gmRules}\n\n---\n以上铁则已加载完毕。请注意：\n1. 上述所有规则（GM铁则、核心规则、叙事风格）均为硬性约束。\n2. 你的思考过程和最终输出都请优先使用中文。`,
   }],
   timestamp: 0,
 };
@@ -71,7 +86,7 @@ export default function extension(pi: ExtensionAPI) {
     return { systemPrompt: event.systemPrompt + "\n" + gmSystemPrompt };
   });
 
-  // 每轮在最后一条 user message 紧前面注入规则（注意力最高区域）
+  // 分层注入：上下文在上方，铁则在下方
   // context 钩子每次给 deep copy，修改不写入会话记录
   pi.on("context", async (event) => {
     const messages = [...event.messages];
@@ -80,7 +95,10 @@ export default function extension(pi: ExtensionAPI) {
       if ((messages[i] as any).role === "user") { lastUserIdx = i; break; }
     }
     if (lastUserIdx >= 0) {
-      messages.splice(lastUserIdx, 0, RULES_USER_MESSAGE as any);
+      // 上下文 → 用户消息上方
+      messages.splice(lastUserIdx, 0, CONTEXT_USER_MESSAGE as any);
+      // 铁则 → 用户消息下方（此时用户消息已被推到 lastUserIdx + 1）
+      messages.splice(lastUserIdx + 2, 0, RULES_USER_MESSAGE as any);
     }
     return { messages };
   });
@@ -89,10 +107,18 @@ export default function extension(pi: ExtensionAPI) {
 }
 ```
 
+**分层标准**：
+
+| 层级 | 文件 | 内容 | 注入位置 |
+|------|------|------|----------|
+| 上下文 | `gm-context.md` | 世界观、角色一览、玩家机制、数据文件、工具列表、氛围素材库 | 用户消息**上方** |
+| 铁则 | `gm.md` | GM铁则（7条态度准则）、核心规则（含 scribe 强制调用）、叙事风格 P0-P6 | 用户消息**下方** |
+
 **要点**：
 - `context` 钩子每次给 deep copy，修改只影响当轮 API 请求，不污染会话历史（`.jsonl`）
-- 注入位置：最后一条 user message **紧前面**，不是 context 开头——这样规则始终在注意力最高区域
-- 每轮都注入（约 4KB），DeepSeek V4 的 1M 上下文 + cache hit 机制使 token 成本可忽略
+- 铁则注入到用户消息下方，这里的 token 距离模型生成最近，注意力权重最高
+- 上下文放在上方，不跟铁则抢注意力——避免了「所有规则塞一起导致重要规则被稀释」的问题
+- 每轮都注入（约 14KB），DeepSeek V4 的 1M 上下文 + cache hit 机制使 token 成本可忽略
 
 ### ③ 全链路中文化
 
