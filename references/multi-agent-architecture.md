@@ -198,6 +198,56 @@ NPC agent 通过 `defaultReads: data/world.json` 自动获得世界公开信息�
 | 多地点同时叙事 | 队伍分头行动。多个场景并行推进，GM 汇总 |
 | 多 NPC 同时反应 | 一个事件发生，多个 NPC 同时反应——并行调多个 NPC agent |
 
+### 五、状态跟踪型（可选）
+
+**问题**：主 GM agent 在叙事中经常忘记调用 `patch_state` 更新游戏状态（时间、地点、角色属性、伤势等）。单靠 prompt 约束不可靠。
+
+**方案**：每轮叙事后启动一个专职 `scribe` 子代理，从叙事中提取状态变化并写入。GM 只负责叙事，scribe 只负责状态——认知分离。
+
+```
+GM (v4-pro)  叙事 → subagent(scribe) → scribe (v4-flash, ~15s)
+                                              ├─ fork 上下文（继承对话）
+                                              ├─ get_status → 当前状态
+                                              ├─ 提取 delta → patch_state 写入
+                                              └─ 返回变更摘要
+```
+
+**实现要点**：
+
+1. **scribe agent 定义**（`.pi/agents/scribe.md`）：
+   - `defaultContext: fork`——继承会话，能看到 GM 的叙事
+   - `systemPromptMode: replace`——纯状态提取器身份，不被 GM 规则污染
+   - model 用 flash（更快更省），不用 pro
+   - 加载一个极简扩展（只注册 `get_status`/`patch_state`/`get_character_detail`），不挂任何生命周期钩子——否则主 extension 的 `before_agent_start` 会给 scribe 注入 GM 身份
+
+2. **GM 指令**（`agents/gm.md`）：
+   - 每轮叙事结束后调 `subagent({ agent: "scribe", task: "提取本轮叙事中的状态变化并更新" })`
+   - **同步执行，不带 `async: true`**——否则 scribe 完成后 GM 会继续叙事
+   - 明确标注「启动 scribe 后本轮结束，不要再继续叙事」
+
+3. **scribe 专属扩展**（`tools/scribe-extension.ts`）：
+   - 只注册三个工具，不挂 `before_agent_start` / `context` 等钩子
+   - 与主 `extension.ts` 分离，避免 GM 规则泄漏进 scribe
+
+**权衡**：
+
+| | subagent (scribe) | inline API 调用 |
+|---|---|---|
+| 延迟 | ~15s（fork 复制 + 子进程启动） | ~2-4s（单次 fetch） |
+| 架构 | 全走 pi 原生 subagent 基础设施 | 手动 fetch + auth.json 解析（hack） |
+| 可靠性 | 子代理有完整工具链，输出直接到 patch_state | LLM 输出解析可能出错 |
+| 依赖 | 需要 pi-subagents 包 | 需要环境中有 DeepSeek API key |
+
+**适用条件**：
+- 状态字段多（≥10 个 key），GM 手工维护 patch_state 容易遗漏
+- 每轮叙事后状态必然变化（时间推进、伤势演变等）
+- 能接受 ~15s 的额外延迟
+
+**不适用**：
+- 状态字段少（≤5 个），GM prompt 约束就够
+- 需要亚秒级响应
+- 不使用 pi-subagents 的项目
+
 ### 反模式——这些不要用 subagent
 
 | 反模式 | 为什么错 |

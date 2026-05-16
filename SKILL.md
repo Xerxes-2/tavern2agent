@@ -168,6 +168,7 @@ python3 scripts/list_entries.py card.json
 | 角色分离 | 反派 AI（和 GM 人格冲突）、吟游诗人/旁白（不同文风）、队友 AI | 普通 NPC 扮演（GM 自己就能演） |
 | 进程隔离 | 战斗结算器（确定性）、经济模拟（异步）、章节存档校验 | 简单规则引擎、状态存储、频繁轻量操作 |
 | 并行天然适合 | 多地点同时叙事、多 NPC 同时反应 | 单线程场景拆成并行是徒增复杂度 |
+| 状态跟踪（可选） | 主 GM 常忘更新状态、字段多易遗漏。详见 `references/multi-agent-architecture.md` §五 | 字段 ≤5 个、能靠 prompt 约束的项目 |
 
 详见 `references/multi-agent-architecture.md`。
 
