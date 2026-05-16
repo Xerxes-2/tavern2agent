@@ -234,6 +234,11 @@ GM (v4-pro)  叙事 → subagent(scribe) → scribe (v4-flash, ~15s)
    - fork：GM 只输出 ~20 token 的短 task，叙事通过会话继承零成本传导
    - 实测 fork ~15s < fresh+传叙事 ~20s+
 
+5. **禁止输出**：scribe 只需调工具，不应输出任何文字。DeepSeek 模型尤其倾向「完成任务后加一段总结」，需要在多处反复强调：
+   - 身份声明首句：`**你只调工具，不输出任何文字。**`（粗体）
+   - 工作流末步：`结束——不要输出任何确认、摘要、清单`
+   - 删除「输出」section——不给模型任何「输出格式」的暗示
+
 **权衡**：
 
 | | subagent (scribe) | inline API 调用 |
