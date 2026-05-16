@@ -229,6 +229,11 @@ GM (v4-pro)  叙事 → subagent(scribe) → scribe (v4-flash, ~15s)
    - 只注册三个工具，不挂 `before_agent_start` / `context` 等钩子
    - 与主 `extension.ts` 分离，避免 GM 规则泄漏进 scribe
 
+4. **为什么用 fork 不用 fresh + 传叙事**：
+   - fresh + 传叙事：GM 需输出 ~5000 token 叙事原文作为 task 参数，输出延迟远超 fork 的序列化开销
+   - fork：GM 只输出 ~20 token 的短 task，叙事通过会话继承零成本传导
+   - 实测 fork ~15s < fresh+传叙事 ~20s+
+
 **权衡**：
 
 | | subagent (scribe) | inline API 调用 |
