@@ -56,14 +56,14 @@ for e in entries:
 print(f'dumped {len(list(out.iterdir()))} entries')
 "
 
-# 建紧凑索引（comment + 前 5 行预览）
+# 建紧凑索引（comment + 前 5 行预览，含 disabled 条目——先看到再决策）
 python3 -c "
 import json
 entries = json.load(open('card.json'))['data']['character_book']['entries']
 for i,e in enumerate(entries):
-    if not e.get('enabled', True): continue
+    disabled = '' if e.get('enabled', True) else ' ❌禁用'
     preview = '\n'.join(e['content'].splitlines()[:5])
-    print(f'--- [{i}] {e.get(\"comment\",\"\")} ({len(e[\"content\"])} chars) ---')
+    print(f'--- [{i}]{disabled} {e.get(\"comment\",\"\")} ({len(e[\"content\"])} chars) ---')
     print(preview)
     print()
 " > index.md
@@ -112,6 +112,7 @@ python3 scripts/list_entries.py card.json
 | 键值状态 | `comment` 含 `[initvar]` / `[mvu_update]` | `engine/state.ts` → `initialState()` |
 | 路线/分支专属 | `comment` 含路线名（如「NTR 路线」「真结局」）/ 仅在特定条件下 enabled | 与 `alternate_greetings` 联动：每条路线对应一个开局选项，路线专属设定挂到 `data/routes/<路线名>.json`，开局选定后按需注入 |
 | ST 补丁 | `content` 含「强化思考」「JSON Patch」「`__结束__`」 | **丢弃** |
+| disabled 条目 | `enabled: false` | **不可默认丢弃。** 逐一审计：若为可选/可配置模块（如难度调节、可选路线）→ 作为开局 skill 的 toggle 选项；若为 MVU 渐进披露（某条件满足后自动开启）→ 标注为 `progressive`，在 engine 里实现渐进启用逻辑；只有明确标注「废弃」「草稿」且无任何引用者才可丢弃 |
 
 **做完这一步再决定方案档位**——条目数量决定了 world.json 的规模：纯地理念卡 world.json ≤5KB 合理；大量常驻系统条目的卡，world.json 自然 20-30KB。
 
@@ -246,7 +247,7 @@ MVU 模型误读是后期返工最大的成本，前置 5 分钟对齐比写完�
 
 - [ ] `first_mes` 已处理：改写后内联进开局 skill 的开场叙事参考，**ST 宏（`{{user}}`/`{{char}}`/`{{random}}`/`{{roll}}` 等）已剥离/替换**（详见 setup.md「改写时必须剥离的 ST 宏」）
 - [ ] **`alternate_greetings` 已处理**：每条都有去向（路线选项 / 合并 setup / 显式丢弃并说明原因）
-- [ ] **所有 `enabled: true` 的世界书条目都有去向**：按条目分类表落到 `data/*.json` / `engine/*.ts` / 显式丢弃。**不允许"看起来不重要就跳过"**
+- [ ] **所有世界书条目（含 disabled）都有去向**：按条目分类表落到 `data/*.json` / `engine/*.ts` / 开局可选开关 / 渐进披露逻辑 / 显式丢弃。**disabled 条目不可默认丢弃**——逐一判断是否可选配置或 MVU 渐进披露。**不允许"看起来不重要就跳过"**
 - [ ] `start.sh` 已生成：从 `tavern2agent/scripts/start.sh` 复制到项目根目录，可执行权限已设
 - [ ] `extension.ts` 已生成且只做注册：顶层 `import`（无动态 `import()`）、`registerAllTools(pi)` 被调用
 - [ ] `tools/registry.ts` 不是死代码：extension.ts 真的引用了它
