@@ -40,6 +40,8 @@ DeepSeek V4 的消息权重分配与 Claude/GPT 有根本性差异：**user mess
 
 就两句话。不要放世界观、规则、角色列表、叙事风格——这些全搬到②。
 
+> ⚠️ **system prompt 是追加而非替换**：返回 `{ systemPrompt: event.systemPrompt + "\n" + gmSystemPrompt }`，不要丢掉 pi 内置的 `event.systemPrompt`（含工具调用格式、上下文管理等核心指令）。如果替换掉它，模型将失去 function calling 所需的角色定义。
+
 ### ② 规则注入 user message 流（分层注入）
 
 不是把所有规则无差别地塞到用户消息上方。要按**重要性分层**：上下文级放上方，铁则级放下方。
