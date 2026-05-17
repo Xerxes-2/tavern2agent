@@ -5,6 +5,56 @@ MVU 条目（`[mvu_update]` 和 `[mvu_plot]`）是卡片作者写给 LLM 的「�
 
 > ⚠️ 关键区分：MVU 条目里**混着两类内容**——① ST 补丁（强化思考链、JSON Patch 格式、`__结束__` 标记等——丢弃）；② 真正的游戏系统设计（骰子公式、伤害计算、好感度规则、变量 schema ——这是你设计 engine 的蓝图）。**丢弃前先判断是否含游戏逻辑。**
 
+## 探索阶段：紧凑索引
+
+大数据量卡片（条目 ≥100）不要一次性 dump 所有条目（轻松 200K+ tokens）。先建紧凑索引（每条只留 `comment` + 前几行 + 长度，整张 5-10K tokens），再按需 lazy load 完整正文。
+
+```bash
+# 一次性提取所有 [mvu_update] 条目正文到独立文件
+python3 -c "
+import json, pathlib, re
+card = json.load(open('card.json'))
+entries = card['data']['character_book']['entries']
+out = pathlib.Path('mvu_dump'); out.mkdir(exist_ok=True)
+for e in entries:
+    if '[mvu_update]' in e.get('comment',''):
+        name = re.sub(r'[^\w-]','_', e['comment'])[:80]
+        (out / f'{name}.md').write_text(e['content'])
+print(f'dumped {len(list(out.iterdir()))} entries')
+"
+
+# 建紧凑索引（comment + 前 5 行预览，含 disabled 条目——先看到再决策）
+python3 -c "
+import json
+entries = json.load(open('card.json'))['data']['character_book']['entries']
+for i,e in enumerate(entries):
+    disabled = '' if e.get('enabled', True) else ' ❌禁用'
+    preview = '\n'.join(e['content'].splitlines()[:5])
+    print(f'--- [{i}]{disabled} {e.get(\"comment\",\"\")} ({len(e[\"content\"])} chars) ---')
+    print(preview)
+    print()
+" > index.md
+```
+
+## 条目分类决策完整表
+
+SKILL.md §二只列了常见五类，以下是逐条审计用的完整表：
+
+| 条目类型 | 判断信号 | 去向 |
+|---------|---------|------|
+| 系统规则 | `comment` 含「系统设定」/ `constant: true`（常驻） | `data/world.json` 对应 section |
+| 地区/场景 | `comment` 含「地区设定」/ 城市名/区域名 | `data/regions.json` 或按需拆分 |
+| 角色/NPC 模板 | `comment` 含 `<character_card>` / 角色名 | `data/characters.json` |
+| 章节剧情 | `comment` 含「第X卷」「章节」 | `data/chapters.json` + 查询工具 |
+| 术语表 | `comment` 含「术语」「黑话」 | `data/world.json` → `terminology` section |
+| 骰子/伤害公式 | `content` 含 `{{roll:` / 伤害公式 / DC 分级 | `engine/dice.ts` 等 |
+| 键值状态 | `comment` 含 `[initvar]` / `[mvu_update]` | `engine/state.ts` → `INITIAL_STATE` |
+| 路线/分支专属 | `comment` 含路线名（如「NTR 路线」「真结局」）/ 仅在特定条件下 enabled | 与 `alternate_greetings` 联动：每条路线对应一个开局选项，路线专属设定挂到 `data/routes/<路线名>.json`，开局选定后按需注入 |
+| ST 补丁 | `content` 含「强化思考」「JSON Patch」「`__结束__`」 | **丢弃** |
+| disabled 条目 | `enabled: false` | **不可默认丢弃。** 分两类处理：<br>**开局可选**（玩家在 setup 里选开不开）→ 放入开局 skill 的选项列表，存入 state；例子：DLC 事件模块、可选同伴、难度调节<br>**MVU 渐进披露**（条件满足时自动触发）→ engine 里实现渐进启用逻辑；例子：变量更新规则、章节解锁<br>只有明确标注「废弃」「草稿」且无任何引用者才可丢弃 |
+
+> 大数据量（≥100 条）用紧凑索引法（见上文「探索阶段：紧凑索引」），但分类决策这一步不能省。
+
 ## 变量结构的三类来源（读取顺序重要！）
 
 | 来源 | 位置 | 提供什么 |
@@ -96,18 +146,18 @@ MVU 条目（`[mvu_update]` 和 `[mvu_plot]`）是卡片作者写给 LLM 的「�
 MVU 条目中的 JSON Schema 或变量列表是**初始状态的蓝图**。
 
 ### 提取方法
-1. **优先用 `get_entry.py` 读 `[initvar]` 条目** → YAML 格式的初始值，直接转为 `initialState()` 返回值
+1. **优先用 `get_entry.py` 读 `[initvar]` 条目** → YAML 格式的初始值，直接转为 `initialBlankState()` 返回值
 2. 如果没有 `[initvar]`：用 `get_entry.py` 读 MVU 条目，找到变量定义块（通常是 JSON 或 YAML 结构）
-3. 转化为 `initialState()` 函数返回的对象
+3. 转化为 `initialBlankState()` 函数返回的对象
 
 ### ⚠️ 常见遗漏：用户卡字段不在 InitVar 里
 
 InitVar 定义的是**运行时变量**（等级、经验、背包、好感度），不包含**角色创建字段**（姓名、性别、年龄、外貌、背景）。这些字段来自：
 - `first_mes` 的 setup 交互（「你的名字是？」）
-- user 卡模板（`data/user.json`）
+- user 卡模板（`data/user.json`，**固定档案**——迁移阶段定型，运行时不变）
 - 开局 skill 的 checklist
 
-**必须在 INITIAL_STATE 中显式声明这些字段（默认空字符串），否则 patch_state 的 `replace` 操作会因 RFC 6902 约束而静默失败。**
+**两类字段都必须在 INITIAL_STATE 中显式声明（默认空字符串或占位值），否则 patch_state 的 `replace` 操作会因 RFC 6902 约束而静默失败。** `data/user.json` 只是固定档案的来源/快照，运行时可变状态一律走 state.json。
 
 ### ⚠️ RFC 6902 陷阱：replace 要求路径已存在
 
@@ -129,7 +179,7 @@ InitVar 定义的是**运行时变量**（等级、经验、背包、好感度�
 ```json
 {
   "主角": {
-    "姓名": "{{user}}",
+    "姓名": "待初始化",
     "生命值": { "当前值": 10, "最大值": 10 },
     "属性列表": { "力量": 10, "敏捷": 10 }
   },
@@ -137,7 +187,7 @@ InitVar 定义的是**运行时变量**（等级、经验、背包、好感度�
   "时间": { "年月日": "", "时间": "" }
 }
 ```
-→ `initialState()` 返回完整嵌套对象。
+→ `initialBlankState()` 返回完整嵌套对象。
 
 **变更约束**：
 ```

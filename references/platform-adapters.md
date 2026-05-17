@@ -4,9 +4,9 @@
 
 ## 开场白
 
-由开局 skill 处理（`skills/start-game/SKILL.md`），详见 `references/setup.md`。agent 首轮 call 开局 skill，pi extension 通过 skill 完成开场。
+由开局 skill 处理（详见 `references/setup.md`）。agent 首轮 call 开局 skill。
 
-> **注意**：`skills/` 不在 pi 默认技能发现路径中。extension 必须通过 `resources_discover` 钩子注册技能路径，否则开局 skill 不会被 pi 加载。pi 会递归扫描注册目录，查找 `<name>/SKILL.md` 子目录结构。详见下方「技能路径注册」。
+> **注意**：`skills/` 不在 pi 默认技能发现路径中。extension 必须通过 `resources_discover` 钩子注册技能路径，否则开局 skill 不会被 pi 加载。详见下方「技能路径注册」。
 
 ## pi 职责
 
@@ -18,10 +18,6 @@
 | NPC 上下文隔离 | `pi-subagents` 包，定义放 `agents/*.md`。常用于 NPC 信息隔离，防止秘密泄漏 |
 | 钩子（日志等） | `pi.on("tool_result_end")` |
 | 状态文件 | 任意目录，建议 `state/` |
-
-## pi 完整示例
-
-见 `references/multi-agent-architecture.md`。
 
 ## 启动脚本
 

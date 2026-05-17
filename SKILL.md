@@ -38,36 +38,7 @@ python3 scripts/list_entries.py card.json --filter initvar # 看初始值
 
 > **支持 v2 / v3 卡**：JSON 顶层 `spec` 为 `chara_card_v2` 或 `chara_card_v3`，且 `data.character_book` 存在即可。v3 新增字段（`assets` / `group_only_greetings` / `creator_notes_multilingual` / `source` 等）当前不专门处理：`group_only_greetings` 与 `alternate_greetings` 同等对待（路线选项 / 合并 setup），其余视为元数据忽略。v1 老卡（字段直接挂在顶层、无 `data` 包装）请先用 SillyTavern 或第三方工具升级到 v2/v3 再迁移。
 
-**大数据量卡片（条目 ≥100）**：脚本工具仅供探索阶段使用；构建阶段直接用 `python3 -c` 批量提取，避免几百次 `get_entry.py` 调用。
-
-**提取策略**：先建紧凑索引（每条只留 `comment` + 前几行 + 长度，整张 5-10K tokens），再按需 lazy load 完整正文。不要一次性 dump 所有条目（轻松 200K+ tokens）。样例：
-
-```bash
-# 一次性提取所有 [mvu_update] 条目正文到独立文件
-python3 -c "
-import json, pathlib, re
-card = json.load(open('card.json'))
-entries = card['data']['character_book']['entries']
-out = pathlib.Path('mvu_dump'); out.mkdir(exist_ok=True)
-for e in entries:
-    if '[mvu_update]' in e.get('comment',''):
-        name = re.sub(r'[^\w-]','_', e['comment'])[:80]
-        (out / f'{name}.md').write_text(e['content'])
-print(f'dumped {len(list(out.iterdir()))} entries')
-"
-
-# 建紧凑索引（comment + 前 5 行预览，含 disabled 条目——先看到再决策）
-python3 -c "
-import json
-entries = json.load(open('card.json'))['data']['character_book']['entries']
-for i,e in enumerate(entries):
-    disabled = '' if e.get('enabled', True) else ' ❌禁用'
-    preview = '\n'.join(e['content'].splitlines()[:5])
-    print(f'--- [{i}]{disabled} {e.get(\"comment\",\"\")} ({len(e[\"content\"])} chars) ---')
-    print(preview)
-    print()
-" > index.md
-```
+**大数据量卡片（条目 ≥100）**：脚本工具仅供探索阶段使用；构建阶段用 `python3 -c` 批量提取 + 紧凑索引法（先建 5-10K tokens 索引，再按需 lazy load 正文）。具体样例代码见 `references/mvu-mapping.md` §「探索阶段：紧凑索引」。
 
 ---
 
@@ -99,24 +70,19 @@ for i,e in enumerate(entries):
 python3 scripts/list_entries.py card.json
 ```
 
-得到完整条目清单后，**逐条分类决策去向**——不要跳到「条目 0 看起来够了」就收工：
+得到完整条目清单后，**逐条分类决策去向**——不要跳到「条目 0 看起来够了」就收工。常见五类速查：
 
 | 条目类型 | 判断信号 | 去向 |
 |---------|---------|------|
-| 系统规则 | `comment` 含「系统设定」/ `constant: true`（常驻） | `data/world.json` 对应 section |
-| 地区/场景 | `comment` 含「地区设定」/ 城市名/区域名 | `data/regions.json` 或按需拆分 |
+| 系统规则/术语/地区 | `comment` 含「系统设定」/「地区设定」/「术语」 / `constant: true` | `data/world.json`（或拆 `regions.json`） |
 | 角色/NPC 模板 | `comment` 含 `<character_card>` / 角色名 | `data/characters.json` |
 | 章节剧情 | `comment` 含「第X卷」「章节」 | `data/chapters.json` + 查询工具 |
-| 术语表 | `comment` 含「术语」「黑话」 | `data/world.json` → `terminology` section |
-| 骰子/伤害公式 | `content` 含 `{{roll:` / 伤害公式 / DC 分级 | `engine/dice.ts` 等 |
-| 键值状态 | `comment` 含 `[initvar]` / `[mvu_update]` | `engine/state.ts` → `initialState()` |
-| 路线/分支专属 | `comment` 含路线名（如「NTR 路线」「真结局」）/ 仅在特定条件下 enabled | 与 `alternate_greetings` 联动：每条路线对应一个开局选项，路线专属设定挂到 `data/routes/<路线名>.json`，开局选定后按需注入 |
+| 骰子/键值状态 | `content` 含 `{{roll:`、伤害公式；或 `comment` 含 `[initvar]`/`[mvu_update]` | `engine/dice.ts` 等 / `engine/state.ts` → `INITIAL_STATE` |
 | ST 补丁 | `content` 含「强化思考」「JSON Patch」「`__结束__`」 | **丢弃** |
-| disabled 条目 | `enabled: false` | **不可默认丢弃。** 分两类处理：<br>**开局可选**（玩家在 setup 里选开不开）→ 放入开局 skill 的选项列表，存入 state；例子：DLC 事件模块、可选同伴、难度调节<br>**MVU 渐进披露**（条件满足时自动触发）→ engine 里实现渐进启用逻辑；例子：变量更新规则、章节解锁<br>只有明确标注「废弃」「草稿」且无任何引用者才可丢弃 |
+
+**特殊处理**（必读）：路线/分支专属条目、disabled 条目——这两类极易被默认丢弃，必须按完整分类表逐条审计。完整 10 类分类表 + 路线联动 + disabled 渐进披露处理见 `references/mvu-mapping.md` §「条目分类决策完整表」。
 
 **做完这一步再决定方案档位**——条目数量决定了 world.json 的规模：纯地理念卡 world.json ≤5KB 合理；大量常驻系统条目的卡，world.json 自然 20-30KB。
-
-> 大数据量（≥100 条）用紧凑索引法（见上文「提取策略」），但分类决策这一步不能省。
 
 ### 信息源排查
 
@@ -146,7 +112,7 @@ python3 scripts/list_entries.py card.json
 | 有骰子/战斗/经济，不需一轮内精确回退 | **中等** | `patchState` + 每轮快照 | 上者 + `engine/dice.ts` 等模块 |
 | 需死亡回溯/章节存档/事件级回退 | **完整 engine** | `dispatch(event)` | 事件溯源 + 全套模块 + 多 agent |
 
-### 多 agent 判定（独立维度，不跟 engine 档位绑定）
+### 多 agent 判定（独立维度，不跟方案档位绑定）
 
 多 agent 的核心用途是 **认知隔离**——任何"某个视角不该看到的信息"都可以拆进独立 context。NPC 秘密只是最常见的一种：模型在单一 context 里读到 NPC A 的秘密，就会让 NPC B 做出不该有的反应。但隔离对象不限于 NPC——悬疑/侦探题材里凶手身份、未揭晓的真相、玩家尚未推理出的线索，都该挡在主 context 之外，否则 GM 会"剧透式叙事"。GM 仍是主叙事者，subagent 只负责自己那块被隔离的视角。
 
@@ -159,40 +125,11 @@ python3 scripts/list_entries.py card.json
 | 视角间信息不对等（NPC 之间、PC 之间，或 GM 不该看到的真相）| 多 agent——这正是认知隔离的核心价值 |
 | 悬疑/侦探等"答案不能泄漏给叙事者"的题材 | 多 agent：真相/凶手视角独立 context，主 GM 只拿到该揭晓的部分 |
 
-### subagent 适用场景速查
+### subagent 适用场景
 
-判断标准：**该角色不该看到的东西**（信息隔离）、**跟 GM 完全不同的人格/文风**（角色分离）、**适合异步/并行**（进程隔离）。三者至少占一个才用。
+判断标准三选一：**信息隔离**（角色不该看到的东西）、**角色分离**（跟 GM 完全不同的人格/文风）、**进程隔离**（适合异步/并行）。完整分类（含信息隔离/角色分离/进程隔离/并行/状态跟踪/反模式）见 `references/multi-agent-architecture.md` §附录。
 
-| 类别 | 适用 | 不适用（反模式） |
-|------|------|-----------------|
-| 信息隔离 | NPC 秘密、PC 信息不对等、GM 隐藏剧情 | 单 agent 能靠 prompt 约束的信息边界 |
-| 角色分离 | 反派 AI（和 GM 人格冲突）、吟游诗人/旁白（不同文风）、队友 AI | 普通 NPC 扮演（GM 自己就能演） |
-| 进程隔离 | 战斗结算器（确定性）、经济模拟（异步）、章节存档校验 | 简单规则引擎、状态存储、频繁轻量操作 |
-| 并行天然适合 | 多地点同时叙事、多 NPC 同时反应 | 单线程场景拆成并行是徒增复杂度 |
-| 状态跟踪（可选） | 主 GM 常忘更新状态、字段多易遗漏。详见 `references/multi-agent-architecture.md` §五 | 字段 ≤5 个、能靠 prompt 约束的项目 |
-
-详见 `references/multi-agent-architecture.md`。
-
-**辅助判定信号**（综合考量，非硬性流程；矛盾时偏向上一档）：
-
-- `[mvu_update]`/`[mvu_plot]` 条目或 `tavern_helper.scripts` 里的 Zod 模型——存在则走带 state 方案。
-- 骰子（`d20`/`roll`/`掷骰`）、战斗判定、伤害公式、好感度阈值、经济流通——任一明显存在即倾向中等。
-- 死亡回溯/读档/章节存档/撤销上一回合（搜 `revert`/`undo`/`restore`/`存档`/`回档`/`重来`，且影响 state）——倾向完整 engine。"剧情回忆"不算。
-- 临界：状态键值 ≤10 且只有 1-2 处简单加减，偏轻一档；prompt 反复强调"严格按公式""不许 LLM 自由发挥"，偏重一档。
-- 非 MVU 状态系统（极少数卡在 `tavern_helper.scripts` 里自定义变量）：按语义手工映射到等价档位，不单开方案。
-
-**归档样例**（拿到具体卡时按这种粒度落档，不要纠结临界条款的字面）：
-
-| 卡片特征 | 落档 | 理由 |
-|---------|------|------|
-| 纯地理/势力设定 + 几个 NPC 模板，无变量、无骰子 | 纯 prompt | 没有状态需要维护，data/ 够用 |
-| `first_mes` 末尾有"选难度/选阵营"问句，但游戏本身无系统 | 纯 prompt + 开局 skill 收 setup | 选项落到开局 skill 而非 engine |
-| 30+ 键值状态（好感度、日期、地点），但变化全是 ±1/±5 这类直接加减 | 轻量 | `patchState` 够用，不需要事件溯源 |
-| 有 `{{roll:1d6}}` 偶尔用于占卜，其余推进靠 prompt | 轻量 | 1-2 次偶发掷骰直接写进 GM 规则，不值得开 `dice.ts` |
-| 有伤害公式 + 装备护甲 + 命中检定，但允许玩家"接受这一击就过" | 中等 | 战斗逻辑进 engine，无需事件溯源式回退 |
-| 死亡循环叙事性出现（"你回想起上次失败时…"），但不真回退 state | 中等 | 是叙事手法不是机制，事件溯源是 over-engineering |
-| 真死亡回溯：死后变量回到上次存档点、保留"记忆"标记 | 完整 engine | 唯一站得住脚的事件溯源用例 |
-| 多结局章节存档，玩家可读档到任一章节起点 | 完整 engine | 同上 |
+**临界场景拿不准时**，去 `references/decision-tree.md` 查辅助判定信号（5 条）+ 归档样例（8 条具体卡片特征 → 落档结论），按样例粒度对齐，不要纠结临界条款的字面。
 
 ---
 
@@ -202,7 +139,7 @@ python3 scripts/list_entries.py card.json
 
 产出 `agents/gm.md`（角色+世界+规则，核心规则≤5条）+ `data/world.json` + `data/characters.json`（≥5角色时拆分）+ `data/chapters.json`（如有）。
 
-开场白：所有方案都必须生成开局 skill（`skills/<skill-name>/SKILL.md`），`first_mes` 改写后内联其中、由 agent 在开局时主动交付。**技能名必须 ASCII（a-z/0-9/-）且与目录名一致**，推荐 `skills/start-game/SKILL.md`。模板和 checklist 生成规则详见 `references/setup.md`。
+开场白：所有方案都必须生成开局 skill，`first_mes` 改写后内联其中、由 agent 在开局时主动交付。命名规则、模板、checklist 生成规则统一见 `references/setup.md`。
 
 ### 轻量 / 中等方案
 
@@ -212,48 +149,17 @@ state 骨架代码见 `references/ts-engine.md`「轻量/中等方案」。中�
 
 事件溯源，详见 `references/ts-engine.md`。如果同时触发多 agent 条件（见上文），则叠加多 agent 架构，详见 `references/multi-agent-architecture.md`。
 
+中等+ 方案的 `gm.md` 末尾建议加一行引用 `references/storytelling.md`，让 GM 在叙事卡壳时按需自查节拍——具体引用句式见 storytelling.md §「在 gm.md 里如何引用」。
+
 ### 中间检查点（中等+ 方案必走）
 
-在动手写 `engine/*.ts` 之前，**先把以下两份输出单独发给用户 review**：
+写 `engine/*.ts` 前，先把 **state schema** + **事件/操作清单** 单独发给用户 review。schema 必须覆盖**用户卡创建字段**（姓名/性别/外貌等）——它们不在 InitVar 里，遗漏会让 `patch_state` 的 `replace` 操作静默失败。技术细节与 RFC 6902 陷阱见 `references/mvu-mapping.md` §「⚠️ 用户卡字段不在 InitVar 里」+ §「⚠️ RFC 6902 陷阱」。
 
-1. **state schema**——TS interface 或 JSON 示例，列出所有字段及其类型/初值。**必须包含用户卡创建字段（姓名/性别/年龄/外貌/背景）——这些不在 InitVar 里，来自 user 卡模板或 setup 交互。遗漏会导致 patch_state 的 replace 操作静默失败。**
-2. **事件清单**——中等方案给操作列表（`patch_state`、`snapshot`、`rollback` 等）；完整方案给事件名 + payload（`set` / `delta` / `death_rewind` 等）
-
-MVU 模型误读是后期返工最大的成本，前置 5 分钟对齐比写完一整套 engine 再改便宜得多。轻量方案 schema 通常一眼能看完，可跳过此步。
+轻量方案 schema 一眼能看完，可跳过此步。
 
 ### 注意力调度（中等+ 方案强烈推荐）
 
-LLM 不擅长计数和定时触发。如果游戏存在以下任何需求，写 `engine/attention.ts`：
-
-- 每 N 轮调用一次同伴/子 agent
-- 战斗后必须调 `try_level_up`
-- NPC 互动后必须更新好感度
-- DLC 模块启用后需要定期提醒埋钩子
-
-**模式**：
-
-```typescript
-// engine/attention.ts
-export function buildReminders(): AttentionReminder[] {
-  const reminders: AttentionReminder[] = [];
-  const state = getState();
-  const turn = countSnapshots();  // 磁盘计数，跨进程持久
-
-  // 每 4 轮提醒同伴
-  if (companionEnabled && turn % 4 === 0) {
-    reminders.push({ level: "info", message: "同伴已静默 N 轮，可以调用 subagent" });
-  }
-  // XP 溢出 — 每轮检查
-  if (xp >= required) {
-    reminders.push({ level: "critical", message: "⚠️ 经验溢出，必须调用 try_level_up" });
-  }
-  return reminders;
-}
-```
-
-**注入点**：`extension.ts` 的 `before_agent_start` 中调用 `buildReminders()`，用 `## ⚠️ 系统提醒` 格式追加到 system prompt 末尾。
-
-**双重保障原则**：系统级注入（`attention.ts`）+ 工具级 `promptGuidelines`（写死 ⚠️ 前缀），两层都失效才遗漏。
+LLM 不擅长计数和定时触发。游戏存在「每 N 轮调用同伴」「战斗后必须 try_level_up」「NPC 互动后必更新好感度」「DLC 启用后定期提醒」任一需求，写 `engine/attention.ts`。代码模式 + 注入点 + 双重保障原则见 `references/ts-engine.md` §「注意力调度 (attention.ts)」。
 
 ### 数据查询工具（中等+ 方案强烈推荐）
 
@@ -285,13 +191,15 @@ export function buildReminders(): AttentionReminder[] {
 | `start.sh` | ✅ 必须 | 启动脚本，用户直接 `./start.sh` 进游戏。从 `tavern2agent/scripts/start.sh` 复制到项目根目录 |
 | `data/world.json` | ✅ 必须 | 世界设定 |
 | `data/characters.json` | ≥5 角色时 | 角色数据 |
-| `data/user.json` | 需要 user 卡时 | 用户角色 |
+| `data/user.json` | 需要 user 卡时 | 用户角色**固定档案**（迁移阶段定型字段：姓名/性别/外貌/背景等）；**运行时可变状态**（HP/好感度/装备等）走 `INITIAL_STATE` + state.json，不要混在 user.json 里 |
 
 ### 完工自检清单（向用户报告"完成"之前必须逐项对照）
 
-**不要等用户提醒漏项。** 在你认为迁移完成、准备说「迁移完毕」之前，**主动**逐项核对：
+**不要等用户提醒漏项。** 本清单只查**迁移完整性**（"该产的都产了吗？"）；**产出正确性**（"产的内容对吗？"）见 `references/validation.md` §人工检查清单——两份都得跑。
 
-- [ ] `first_mes` 已处理：改写后内联进开局 skill 的开场叙事参考，**ST 宏（`{{user}}`/`{{char}}`/`{{random}}`/`{{roll}}` 等）已剥离/替换**（详见 setup.md「改写时必须剥离的 ST 宏」）
+在你认为迁移完成、准备说「迁移完毕」之前，**主动**逐项核对：
+
+- [ ] `first_mes` 已处理：改写后内联进开局 skill 的开场叙事参考，**ST 宏已按 setup.md §「改写时必须剥离的 ST 宏」逐项剥离/替换**
 - [ ] **`alternate_greetings` 已处理**：每条都有去向（路线选项 / 合并 setup / 显式丢弃并说明原因）
 - [ ] **所有世界书条目（含 disabled）都有去向**：按条目分类表落到 `data/*.json` / `engine/*.ts` / 开局可选开关 / 渐进披露逻辑 / 显式丢弃。**disabled 条目不可默认丢弃**——逐一判断是否可选配置或 MVU 渐进披露。**不允许"看起来不重要就跳过"**
 - [ ] `start.sh` 已生成：从 `tavern2agent/scripts/start.sh` 复制到项目根目录，可执行权限已设
@@ -348,8 +256,9 @@ grep -rnE '\{\{(user|char|random|roll|pick|getvar|setvar)' \
 | 文档 | 适用方案 | 内容 |
 |------|:---:|------|
 | `design-principles.md` | 全部 | 设计原则（TS vs Python、一致性等） |
+| `decision-tree.md` | 临界场景 | 方案档位辅助判定信号 + 归档样例 |
 | `script-analysis.md` | MVU 卡 | tavern_helper 脚本 + regex_scripts 分类与迁移 |
-| `mvu-mapping.md` | 轻量+ | MVU 条目 → engine 映射、initvar 读取、直观示例 |
+| `mvu-mapping.md` | 轻量+ | MVU 条目 → engine 映射、initvar 读取、紧凑索引、条目分类完整表 |
 | `setup.md` | 全部 | 开局 setup 分析、开局 skill 模板、平台集成 |
 | `platform-adapters.md` | 全部 | pi 胶水层 |
 | `ts-engine.md` | 中等+ | TS 引擎代码（轻量 state、完整事件溯源、dice.ts） |
@@ -357,3 +266,5 @@ grep -rnE '\{\{(user|char|random|roll|pick|getvar|setvar)' \
 | `storytelling.md` | 全部（可选） | 叙事节拍参考 |
 | `validation.md` | 全部 | 残留检测 + 人工检查清单 |
 | `models/deepseek-v4.md` | V4 目标 | DeepSeek V4 特化：system 极简 + 规则入 user 流 + 全链路中文化 |
+
+> **目标模型有特化指南时优先读 `references/models/<model>.md`**——它会覆盖一般规则（如 V4 把规则从 system 搬到 user message 流）。无对应文件时按 SKILL.md 主线即可。

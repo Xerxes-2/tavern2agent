@@ -6,7 +6,7 @@
 
 ## 状态引擎 (state.ts)
 
-> **建议流程（中等+ 方案）**：写 `state.ts` 之前，先单独输出一份 state schema（TS interface 或 JSON 示例）+ 事件/操作清单（完整方案：事件名 + payload；中等方案：操作清单），跟用户对齐再动手。MVU 模型误读是后期返工成本最高的环节，前置确认比写完再改便宜得多。轻量方案 schema 通常一眼能看完，可跳过。
+> **建议流程（中等+ 方案）**：写 `state.ts` 之前，先单独输出 state schema + 事件/操作清单给用户 review，再动手。schema 必须覆盖用户卡创建字段；详见 SKILL.md §四「中间检查点」+ `mvu-mapping.md` 两条 ⚠️ 块。
 
 ### 轻量 / 中等方案
 
@@ -274,7 +274,7 @@ export function getCheckpoint() {
 function initialBlankState() {
   return {
     主角: {
-      姓名: "{{user}}",
+      姓名: "待初始化",  // 实际值来自开局 skill 的 setup 阶段；不要写 {{user}} 字面量
       种族: "人类",
       生命值: { 当前值: 10, 最大值: 10 },
       魔法值: { 当前值: 0, 最大值: 0 },
@@ -292,6 +292,33 @@ function initialBlankState() {
   };
 }
 ```
+
+## 注意力调度 (attention.ts)
+
+LLM 不擅长计数和定时触发。中等+ 方案存在「每 N 轮调用同伴」「战斗后必须 try_level_up」「NPC 互动后必更新好感度」「DLC 启用后定期提醒」任一需求时，写本模块。
+
+```typescript
+// engine/attention.ts
+export function buildReminders(): AttentionReminder[] {
+  const reminders: AttentionReminder[] = [];
+  const state = getState();
+  const turn = countSnapshots();  // 磁盘计数，跨进程持久
+
+  // 每 4 轮提醒同伴
+  if (companionEnabled && turn % 4 === 0) {
+    reminders.push({ level: "info", message: "同伴已静默 N 轮，可以调用 subagent" });
+  }
+  // XP 溢出 — 每轮检查
+  if (xp >= required) {
+    reminders.push({ level: "critical", message: "⚠️ 经验溢出，必须调用 try_level_up" });
+  }
+  return reminders;
+}
+```
+
+**注入点**：`extension.ts` 的 `before_agent_start` 中调用 `buildReminders()`，用 `## ⚠️ 系统提醒` 格式追加到 system prompt 末尾。
+
+**双重保障原则**：系统级注入（`attention.ts`）+ 工具级 `promptGuidelines`（写死 ⚠️ 前缀），两层都失效才遗漏。
 
 ## 骰子引擎 (dice.ts)
 

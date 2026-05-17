@@ -2,15 +2,13 @@
 
 ## 残留检测
 
-```bash
-# 一行 grep 扫残留
-grep -rnE "UpdateVariable|JSON Patch|<%_|\{\{getvar:|\{\{setvar:|__结束__|强化思考要求|认知隔离" \
-  agents/ engine/ data/ 2>/dev/null && echo "↑ 有残留，逐条核对" || echo "✓ 无残留"
-```
+跑 SKILL.md §六「第一层：grep 残留扫描」的两条 grep——一条扫 ST 补丁残留（`UpdateVariable` / `JSON Patch` / `{{getvar:}}` 等），一条扫 ST 宏字面量（`{{user}}` / `{{char}}` / `{{random}}` / `{{roll}}` 等）。
 
-> grep 命中范围仅限 ST 补丁残留（UpdateVariable、JSON Patch、`{{getvar:}}` 等模板语法）。游戏字段如 `生命值`、`魔法值`、`好感度`、`回溯次数` 等是合法的运行时状态，不在残留检测范围内。
+> 命中范围仅限 ST 补丁与宏。游戏字段如 `生命值`、`魔法值`、`好感度`、`回溯次数` 等是合法的运行时状态，不在残留检测范围内。ST 宏的逐项剥离规则见 `setup.md` §「改写时必须剥离的 ST 宏」。
 
 ## 人工检查清单
+
+本清单查**产出正确性**（"产的内容对吗？"）；**迁移完整性**（"该产的都产了吗？"）见 SKILL.md §五完工自检清单——两份都得跑。
 
 - [ ] `agents/gm.md` 核心规则 ≤5 条
 - [ ] 如走多 agent，每个隔离 NPC 有独立 `agents/npc_*.md` 且 `tools:` 为空
