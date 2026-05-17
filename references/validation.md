@@ -30,7 +30,7 @@
 
 grep 和人工清单只能验证"文件是否存在、是否残留 ST 痕迹"，回答不了核心问题：**GM 真的会按开局 skill 逐项收集角色信息吗？工具调用链路通不通？state 是否正确写入？**
 
-答案是：**以玩家身份进入游戏，亲身走完交互链路。** 像真人一样读 GM 输出、按人设回应、对 GM 的措辞/数值/跳问当场判断——而不是写脚本断言。
+答案是：**你（pi agent）下场玩。** 在 bash 里跑 pi CLI 启动 GM，逐轮读 GM 输出、按一个具体玩家人设生成回应、再发送下一条——像真人那样判断 GM 措辞/数值/跳问，而不是和预设 checklist 逐条对标。
 
 ## 怎么做
 
@@ -49,7 +49,7 @@ pi --session-dir ./sessions -e ./extension.ts -p "开始游戏"
 pi --session-dir ./sessions -e ./extension.ts --continue "你的回应"
 ```
 
-每轮：读完 GM 的终端输出 → 想好回应 → 用 `--continue` 发送。像真人一样——问什么答什么，想探索就探索，想打架就拔刀。**不要用预设脚本，不要逐条对标 checklist。** 把自己当玩家。
+每轮：读完 GM 的终端输出 → 想好回应 → 用 `--continue` 发送。像真人一样——问什么答什么，想探索就探索，想打架就拔刀。让 GM 措辞变化时也能跟上，而不是按固定 checklist 逐条对标。
 
 ### 3. 想一个玩家角色
 
@@ -69,27 +69,24 @@ pi --session-dir ./sessions -e ./extension.ts --continue "你的回应"
 玩完后，核实 state 是否真的被写入（不是 GM 嘴上说"已记录"）：
 
 ```bash
-# 看关键字段
+# 看关键字段（字段路径按本卡 state schema 替换 — 下面示例假设 state 顶层有「主角」「关系列表」）
 python3 -c "
 import json
 s = json.load(open('state/state.json'))
-print('HP:', s['主角']['生命值'], '/', s['主角']['生命值上限'])
-print('XP:', s['主角']['累计经验值'])
-print('背包:', list(s['主角']['背包'].keys()) if s['主角']['背包'] else '空')
-print('关系:', list(s['关系列表'].keys()) if s['关系列表'] else '空')
+print(json.dumps(s, indent=2, ensure_ascii=False)[:2000])
 "
 
-# 统计工具调用次数
+# 统计工具调用次数（pi 把每个会话写为 sessions/<id>.jsonl，ls -t | head -1 取最新一个）
 ls -t sessions/*.jsonl | head -1 | xargs grep -c '"name":"combat_attack"'
 ls -t sessions/*.jsonl | head -1 | xargs grep -c '"name":"get_price"'
 ls -t sessions/*.jsonl | head -1 | xargs grep -c '"name":"lookup_location"'
 ```
 
-如果战斗叙事很精彩但 `combat_attack` 调用次数为 0——说明 GM 在即兴创作，工具根本没被调。需要强化工具 description（参见 §「工具 description 工程」）。
+如果战斗叙事很精彩但 `combat_attack` 调用次数为 0——说明 GM 在即兴创作，工具根本没被调。需要强化工具 description（详见 `references/platform-adapters.md` §「工具 description 工程」）。
 
 ### 6. 时间和 token 成本
 
-一个人认真跑完 15-30 轮大概需要 20-40 分钟，消耗几十万 token。**值得。** 这是唯一能同时验证叙事质量、工具链路和状态一致性的方法。grep 和人工清单只能查出文件缺失和 ST 残留，查不出"GM 有没有真的掷骰"。
+一次完整测试跑 15-30 轮大概需要 20-40 分钟，消耗几十万 token——这是目前最可靠的同时验证叙事质量、工具链路、状态一致性的方法。grep 和人工清单只能查出文件缺失和 ST 残留，查不出"GM 有没有真的掷骰"。
 
 
 ## 常见问题 & 诊断对照
