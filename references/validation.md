@@ -26,163 +26,71 @@
 
 ---
 
-# SDK 交互测试
+# 下场实测
 
 grep 和人工清单只能验证"文件是否存在、是否残留 ST 痕迹"，回答不了核心问题：**GM 真的会按开局 skill 逐项收集角色信息吗？工具调用链路通不通？state 是否正确写入？**
 
-唯一可靠的验证方式是**以玩家身份进入游戏，亲身走完交互链路**——读 GM 输出、想好回应、按人设逐轮发送，对 GM 措辞/数值/跳问当场判断。比起脚本断言，agent 玩家的优势是能适应 GM 措辞变化而不依赖正则。
+答案是：**以玩家身份进入游戏，亲身走完交互链路。** 像真人一样读 GM 输出、按人设回应、对 GM 的措辞/数值/跳问当场判断——而不是写脚本断言。
 
-## 步骤
+## 怎么做
 
-### 1. 创建 GM session
+### 1. 开局
 
-用 SDK 加载 extension（即转换产物中的胶水层，默认文件名为 `extension.ts`，放在项目根目录，负责加载 `agents/gm.md` 并注册工具），启动一个 GM agent：
-
-```typescript
-import {
-  AuthStorage,
-  createAgentSession,
-  DefaultResourceLoader,
-  getAgentDir,
-  ModelRegistry,
-  SessionManager,
-} from "@earendil-works/pi-coding-agent";
-
-// 如果有自定义 models.json 或 auth.json，传入对应路径；否则用默认
-const authStorage = AuthStorage.create();
-const modelRegistry = ModelRegistry.create(authStorage);
-
-const resourceLoader = new DefaultResourceLoader({
-  cwd: process.cwd(),
-  agentDir: getAgentDir(),
-  // 胶水层 extension 文件名取决于转换时生成的名字，通常为 extension.ts
-  additionalExtensionPaths: ["./extension.ts"],
-});
-await resourceLoader.reload();
-
-const { session } = await createAgentSession({
-  resourceLoader,
-  authStorage,
-  modelRegistry,
-  sessionManager: SessionManager.inMemory(),
-});
+```bash
+cd 项目目录
+pi --session-dir ./sessions -e ./extension.ts -p "开始游戏"
 ```
 
-### 2. 订阅 GM 输出，逐轮交互
+用 `-p`（print mode）发送第一条消息，`--session-dir` 保证会话留在项目里。
 
-每轮：等 GM 说完 → 读输出 → 想好回应 → 发送。循环直到开场叙事完成并进入自由交互。
+### 2. 逐轮继续
 
-```typescript
-function ask(text: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    let output = "";
-    const unsub = session.subscribe((event) => {
-      if (event.type === "message_update"
-          && event.assistantMessageEvent.type === "text_delta") {
-        output += event.assistantMessageEvent.delta;
-        process.stdout.write(event.assistantMessageEvent.delta);
-      }
-      if (event.type === "agent_end") {
-        unsub();
-        resolve(output);
-      }
-    });
-    // prompt() 返回 Promise<void>，agent_end 事件在内部 resolve 前触发
-    session.prompt(text).catch((err) => {
-      unsub();
-      reject(err);
-    });
-  });
-}
-
-// 开局
-let gmOutput = await ask("开始游戏");
-
-// 逐轮阅读 GM 输出，按 GM 的提问逐项回应
-// 你在每一轮中：读完 gmOutput → 判断 GM 在问什么 → 以玩家身份回答
-// 直到角色创建完成，GM 交付开场叙事并进入自由交互
+```bash
+pi --session-dir ./sessions -e ./extension.ts --continue "你的回应"
 ```
 
-### 3. 构造一个玩家角色
+每轮：读完 GM 的终端输出 → 想好回应 → 用 `--continue` 发送。像真人一样——问什么答什么，想探索就探索，想打架就拔刀。**不要用预设脚本，不要逐条对标 checklist。** 把自己当玩家。
 
-你需要在开局前想好一个玩家角色（姓名、背景、目标、出道路线等），确保能覆盖开局 skill 清单里的每一项。角色要有基本的合理性——不要刻意刁难 GM，但也不要用完美人设掩盖问题。
+### 3. 想一个玩家角色
 
-### 4. 交互中注意
+开局前想好姓名、背景、目标——能覆盖开局 skill 清单里的每一项。不需要完美，但要像真人：有偏好、会犹豫、偶尔冲动。
 
-- 观察 GM 是否**一轮内列完所有缺失项**并附默认值——逐项追问是 bug
-- 第一次可直接回「开始」走默认；之后再单独跑一次手动改若干字段，验证 setup 接受局部覆盖
-- GM 交付开场叙事时，检查是否包含时间/地点/具体情境（而非空洞的"新的一天开始"）
-- 开场完成后，继续 2-3 轮自由交互，验证游戏循环不崩溃
+### 4. 边玩边观察
 
-### 5. 跑断言（可选）
+玩的过程中注意：
+- 开局是否**一轮内列完所有缺失项**并附默认值——逐项追问是 bug
+- 开场叙事是否含时间/地点/具体情境（"新的一天开始"算空洞）
+- 价格/地点/NPC 的描述是否前后一致——不一致说明读取工具没被调
+- 战斗中是否有判定过程——一刀秒杀没掷骰是跳过了 combat_attack
+- 至少玩到自由交互 3-5 轮再收工
 
-交互完成后，检查 state 是否正确写入。注意 `engine/state.ts` 的公开 API 是 `getState()`（轻量方案）或 `getCurrentState()`（完整方案），而非内部的 `deepGet`：
+### 5. 检查 state 和工具调用
 
-```typescript
-// 轻量 / 中等方案
-import { getState } from "./engine/state.js";
+玩完后，核实 state 是否真的被写入（不是 GM 嘴上说"已记录"）：
 
-const state = getState() as Record<string, unknown>;
-console.assert((state as any).个人?.姓名 !== "待初始化", "姓名未写入");
+```bash
+# 看关键字段
+python3 -c "
+import json
+s = json.load(open('state/state.json'))
+print('HP:', s['主角']['生命值'], '/', s['主角']['生命值上限'])
+print('XP:', s['主角']['累计经验值'])
+print('背包:', list(s['主角']['背包'].keys()) if s['主角']['背包'] else '空')
+print('关系:', list(s['关系列表'].keys()) if s['关系列表'] else '空')
+"
 
-// 完整方案（事件溯源）
-// import { getCurrentState } from "./engine/state.js";
-// const state = getCurrentState();
+# 统计工具调用次数
+ls -t sessions/*.jsonl | head -1 | xargs grep -c '"name":"combat_attack"'
+ls -t sessions/*.jsonl | head -1 | xargs grep -c '"name":"get_price"'
+ls -t sessions/*.jsonl | head -1 | xargs grep -c '"name":"lookup_location"'
 ```
 
-断言路径依据实际 state schema 调整，字段名从 `[initvar]` 和 `[mvu_update]` 条目中提取。
+如果战斗叙事很精彩但 `combat_attack` 调用次数为 0——说明 GM 在即兴创作，工具根本没被调。需要强化工具 description（参见 §「工具 description 工程」）。
 
-## 脚本编写注意事项（已知坑）
+### 6. 时间和 token 成本
 
-以下是从实际下场测试中踩出来的问题，写测试脚本时留意。
+一个人认真跑完 15-30 轮大概需要 20-40 分钟，消耗几十万 token。**值得。** 这是唯一能同时验证叙事质量、工具链路和状态一致性的方法。grep 和人工清单只能查出文件缺失和 ST 残留，查不出"GM 有没有真的掷骰"。
 
-### 1. pi SDK 的 ESM 模块解析
-
-`@earendil-works/pi-coding-agent` 是纯 ESM 包（`"type": "module"`），`import` 只在 pi 自身的加载器下能直接解析。跑独立测试脚本时：
-
-- 脚本扩展名用 `.mjs`
-- 用 `node --experimental-vm-modules` 启动
-- 在项目 `node_modules/` 下建一个指向全局 pi 安装位置的软链接：
-  ```bash
-  mkdir -p node_modules/@earendil-works
-  ln -s $(dirname $(dirname $(which pi)))/lib/node_modules/@earendil-works/pi-coding-agent \
-    node_modules/@earendil-works/pi-coding-agent
-  ```
-- 测试完记得删掉这个软链接（它不是迁移产物的一部分）
-
-### 2. `agent_end` 后立即 `prompt()` 的竞态
-
-`agent_end` 事件触发时，session 的内部状态可能尚未完全回到 idle。紧接着调用 `session.prompt()` 会抛 `"Agent is already processing"`。修复方式：
-
-```typescript
-if (event.type === "agent_end") {
-  // 给 session 一点时间完成内部清理
-  setTimeout(() => { unsub(); resolve(output); }, 100);
-}
-```
-
-每轮之间也加一个 `await new Promise(r => setTimeout(r, 500))` 做间隔。
-
-### 3. TypeBox `Record` 陷阱：混合类型字段
-
-`Type.Record(Type.String(), Type.String())` 会把对象里**所有值**都转成字符串——包括 boolean 和 number。如果你的 presence/状态对象里混了 `isTransformed: boolean` 和 `Lust: number` 这类非字符串字段，必须用 `Type.Object({...})` 逐个声明字段类型：
-
-```typescript
-// ❌ 错误——所有值变成 string
-Type.Record(Type.String(), Type.String())
-
-// ✅ 正确——保留各自类型
-Type.Object({
-  Thought: Type.Optional(Type.String()),
-  Action: Type.Optional(Type.String()),
-  isTransformed: Type.Optional(Type.Boolean()),
-  Lust: Type.Optional(Type.Number()),
-})
-```
-
-如果确实需要自由键名 + 混合类型，在 execute 里做运行时类型转换（`Boolean(v)` / `Number(v)`）作为兜底。
-
----
 
 ## 常见问题 & 诊断对照
 
