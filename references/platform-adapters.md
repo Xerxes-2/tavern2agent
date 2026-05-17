@@ -125,7 +125,7 @@ export function registerAllTools(pi: Pi) {
       name: tool.name,
       description: tool.description,
       parameters: tool.parameters,
-      execute: async (params: any) => {
+      execute: async (toolCallId: string, params: any) => {
         const result = await rawExecute(params);
         const text = typeof result === "string" ? result : JSON.stringify(result, null, 2);
         return { content: [{ type: "text", text }] };
