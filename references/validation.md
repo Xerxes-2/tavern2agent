@@ -184,9 +184,9 @@ Type.Object({
 
 ---
 
-## 常见问题 & 你的判断
+## 常见问题 & 诊断对照
 
-| 你观察到 | 结论 |
+| 观察到 | 结论 |
 |---------|------|
 | GM 第一轮没提开局 setup，直接开始叙事 | 开局 skill 未加载或未生效 |
 | GM 把 setup 拆成多轮逐项追问 | 开局 skill 违反 setup.md 的「一轮内列完」原则 |
@@ -194,5 +194,23 @@ Type.Object({
 | 用户说「开始」用默认值，GM 却追问细节 | 默认值机制未生效 |
 | GM 开场叙事中裸露数值（如"粉丝+200"） | 叙事风格违反 gm.md 规则 |
 | 自由交互第 2-3 轮 state 仍为初始值 | 状态更新工具未被调用 |
+| 价格/地点/NPC 描述与 data 文件不一致 | 读取类工具未被调用，GM 在即兴创作 |
+| 战斗有叙事无判定 | combat_attack / generate_npc 未被调用 |
+| 任务奖励数值与 quest engine 不一致 | generate_quest 未被调用 |
+| 即使 system prompt 要求调工具，模型仍跳过 | 工具的 `description` 字段缺少「必须调用场景」和「严禁行为」列表——详见 `references/platform-adapters.md` §「工具 description 工程」 |
+
+## 工具调用遵从测试
+
+读取类工具（`lookup_location`、`get_price`、`combat_attack` 等）是最容易被模型跳过的——强叙事模型倾向于「自己编」而不是「调工具查」。验证时重点检查：
+
+1. **价格是否来自 `get_price`**——GM 说出任何带 G 的数字时，确认 `get_price` 在同一轮被调用
+2. **地点描述是否来自 `lookup_location`**——GM 描述新地点时，确认调了 `lookup_location` 而非凭记忆描述
+3. **战斗是否有 `generate_npc` + `combat_attack`**——任何攻击或伤害，确认先调了这两个工具
+4. **任务是否有 `generate_quest`**——公告板上的委托，确认是工具生成而非即兴编写
+
+测试方法：
+- 查看 session JSONL 中每轮 assistant 消息的 `tool_calls` 字段
+- 检查 state 中的 XP、金钱、背包变动是否与工具调用结果一致
+- 如果工具未被调用但叙事看起来合理，说明模型在即兴创作——需要按 `platform-adapters.md` §「工具 description 工程」强化工具 description
 
 遇到任何问题，直接向用户报告，指出具体哪一轮、GM 说了什么、预期应该怎样。
