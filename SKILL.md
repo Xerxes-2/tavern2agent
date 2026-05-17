@@ -112,7 +112,7 @@ python3 scripts/list_entries.py card.json
 | 键值状态 | `comment` 含 `[initvar]` / `[mvu_update]` | `engine/state.ts` → `initialState()` |
 | 路线/分支专属 | `comment` 含路线名（如「NTR 路线」「真结局」）/ 仅在特定条件下 enabled | 与 `alternate_greetings` 联动：每条路线对应一个开局选项，路线专属设定挂到 `data/routes/<路线名>.json`，开局选定后按需注入 |
 | ST 补丁 | `content` 含「强化思考」「JSON Patch」「`__结束__`」 | **丢弃** |
-| disabled 条目 | `enabled: false` | **不可默认丢弃。** 逐一审计：若为可选/可配置模块（如难度调节、可选路线）→ 作为开局 skill 的 toggle 选项；若为 MVU 渐进披露（某条件满足后自动开启）→ 标注为 `progressive`，在 engine 里实现渐进启用逻辑；只有明确标注「废弃」「草稿」且无任何引用者才可丢弃 |
+| disabled 条目 | `enabled: false` | **不可默认丢弃。** 分两类处理：<br>**开局可选**（玩家在 setup 里选开不开）→ 放入开局 skill 的选项列表，存入 state；例子：DLC 事件模块、可选同伴、难度调节<br>**MVU 渐进披露**（条件满足时自动触发）→ engine 里实现渐进启用逻辑；例子：变量更新规则、章节解锁<br>只有明确标注「废弃」「草稿」且无任何引用者才可丢弃 |
 
 **做完这一步再决定方案档位**——条目数量决定了 world.json 的规模：纯地理念卡 world.json ≤5KB 合理；大量常驻系统条目的卡，world.json 自然 20-30KB。
 
@@ -221,6 +221,52 @@ state 骨架代码见 `references/ts-engine.md`「轻量/中等方案」。中�
 
 MVU 模型误读是后期返工最大的成本，前置 5 分钟对齐比写完一整套 engine 再改便宜得多。轻量方案 schema 通常一眼能看完，可跳过此步。
 
+### 注意力调度（中等+ 方案强烈推荐）
+
+LLM 不擅长计数和定时触发。如果游戏存在以下任何需求，写 `engine/attention.ts`：
+
+- 每 N 轮调用一次同伴/子 agent
+- 战斗后必须调 `try_level_up`
+- NPC 互动后必须更新好感度
+- DLC 模块启用后需要定期提醒埋钩子
+
+**模式**：
+
+```typescript
+// engine/attention.ts
+export function buildReminders(): AttentionReminder[] {
+  const reminders: AttentionReminder[] = [];
+  const state = getState();
+  const turn = countSnapshots();  // 磁盘计数，跨进程持久
+
+  // 每 4 轮提醒同伴
+  if (companionEnabled && turn % 4 === 0) {
+    reminders.push({ level: "info", message: "同伴已静默 N 轮，可以调用 subagent" });
+  }
+  // XP 溢出 — 每轮检查
+  if (xp >= required) {
+    reminders.push({ level: "critical", message: "⚠️ 经验溢出，必须调用 try_level_up" });
+  }
+  return reminders;
+}
+```
+
+**注入点**：`extension.ts` 的 `before_agent_start` 中调用 `buildReminders()`，用 `## ⚠️ 系统提醒` 格式追加到 system prompt 末尾。
+
+**双重保障原则**：系统级注入（`attention.ts`）+ 工具级 `promptGuidelines`（写死 ⚠️ 前缀），两层都失效才遗漏。
+
+### 数据查询工具（中等+ 方案强烈推荐）
+
+凡是有结构化数据集合（地点 ≥20、NPC ≥5、DLC 模块），必须配查询工具。否则数据等于不存在：
+
+| 数据 | 工具 | 索引文件 |
+|------|------|---------|
+| 世界地点 | `lookup_location` | `data/location_index.json`（地点名 → world.json 条目映射） |
+| 预设 NPC | `lookup_npc` | `data/npc_index.json`（NPC 名 → characters.json 条目映射） |
+| DLC 模块 | `get_dlc_info` | `data/dlc_index.json`（模块名 → 数据键 + 摘要 + 文件位置） |
+
+索引文件用 `python3 -c` 批量扫描生成，不要手写。
+
 ---
 
 ## 五、产出清单
@@ -253,6 +299,8 @@ MVU 模型误读是后期返工最大的成本，前置 5 分钟对齐比写完�
 - [ ] `tools/registry.ts` 不是死代码：extension.ts 真的引用了它
 - [ ] 中间检查点已交付（中等+ 方案）：state schema + 事件清单单独发给用户 review 过
 - [ ] 第一层 grep 残留扫描通过
+- [ ] 中等+ 方案：`engine/attention.ts` 已覆盖所有"每 N 轮/条件触发"需求
+- [ ] 中等+ 方案：结构化数据集合（地点/NPC/DLC）已配查询工具 + 索引文件
 - [ ] 至少跑过 1 轮下场玩（第二层校验），观察 4 点全部 ✓
 
 任何一项打不上 ✓，**继续做完再报告**，不要把"还差 X"作为收工话术。
