@@ -216,7 +216,7 @@ state 骨架代码见 `references/ts-engine.md`「轻量/中等方案」。中�
 
 在动手写 `engine/*.ts` 之前，**先把以下两份输出单独发给用户 review**：
 
-1. **state schema**——TS interface 或 JSON 示例，列出所有字段及其类型/初值
+1. **state schema**——TS interface 或 JSON 示例，列出所有字段及其类型/初值。**必须包含用户卡创建字段（姓名/性别/年龄/外貌/背景）——这些不在 InitVar 里，来自 user 卡模板或 setup 交互。遗漏会导致 patch_state 的 replace 操作静默失败。**
 2. **事件清单**——中等方案给操作列表（`patch_state`、`snapshot`、`rollback` 等）；完整方案给事件名 + payload（`set` / `delta` / `death_rewind` 等）
 
 MVU 模型误读是后期返工最大的成本，前置 5 分钟对齐比写完一整套 engine 再改便宜得多。轻量方案 schema 通常一眼能看完，可跳过此步。

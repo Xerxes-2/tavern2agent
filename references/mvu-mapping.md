@@ -100,6 +100,21 @@ MVU 条目中的 JSON Schema 或变量列表是**初始状态的蓝图**。
 2. 如果没有 `[initvar]`：用 `get_entry.py` 读 MVU 条目，找到变量定义块（通常是 JSON 或 YAML 结构）
 3. 转化为 `initialState()` 函数返回的对象
 
+### ⚠️ 常见遗漏：用户卡字段不在 InitVar 里
+
+InitVar 定义的是**运行时变量**（等级、经验、背包、好感度），不包含**角色创建字段**（姓名、性别、年龄、外貌、背景）。这些字段来自：
+- `first_mes` 的 setup 交互（「你的名字是？」）
+- user 卡模板（`data/user.json`）
+- 开局 skill 的 checklist
+
+**必须在 INITIAL_STATE 中显式声明这些字段（默认空字符串），否则 patch_state 的 `replace` 操作会因 RFC 6902 约束而静默失败。**
+
+### ⚠️ RFC 6902 陷阱：replace 要求路径已存在
+
+`patchState` 使用 `rfc6902` 库的 `applyPatch`。**`replace` 操作的目标路径必须已存在于状态对象中，否则操作静默失败（不抛错，但值不会写入）。** `add` 可以创建新路径，但依赖 GM 正确选择 op 类型。
+
+**防御措施**：INITIAL_STATE 中为所有已知可编辑字段预声明默认值，让 `replace` 始终可用。
+
 ### 常见模式
 
 **简单键值对**：
