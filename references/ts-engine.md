@@ -208,7 +208,8 @@ function deepSet(obj: Record<string, unknown>, path: string, value: unknown) {
 
 function applyEvent(state: Record<string, unknown>, evt: Event) {
   const { type, path, value } = evt;
-  if (!path && type !== "death_rewind" && type !== "remove_tasks") return;
+  // path-less 事件（如 death_rewind）走 switch 的 default 分支；其他事件必须带 path
+  if (!path && type !== "death_rewind") return;
 
   switch (type) {
     case "set":

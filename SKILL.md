@@ -16,7 +16,7 @@ SillyTavern 的很多机制是绕过单次 LLM 调用限制的补丁。agent 天
 
 ## 〇、开工前确认
 
-1. **先读 `references/design-principles.md`**——七条核心原则（agent 是程序本身、所有计算进引擎、prompt 极简、砍掉强化思考链等）决定了产出的形态，不读会写出"翻译 ST 咒语"风格的代码。
+1. **先读 `references/design-principles.md`**——十条核心原则（agent 是程序本身、所有计算进引擎、prompt 极简、砍掉强化思考链等）决定了产出的形态，不读容易把 ST 机制直译为代码，错过 agent 的核心优势。
 2. **确认输出目录**：用户如果说「输出到 xxx 目录」「放到 cards/ 下」，直接照做。如果用户只说「转换这张卡」没指定路径，主动问一句：「输出到哪个目录？目录名用卡片名还是自定义？」用户没指定命名规则时，默认取卡片 `data.name` 作为目录名（非法字符替换为下划线），放在卡片 PNG 同级目录下。
 3. **检查工作目录**：如果目标目录已存在 `agents/`、`engine/`、`skills/start-game/SKILL.md` 等，先和用户确认是覆盖、增量更新、还是另开目录。用户没明说时直接问一句。
 
@@ -110,7 +110,7 @@ python3 scripts/list_entries.py card.json
 | 没有 MVU 条目 | **纯 prompt** | — | `agents/gm.md`、`data/` |
 | 只有键值状态，无骰子/公式 | **轻量** | `patchState` | 上者 + `engine/state.ts` + `get_status`/`patch_state` 工具 |
 | 有骰子/战斗/经济，不需一轮内精确回退 | **中等** | `patchState` + 每轮快照 | 上者 + `engine/dice.ts` 等模块 |
-| 需死亡回溯/章节存档/事件级回退 | **完整 engine** | `dispatch(event)` | 事件溯源 + 全套模块 + 多 agent |
+| 需死亡回溯/章节存档/事件级回退 | **完整 engine** | `dispatch(event)` | 事件溯源 + 全套模块（多 agent 见下方独立判定） |
 
 ### 多 agent 判定（独立维度，不跟方案档位绑定）
 
@@ -183,7 +183,7 @@ LLM 不擅长计数和定时触发。游戏存在「每 N 轮调用同伴」「�
 |------|:-----:|------|
 | `skills/<skill-name>/SKILL.md` | ✅ 必须 | 游戏入口 skill（如 `skills/start-game/SKILL.md`），处理 user 卡/配置/开场 |
 | `agents/gm.md` | ✅ 必须 | GM system prompt |
-| `agents/<npc_xxx>.md` | NPC≥5 且有隐藏信息 | NPC subagent（每 NPC 一个，上下文隔离） |
+| `agents/<npc_xxx>.md` | 有隐藏信息/视角隔离需求时 | NPC subagent（每个需隔离的 NPC 一个，上下文隔离）；触发条件详见 §三「多 agent 判定」 |
 | `engine/state.ts` | 轻量+ | 状态引擎 |
 | `engine/dice.ts` 等 | 中等+ | 按需 |
 | `tools/registry.ts` | 轻量+ | 工具实现集中地（**不要内联到 extension.ts**） |
@@ -191,7 +191,9 @@ LLM 不擅长计数和定时触发。游戏存在「每 N 轮调用同伴」「�
 | `start.sh` | ✅ 必须 | 启动脚本，用户直接 `./start.sh` 进游戏。从 `tavern2agent/scripts/start.sh` 复制到项目根目录 |
 | `data/world.json` | ✅ 必须 | 世界设定 |
 | `data/characters.json` | ≥5 角色时 | 角色数据 |
-| `data/user.json` | 需要 user 卡时 | 用户角色**固定档案**（迁移阶段定型字段：姓名/性别/外貌/背景等）；**运行时可变状态**（HP/好感度/装备等）走 `INITIAL_STATE` + state.json，不要混在 user.json 里 |
+| `data/user.json` | 需要 user 卡时 | 用户角色**固定档案**（运行时可变状态走 state.json，详见下方说明） |
+
+> `user.json` 只放迁移阶段定型字段（姓名/性别/外貌/背景等），运行时不变；HP/好感度/装备等可变状态走 `INITIAL_STATE` + `state.json`，不要混进 `user.json`。
 
 ### 完工自检清单（向用户报告"完成"之前必须逐项对照）
 
@@ -201,7 +203,7 @@ LLM 不擅长计数和定时触发。游戏存在「每 N 轮调用同伴」「�
 
 - [ ] `first_mes` 已处理：改写后内联进开局 skill 的开场叙事参考，**ST 宏已按 setup.md §「改写时必须剥离的 ST 宏」逐项剥离/替换**
 - [ ] **`alternate_greetings` 已处理**：每条都有去向（路线选项 / 合并 setup / 显式丢弃并说明原因）
-- [ ] **所有世界书条目（含 disabled）都有去向**：按条目分类表落到 `data/*.json` / `engine/*.ts` / 开局可选开关 / 渐进披露逻辑 / 显式丢弃。**disabled 条目不可默认丢弃**——逐一判断是否可选配置或 MVU 渐进披露。**不允许"看起来不重要就跳过"**
+- [ ] **所有世界书条目（含 disabled）都有去向**：按条目分类表落到 `data/*.json` / `engine/*.ts` / 开局可选开关 / 渐进披露逻辑 / 显式丢弃。disabled 条目须逐一判断是否为可选配置或 MVU 渐进披露，不能因「看起来不重要」就默认丢弃
 - [ ] `start.sh` 已生成：从 `tavern2agent/scripts/start.sh` 复制到项目根目录，可执行权限已设
 - [ ] `extension.ts` 已生成且只做注册：顶层 `import`（无动态 `import()`）、`registerAllTools(pi)` 被调用
 - [ ] `tools/registry.ts` 不是死代码：extension.ts 真的引用了它

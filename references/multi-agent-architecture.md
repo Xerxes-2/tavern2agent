@@ -63,12 +63,14 @@ SillyTavern 单一 context 的经典缺陷：模型同时读到所有它本不�
 
 | 条件 | 决策 |
 |------|------|
-| NPC ≤4 且无隐藏信息、无隐藏真相 | 单 agent，GM 自己扮演所有 NPC |
-| NPC ≥5 且有隐藏信息/秘密/阵营 | 多 agent，有秘密的 NPC 各一个 subagent |
+| NPC 不多（经验阈值 ~4）且无隐藏信息、无隐藏真相 | 单 agent，GM 自己扮演所有 NPC |
+| NPC 较多（经验阈值 ~5）且有隐藏信息/秘密/阵营 | 多 agent，有秘密的 NPC 各一个 subagent |
 | 视角间信息严重不对等（NPC 之间、PC 之间） | 多 agent——认知隔离的核心价值 |
 | 悬疑/侦探等"答案不能泄漏给叙事者"的题材 | 多 agent，真相/凶手视角独立 context，GM 只拿到该揭晓的部分 |
 
 **多 agent 跟 game engine 复杂度无关。** 零骰子的纯 prompt 卡，只要有认知隔离需求（NPC 秘密、隐藏真相、信息不对等），照样走多 agent。
+
+> 4/5 是经验阈值——单 context 同时维持 5+ 套有秘密的人设容易串味（一个 NPC 的暗藏动机会"渗透"到另一个的台词里）。NPC 数少时单 agent 靠 prompt 约束就够，多了就该上隔离。具体阈值因模型而异，临界情况倾向用隔离。
 
 ## 不要用这个模式做的事
 
@@ -205,12 +207,14 @@ NPC agent 通过 `defaultReads: data/world.json` 自动获得世界公开信息�
 **方案**：每轮叙事后启动一个专职 `scribe` 子代理，从叙事中提取状态变化并写入。GM 只负责叙事，scribe 只负责状态——认知分离。
 
 ```
-GM (v4-pro)  叙事 → subagent(scribe) → scribe (v4-flash, ~15s)
+GM (主模型)  叙事 → subagent(scribe) → scribe (轻量副模型)
                                               ├─ fork 上下文（继承对话）
                                               ├─ get_status → 当前状态
                                               ├─ 提取 delta → patch_state 写入
                                               └─ 返回变更摘要
 ```
+
+> 主模型负责叙事，副模型用更便宜/更快的型号专做状态提取（如 DS V4-Pro + V4-Flash、Claude Sonnet + Haiku）。延迟数据见下文「实测参考」。
 
 **实现要点**：
 
@@ -232,7 +236,7 @@ GM (v4-pro)  叙事 → subagent(scribe) → scribe (v4-flash, ~15s)
 4. **为什么用 fork 不用 fresh + 传叙事**：
    - fresh + 传叙事：GM 需输出 ~5000 token 叙事原文作为 task 参数，输出延迟远超 fork 的序列化开销
    - fork：GM 只输出 ~20 token 的短 task，叙事通过会话继承零成本传导
-   - 实测 fork ~15s < fresh+传叙事 ~20s+
+   - **实测参考**（DS V4-Pro 主 + V4-Flash 副、单轮叙事 ~3-5K token）：fork ~15s < fresh+传叙事 ~20s+。换模型/卡片复杂度后绝对数会变，但 fork 优势的方向稳定。
 
 5. **禁止输出**：scribe 只需调工具，不应输出任何文字。DeepSeek 模型尤其倾向「完成任务后加一段总结」，需要在多处反复强调：
    - 身份声明首句：`**你只调工具，不输出任何文字。**`（粗体）

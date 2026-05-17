@@ -9,7 +9,7 @@ DeepSeek V4 的消息权重分配与 Claude/GPT 有根本性差异：**user mess
 | system message 效力 | 强 | **弱**（尤其对创作/角色扮演类任务） |
 | user message 效力 | 正常 | **强**（应承载所有核心规则） |
 | 思维链语言控制 | system prompt 可控制 | **不可控**（已知缺陷，官方已确认） |
-| 思维链切换触发 | 罕见 | **tool call 返回英文 → 一轮切换 → 99.4% 不可逆自锁** |
+| 思维链切换触发 | 罕见 | **tool call 返回英文 → 一轮切换 → 实测复现率 99.4% 不可逆自锁**（GitHub issue #1255 的统计批次，见文末参考） |
 
 ## 三刀流
 
@@ -129,7 +129,7 @@ Tool 调用 → 返回英文内容（JSON 键名/代码）
 → 英文 token 占比越过阈值
 → 下一轮 reasoning_content 切英文
 → 英文 reasoning 被 API 强制回传（否则报错）
-→ 自锁循环，99.4% 不可逆
+→ 自锁循环（GitHub issue #1255 实测复现率 99.4%）
 ```
 
 **触发源是 tool call 注入的英文内容**，不是 system prompt。要系统性地消灭：
