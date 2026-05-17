@@ -84,6 +84,100 @@ export default function extension(pi: ExtensionAPI) {
 }
 ```
 
+## 工具返回值格式（必读）
+
+**pi 工具 `execute` 函数必须返回 `{ content: [{ type: "text", text: "..." }] }` 格式**（OpenAI tool response 标准格式）。返回纯字符串或 plain object 会导致 pi 渲染层崩溃（`getTextOutput` 中 `result.content.filter` 作用在 `undefined` 上）。
+
+### 错误模式（会崩溃）
+
+```typescript
+// ❌ 返回 plain object —— pi 渲染层无法处理
+async function get_status() {
+  return { hp: 100, mp: 50, location: "病房" };
+}
+
+// ❌ 返回纯字符串 —— result.content 为 undefined，filter 崩溃
+async function get_status() {
+  return `HP: 100 | MP: 50 | 位置: 病房`;
+}
+```
+
+### 正确模式
+
+```typescript
+// ✅ 返回 { content: [{ type: "text", text: "..." }] }
+async function get_status() {
+  const state = loadState();
+  const text = `HP: ${state.hp}/100 | MP: ${state.mp}/50 | 位置: ${state.location}`;
+  return { content: [{ type: "text", text }] };
+}
+```
+
+### 兜底安全网（推荐在 registerAllTools 中统一包装）
+
+为避免每个工具手动写 `{ content: [...] }`，可以在注册层加统一 wrapper：
+
+```typescript
+export function registerAllTools(pi: Pi) {
+  for (const tool of TOOLS) {
+    const rawExecute = tool.execute;
+    pi.registerTool({
+      name: tool.name,
+      description: tool.description,
+      parameters: tool.parameters,
+      execute: async (toolCallId: string, params: any) => {
+        const result = await rawExecute(params);
+        const text = typeof result === "string" ? result : JSON.stringify(result, null, 2);
+        return { content: [{ type: "text", text }] };
+      },
+    });
+  }
+}
+```
+
+### 错误模式（会崩溃）
+
+```typescript
+// ❌ 返回 plain object —— pi 渲染层无法处理
+async function get_status() {
+  return { hp: 100, mp: 50, location: "病房" };
+}
+
+async function lookup_npc(params: { name: string }) {
+  return { found: true, name: params.name, detail: { ... } };
+}
+```
+
+### 正确模式
+
+**每条工具的 execute 函数应自行将结果格式化为可读文本，包裹在 `{ content: [{ type: "text", text: "..." }] }` 中返回**。不要依赖外部 wrapper 做 `JSON.stringify`——裸 JSON 在游戏过程中可读性差，且破坏叙事沉浸感。
+
+```typescript
+// ✅ 返回 { content: [{ type: "text", text: "..." }] }
+async function get_status() {
+  const state = loadState();
+  const text = `HP: ${state.hp}/100 | MP: ${state.mp}/50 | 位置: ${state.location}`;
+  return { content: [{ type: "text", text }] };
+}
+
+async function lookup_npc(params: { name: string }) {
+  const char = characters[params.name];
+  if (!char) return { content: [{ type: "text", text: `未找到角色 "${params.name}"。` }] };
+  const text = `## ${params.name}\n年龄：${char.age} | 性格：${char.personality}\n外貌：${char.appearance}`;
+  return { content: [{ type: "text", text }] };
+}
+
+async function roll_dice(params: { sides?: number }) {
+  const sides = params.sides || 6;
+  const roll = Math.floor(Math.random() * sides) + 1;
+  return { content: [{ type: "text", text: `🎲 d${sides} = ${roll}` }] };
+}
+```
+
+}
+```
+
+
 ## 工具 description 工程（必读）
 
 > 这是从 DeepSeek V4 适配中验证出来的关键发现：**function calling 模式下，模型决定是否调用工具，主要读工具的 `description` 字段，不是 system prompt。** 对所有模型通用，只是措辞强度需微调。
