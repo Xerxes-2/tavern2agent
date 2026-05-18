@@ -87,23 +87,40 @@ export default function extension(pi: ExtensionAPI) {
     };
   });
 
-  // /retry 命令：重新发送最后一条用户消息
+  // /retry 命令：回退到最后一次用户消息之前，清除失败回复后重试
   pi.registerCommand("retry", {
-    description: "重试最后一次 agent 响应",
+    description: "清除失败回复并重试最后一次用户消息",
     handler: async (_args, ctx) => {
+      await ctx.waitForIdle();
+
       const entries = ctx.sessionManager.getEntries();
+      let lastUserEntryId: string | null = null;
+      let lastUserText: string | null = null;
+
       for (let i = entries.length - 1; i >= 0; i--) {
         const entry = entries[i];
         if (entry.type === "message" && (entry as any).message?.role === "user") {
-          const text = (entry as any).message.content?.[0]?.text;
-          if (text) {
-            ctx.ui.notify("🔄 重试中...", "info");
-            await ctx.sendUserMessage(text);
-            return;
-          }
+          lastUserEntryId = entry.id;
+          lastUserText = (entry as any).message.content?.[0]?.text;
+          break;
         }
       }
-      ctx.ui.notify("没有找到可重试的用户消息", "warning");
+
+      if (!lastUserEntryId || !lastUserText) {
+        ctx.ui.notify("没有找到可重试的用户消息", "warning");
+        return;
+      }
+
+      const result = await ctx.fork(lastUserEntryId, {
+        withSession: async (ctx) => {
+          ctx.ui.notify("🔄 重试中（已清除失败回复）...", "info");
+          await ctx.sendUserMessage(lastUserText);
+        },
+      });
+
+      if (result.cancelled) {
+        ctx.ui.notify("重试被取消", "warning");
+      }
     },
   });
 
