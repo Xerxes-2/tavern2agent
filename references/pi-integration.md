@@ -35,7 +35,9 @@
 ./start.sh --continue               # 继续上次会话
 ```
 
-> **注意**：`PI_CODING_AGENT_DIR` 切换配置目录后，pi 不再读取 `~/.pi/agent/settings.json` 中的全局包配置，因此全局安装的 npm 包（如 pi-rewind-hook、pi-subagents、pi-processes 等）也不会自动加载。如需使用这些包，可以用 `pi install npm:@foo/bar -l` 安装到项目本地（写入 `.pi/settings.json`），或在 `start.sh` 末尾加 `-e` / `--skill` 参数显式加载。详见 `scripts/start.sh` 注释。
+> **注意**：`PI_CODING_AGENT_DIR` 切换配置目录后，pi 不再读取 `~/.pi/agent/settings.json` 中的全局包配置，因此全局安装的 npm 包（如 pi-rewind-hook、pi-subagents、pi-processes 等）也不会自动加载。如需使用这些包，可以用 `./pi install npm:@foo/bar -l` 安装到项目本地（写入 `.pi/settings.json`），或在 `start.sh` 末尾加 `-e` / `--skill` 参数显式加载。详见 `scripts/start.sh` 注释。
+
+> 项目根目录的 `./pi` 包装脚本（模板见 `tavern2agent/scripts/pi`）自动设置 `PI_CODING_AGENT_DIR`，用户可直接 `./pi install npm:@foo/bar -l` 安装包，无需手动 export 环境变量。
 
 ## extension 加载限制 + 技能路径注册（必读）
 

@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# pi wrapper —— 在项目隔离环境中运行 pi 命令
+# 自动设置 PI_CODING_AGENT_DIR，无需手动 export。
+#
+# 用法:
+#   ./pi [参数...]
+#
+# 示例:
+#   ./pi install npm:@foo/bar -l        # 安装包到项目本地
+#   ./pi --continue                     # 继续上次会话
+#   ./pi --model deepseek/v4-pro        # 指定模型启动
+#
+# 复制到项目根目录，与 start.sh 同级。
+
+set -euo pipefail
+
+if ! command -v pi &>/dev/null; then
+  echo "错误: pi 未安装，请先安装 pi coding agent" >&2
+  echo "安装指引: https://github.com/earendil-works/pi-coding-agent" >&2
+  exit 1
+fi
+
+cd "$(dirname "$(readlink -f "$0")")"
+
+export PI_CODING_AGENT_DIR=".pi/agent"
+
+exec pi "$@"
