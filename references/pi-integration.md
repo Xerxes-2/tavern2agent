@@ -87,9 +87,9 @@ export default function extension(pi: ExtensionAPI) {
     };
   });
 
-  // /retry 命令：回退到最后一次用户消息之前，清除失败回复后重试
+  // /retry 命令：回退到最后一次用户消息之前重新发送
   pi.registerCommand("retry", {
-    description: "清除失败回复并重试最后一次用户消息",
+    description: "撤销上一轮 agent 响应并重新发送最后一条用户消息",
     handler: async (_args, ctx) => {
       await ctx.waitForIdle();
 
@@ -113,7 +113,7 @@ export default function extension(pi: ExtensionAPI) {
 
       const result = await ctx.fork(lastUserEntryId, {
         withSession: async (ctx) => {
-          ctx.ui.notify("🔄 重试中（已清除失败回复）...", "info");
+          ctx.ui.notify("🔄 重试中（已清除上一轮回复）...", "info");
           await ctx.sendUserMessage(lastUserText);
         },
       });
