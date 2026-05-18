@@ -25,13 +25,17 @@
 
 每个转换产出的项目目录**必须**包含 `start.sh`，模板见 `tavern2agent/scripts/start.sh`，迁移时直接复制到项目根目录并 `chmod +x`。
 
-模板已内置 `-ne -ns`（隔离外部扩展/技能），玩家直接 `./start.sh` 进游戏，支持透传参数：
+`start.sh` 内置 **`PI_CODING_AGENT_DIR` 隔离方案**——将 pi 的配置目录从 `~/.pi/agent/` 切换到 `.pi/agent/`，首次运行自动初始化该目录（复制全局 auth、创建设置），后续运行完全隔离全局扩展/skills。仅隔离全局，不影响项目自己的 `.pi/extensions/`、`.pi/skills/`、及 `resources_discover` 注册的 skills。
+
+玩家直接 `./start.sh` 进游戏，支持透传参数：
 
 ```bash
 ./start.sh                          # 默认模型
 ./start.sh --model deepseek/v4-pro  # 指定模型
 ./start.sh --continue               # 继续上次会话
 ```
+
+> **注意**：`PI_CODING_AGENT_DIR` 切换配置目录后，pi 不再读取 `~/.pi/agent/settings.json` 中的全局包配置，因此全局安装的 npm 包（如 pi-rewind-hook、pi-subagents、pi-processes 等）也不会自动加载。如需使用这些包，可以用 `pi install npm:@foo/bar -l` 安装到项目本地（写入 `.pi/settings.json`），或在 `start.sh` 末尾加 `-e` / `--skill` 参数显式加载。详见 `scripts/start.sh` 注释。
 
 ## extension 加载限制 + 技能路径注册（必读）
 
