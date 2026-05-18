@@ -8,7 +8,7 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 
 SillyTavern 的很多机制是绕过单次 LLM 调用限制的补丁。agent 天生能推理、调工具、自主决策。核心优势：agent 可以 loop（查询→掷骰→计算→更新→叙事）、自我纠正（算错了重新发事件修正）、动态管理上下文（数据文件 + 查询工具）。
 
-目标平台是 pi coding agent，详见 `references/platform-adapters.md`。
+目标平台是 pi coding agent，详见 `references/pi-integration.md`。
 
 **能力边界**：本 skill 只产出**文字交互**的 agent。前端面板/状态条 HTML、文生图（SD/NAI/ComfyUI）提示词、预设与上下文模板等一律剥离或丢弃——不是做不到，而是这些大多是 ST 运行时补丁，agent 不需要，强行复刻反而锁死灵活性。需要的人转换完成后自行接入。
 
@@ -179,7 +179,7 @@ LLM 不擅长计数和定时触发。游戏存在「每 N 轮调用同伴」「�
 
 ### 工具 description 工程（所有方案，凡注册工具就必读）
 
-**工具能查数据 ≠ 模型会调用工具。** 强叙事模型（DS V4、Claude Opus 等）会默认凭记忆/即兴创作而不调读取类工具。每个工具的 `description` 必须包含「必须调用的场景」+「严禁的行为」（+ 战斗类的「你的职责」）。模板、双层框架、few-shot、模型差异微调表、实测效果对比见 `references/platform-adapters.md` §「工具 description 工程」。
+**工具能查数据 ≠ 模型会调用工具。** 强叙事模型（DS V4、Claude Opus 等）会默认凭记忆/即兴创作而不调读取类工具。每个工具的 `description` 必须包含「必须调用的场景」+「严禁的行为」（+ 战斗类的「你的职责」）。模板、双层框架、few-shot、模型差异微调表、实测效果对比见 `references/pi-integration.md` §「工具 description 工程」。
 
 ---
 
@@ -195,7 +195,7 @@ LLM 不擅长计数和定时触发。游戏存在「每 N 轮调用同伴」「�
 | `engine/state.ts` | 轻量+ | 状态引擎 |
 | `engine/dice.ts` 等 | 标准 | 按需 |
 | `tools/registry.ts` | 轻量+ | 工具实现集中地（**不要内联到 extension.ts**） |
-| `extension.ts` | 轻量+ | pi 入口，只做注册：注入 system prompt + 调用 `registerAllTools(pi)` + hooks。详见 `references/platform-adapters.md` |
+| `extension.ts` | 轻量+ | pi 入口，只做注册：注入 system prompt + 调用 `registerAllTools(pi)` + hooks。详见 `references/pi-integration.md` |
 | `start.sh` | ✅ 必须 | 启动脚本，用户直接 `./start.sh` 进游戏。从 `tavern2agent/scripts/start.sh` 复制到项目根目录 |
 | `data/world.json` | ✅ 必须 | 世界设定 |
 | `data/characters.json` | ≥5 角色时 | 角色数据 |
@@ -312,7 +312,7 @@ grep -rnE '\{\{(user|char|random|roll|pick|getvar|setvar)' \
 | `script-analysis.md` | MVU 卡 | tavern_helper 脚本 + regex_scripts 分类与迁移 |
 | `mvu-mapping.md` | 轻量+ | MVU 条目 → engine 映射、initvar 读取、紧凑索引、条目分类完整表 |
 | `setup.md` | 全部 | 开局 setup 分析、开局 skill 模板、平台集成 |
-| `platform-adapters.md` | 全部 | pi 胶水层 |
+| `pi-integration.md` | 全部 | pi extension 集成（hook 时机、tool schema、subagent、工具 description 工程） |
 | `ts-engine.md` | 标准 | TS 引擎代码（state.ts、dice.ts、attention.ts、工具注册模式） |
 | `multi-agent-architecture.md` | NPC 隔离场景 | 多 agent 架构（GM + NPC subagent 上下文隔离，含适用场景速查） |
 | `storytelling.md` | 全部（可选） | 叙事节拍参考 |

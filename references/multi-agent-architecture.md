@@ -141,7 +141,7 @@ project/
 │   └── npc_bard.md            # 吟游诗人 NPC（消息灵通但不可信）
 ├── engine/                    # TS 引擎（按需）
 ├── extensions/
-│   └── index.ts               # 胶水层
+│   └── index.ts               # pi extension 入口
 ├── data/
 │   ├── world.json             # 世界设定（所有 NPC 的公开信息）
 │   └── characters.json        # 角色数据
@@ -150,7 +150,7 @@ project/
         └── SKILL.md
 ```
 
-## pi 胶水层要点
+## pi extension 集成要点
 
 ```typescript
 // extensions/index.ts

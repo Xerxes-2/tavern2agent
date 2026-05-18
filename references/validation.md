@@ -82,7 +82,7 @@ ls -t sessions/*.jsonl | head -1 | xargs grep -c '"name":"get_price"'
 ls -t sessions/*.jsonl | head -1 | xargs grep -c '"name":"lookup_location"'
 ```
 
-如果战斗叙事很精彩但 `combat_attack` 调用次数为 0——说明 GM 在即兴创作，工具根本没被调。需要强化工具 description（详见 `references/platform-adapters.md` §「工具 description 工程」）。
+如果战斗叙事很精彩但 `combat_attack` 调用次数为 0——说明 GM 在即兴创作，工具根本没被调。需要强化工具 description（详见 `references/pi-integration.md` §「工具 description 工程」）。
 
 ### 6. 时间、token 成本与玩家 agent 的优势
 
@@ -128,7 +128,7 @@ ls -t sessions/*.jsonl | head -1 | xargs grep -c '"name":"lookup_location"'
 | 价格/地点/NPC 描述与 data 文件不一致 | 读取类工具未被调用，GM 在即兴创作 |
 | 战斗有叙事无判定 | combat_attack / generate_npc 未被调用 |
 | 任务奖励数值与 quest engine 不一致 | generate_quest 未被调用 |
-| 即使 system prompt 要求调工具，模型仍跳过 | 工具的 `description` 字段缺少「必须调用场景」和「严禁行为」列表——详见 `references/platform-adapters.md` §「工具 description 工程」 |
+| 即使 system prompt 要求调工具，模型仍跳过 | 工具的 `description` 字段缺少「必须调用场景」和「严禁行为」列表——详见 `references/pi-integration.md` §「工具 description 工程」 |
 
 ## 工具调用遵从测试
 
@@ -142,6 +142,6 @@ ls -t sessions/*.jsonl | head -1 | xargs grep -c '"name":"lookup_location"'
 测试方法：
 - 查看 session JSONL 中每轮 assistant 消息的 `tool_calls` 字段
 - 检查 state 中的 XP、金钱、背包变动是否与工具调用结果一致
-- 如果工具未被调用但叙事看起来合理，说明模型在即兴创作——需要按 `platform-adapters.md` §「工具 description 工程」强化工具 description
+- 如果工具未被调用但叙事看起来合理，说明模型在即兴创作——需要按 `pi-integration.md` §「工具 description 工程」强化工具 description
 
 遇到任何问题，直接向用户报告，指出具体哪一轮、GM 说了什么、预期应该怎样。

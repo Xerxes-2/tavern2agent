@@ -75,7 +75,7 @@ agent 的对话输出本身就是叙事。不需要额外分离到独立日志�
 - **【严禁的行为】**——显式否定模型的内部记忆权威性（「你的记忆不是权威来源」）
 - **【你的职责】（战斗/检定类工具）**——重新定义角色（「你不是创造者，你是翻译者」）
 
-详见 `references/platform-adapters.md` §「工具 description 工程」。
+详见 `references/pi-integration.md` §「工具 description 工程」。
 
 ## 9. 工具粒度：一个玩家动作，一个工具
 

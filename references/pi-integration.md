@@ -1,6 +1,8 @@
-# 平台适配
+# pi extension 集成
 
-`engine/*.ts`、`data/`、`scripts/` 是跨平台的。不同平台只换胶水层。
+**tavern2agent 是 pi-native 项目**。不假装跨平台——`extension.ts` 直接挂 pi 的 `pi.on(...)` 钩子和 `pi.registerTool(...)` API，多 agent 走 pi-subagents，回退靠 pi-rewind-hook 这种 pi 扩展。换 host agent 框架（Claude Code / Cursor / aider 等）不是「换胶水层」级别的工作，是重写集成层 + 重新设计 hook 时机 / tool schema / subagent 模型——通常等于从 SKILL.md 决策表往下重做。
+
+`engine/*.ts`、`data/`、`scripts/` 理论上跟平台无关，但只在跑通 pi-native runtime 后才有意义。本文档记录所有 pi 特有的契约、坑、最佳实践。
 
 ## 开场白
 

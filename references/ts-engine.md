@@ -200,7 +200,7 @@ export function calcDamage(
 
 ## 工具注册模式 (tools/registry.ts)
 
-> **`tools/registry.ts` 是工具实现的唯一聚集地**。`extension.ts` 只调用 `registerAllTools(pi)`，不要在 extension 里内联工具——否则 registry.ts 沦为死代码。extension 入口契约见 `references/platform-adapters.md`。
+> **`tools/registry.ts` 是工具实现的唯一聚集地**。`extension.ts` 只调用 `registerAllTools(pi)`，不要在 extension 里内联工具——否则 registry.ts 沦为死代码。extension 入口契约见 `references/pi-integration.md`。
 
 
 ```typescript
@@ -310,5 +310,5 @@ export function registerAllTools(pi: ExtensionAPI) {
 1. **state.ts 是核心**——所有引擎模块依赖它，所有工具通过它读写
 2. **工具 execute 直接调引擎函数**——不需要 spawn 子进程
 3. **TypeBox 做参数校验**——pi 自带，不需要额外安装
-4. **state 目录由胶水层决定**——通过 `TAVERN2AGENT_STATE_DIR` 注入。pi extension 一般放 `.pi/extensions/<name>/state/`；独立运行默认 `state/`
+4. **state 目录由 extension 决定**——通过 `TAVERN2AGENT_STATE_DIR` 注入。pi extension 一般放 `.pi/extensions/<name>/state/`；独立运行默认 `state/`
 5. **系统 prompt 每次注入当前状态**——agent 始终知道最新游戏局面
