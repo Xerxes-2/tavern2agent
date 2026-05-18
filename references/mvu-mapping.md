@@ -82,7 +82,7 @@ SKILL.md §二只列了常见五类，以下是逐条审计用的完整表：
 攻击判定: {{roll:1d20}} + 力量调整 vs 目标 AC
 暴击: 自然 20 → 伤害 ×1.5
 ```
-→ **完整 engine**。`engine/dice.ts`；GM prompt 只说「攻击时调 `skill_check`」。
+→ **标准方案**。`engine/dice.ts`；GM prompt 只说「攻击时调 `skill_check`」。
 
 ```
 # C（来自 [mvu_update]）
@@ -108,7 +108,8 @@ SKILL.md §二只列了常见五类，以下是逐条审计用的完整表：
 | 伤害公式、HP/护甲、暴击 | `engine/combat.ts` |
 | 好感度范围 + 增减规则 + 态度阈值 | `engine/affection.ts` |
 | 收入公式、声望、等级经验曲线 | `engine/economy.ts`（按需拆分） |
-| 死亡条件、回溯规则、存档点 | `engine/death.ts`（依赖事件溯源 state） |
+| 死亡判定（HP<=0 触发什么）| `engine/death.ts`（叙事化处理；回退本身交 pi-rewind-hook，见 SKILL.md §六） |
+| 周目继承的"永久记忆"字段 | `meta/persistent.json` 持久层，见 `ts-engine.md` §跨回退持久 |
 | 任务生成 + 完成条件 + 章节推进 | `engine/quest.ts` |
 
 ## 轻量方案：MVU → INITIAL_STATE（不写 engine 模块）
@@ -120,9 +121,9 @@ SKILL.md §二只列了常见五类，以下是逐条审计用的完整表：
 3. 直接拷成 SKILL.md「轻量方案」中 `INITIAL_STATE` 的字面量。**不要**生成 dice.ts/combat.ts/economy.ts——那些条目本身就不该存在
 4. 对 MVU 里描述「何时变化」的自然语言（如「每次帮助 +5」），**不要**翻译成代码——写成 GM prompt 里的一行规则，让 agent 自己判断后调 `patch_state`
 
-判断边界：条目里出现 `{{roll:...}}`、伤害公式、阈值分级（DC/暴击/经验曲线）→ 升级到完整 engine 方案；只有「±N」「设为 X」→ 留在轻量方案。
+判断边界：条目里出现 `{{roll:...}}`、伤害公式、阈值分级（DC/暴击/经验曲线）→ 升级到标准方案；只有「±N」「设为 X」→ 留在轻量方案。
 
-> **一致性原则**：如果卡片已有骰子/战斗系统（即走了完整 engine），那么好感度也应写成 engine 模块——不要部分系统在 engine、部分在 prompt 规则。agent 面对统一工具接口比混合接口更可靠。
+> **一致性原则**：如果卡片已有骰子/战斗系统（即走了标准方案），那么好感度也应写成 engine 模块——不要部分系统在 engine、部分在 prompt 规则。agent 面对统一工具接口比混合接口更可靠。
 
 ## 角色数据：MVU 条目 → data/characters.json
 
@@ -141,7 +142,7 @@ SKILL.md §二只列了常见五类，以下是逐条审计用的完整表：
 - 注册一个章节查询工具，GM 在需要推进剧情时**按需加载当前章节**
 - 工具实现：根据章节标题（或序号）从 `data/chapters.json` 读取对应条目，返回给 GM
 
-## 变量定义 → engine/state.ts（完整 engine 方案）
+## 变量定义 → engine/state.ts（标准方案）
 
 MVU 条目中的 JSON Schema 或变量列表是**初始状态的蓝图**。
 
@@ -193,7 +194,7 @@ InitVar 定义的是**运行时变量**（等级、经验、背包、好感度�
 ```
 单回合变化限制: "所有数值型变量单回合变化绝对值不得超过 15 点"
 ```
-→ 写成 `dispatch()` 的校验逻辑。
+→ 写成 `patchState` wrapper 里的校验逻辑（拒绝超限 op）。
 
 ## 必须丢弃的内容
 
@@ -212,7 +213,7 @@ step2: 我是否已经进行认知隔离。
 rule: you must output the update analysis and the actual update commands at once
 the update commands works like the JSON Patch (RFC 6902) standard
 ```
-→ agent 调工具 dispatch 事件。丢弃。
+→ agent 调 `patch_state` 工具。丢弃 ST 那套 UpdateVariable 格式。
 
 ### EJS 条件模板
 ```

@@ -60,7 +60,6 @@ extension 入口契约：只做平台注册（system prompt 注入 + 技能路�
 ```typescript
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { registerAllTools } from "./tools/registry";
-import { snapshotBeforeTurn } from "./engine/state";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
@@ -75,7 +74,6 @@ export default function extension(pi: ExtensionAPI) {
 
   const gmPrompt = readFileSync(join(__dirname, "agents", "gm.md"), "utf-8");
   pi.on("before_agent_start", async (event) => {
-    snapshotBeforeTurn(event.prompt); // 用 prompt 做简易 turn 标识
     return {
       systemPrompt: event.systemPrompt + "\n\n" + gmPrompt,
     };

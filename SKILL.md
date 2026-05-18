@@ -109,8 +109,9 @@ python3 scripts/list_entries.py card.json
 |------|------|-----------|------|
 | 没有 MVU 条目 | **纯 prompt** | — | `agents/gm.md`、`data/` |
 | 只有键值状态，无骰子/公式 | **轻量** | `patchState` | 上者 + `engine/state.ts` + `get_status`/`patch_state` 工具 |
-| 有骰子/战斗/经济，不需一轮内精确回退 | **中等** | `patchState` + 每轮快照 | 上者 + `engine/dice.ts` 等模块 |
-| 需死亡回溯/章节存档/事件级回退 | **完整 engine** | `dispatch(event)` | 事件溯源 + 全套模块（多 agent 见下方独立判定） |
+| 有骰子/战斗/经济等计算模块 | **标准** | `patchState` | 上者 + `engine/dice.ts` 等模块（多 agent 见下方独立判定） |
+
+> **回退 / 存档不进 engine**。死亡回溯、章节存档、撤销上一轮——以前用事件溯源做，现在统一外包给 pi 平台层的回退扩展（推荐 `pi-rewind-hook`），档位判定里不再考虑此维度。详见 §六「回退 / 存档」。
 
 ### 多 agent 判定（独立维度，不跟方案档位绑定）
 
@@ -141,27 +142,25 @@ python3 scripts/list_entries.py card.json
 
 开场白：所有方案都必须生成开局 skill，`first_mes` 改写后内联其中、由 agent 在开局时主动交付。命名规则、模板、checklist 生成规则统一见 `references/setup.md`。
 
-### 轻量 / 中等方案
+### 轻量 / 标准方案
 
-state 骨架代码见 `references/ts-engine.md`「轻量/中等方案」。中等方案加每轮快照（`snapshotBeforeTurn`），胶水层在每轮开始前调用。engine 模块按需写（`dice.ts`/`combat.ts`/`affection.ts`/`economy.ts` 等），识别信号见 `references/mvu-mapping.md`。
+state 骨架代码见 `references/ts-engine.md`「轻量 / 标准方案」。engine 模块按需写（`dice.ts`/`combat.ts`/`affection.ts`/`economy.ts` 等），识别信号见 `references/mvu-mapping.md`。
 
-### 完整 engine 方案
+如果同时触发多 agent 条件（见上文），叠加多 agent 架构，详见 `references/multi-agent-architecture.md`。
 
-事件溯源，详见 `references/ts-engine.md`。如果同时触发多 agent 条件（见上文），则叠加多 agent 架构，详见 `references/multi-agent-architecture.md`。
+标准方案的 `gm.md` 末尾建议加一行引用 `references/storytelling.md`，让 GM 在叙事卡壳时按需自查节拍——具体引用句式见 storytelling.md §「在 gm.md 里如何引用」。
 
-中等+ 方案的 `gm.md` 末尾建议加一行引用 `references/storytelling.md`，让 GM 在叙事卡壳时按需自查节拍——具体引用句式见 storytelling.md §「在 gm.md 里如何引用」。
+### 中间检查点（标准方案必走）
 
-### 中间检查点（中等+ 方案必走）
-
-写 `engine/*.ts` 前，先把 **state schema** + **事件/操作清单** 单独发给用户 review。schema 必须覆盖**用户卡创建字段**（姓名/性别/外貌等）——它们不在 InitVar 里，遗漏会让 `patch_state` 的 `replace` 操作静默失败。技术细节与 RFC 6902 陷阱见 `references/mvu-mapping.md` §「⚠️ 用户卡字段不在 InitVar 里」+ §「⚠️ RFC 6902 陷阱」。
+写 `engine/*.ts` 前，先把 **state schema** + **engine 操作清单** 单独发给用户 review。schema 必须覆盖**用户卡创建字段**（姓名/性别/外貌等）——它们不在 InitVar 里，遗漏会让 `patch_state` 的 `replace` 操作静默失败。技术细节与 RFC 6902 陷阱见 `references/mvu-mapping.md` §「⚠️ 用户卡字段不在 InitVar 里」+ §「⚠️ RFC 6902 陷阱」。
 
 轻量方案 schema 一眼能看完，可跳过此步。
 
-### 注意力调度（中等+ 方案强烈推荐）
+### 注意力调度（标准方案强烈推荐）
 
 LLM 不擅长计数和定时触发。游戏存在「每 N 轮调用同伴」「战斗后必须 try_level_up」「NPC 互动后必更新好感度」「DLC 启用后定期提醒」任一需求，写 `engine/attention.ts`。代码模式 + 注入点 + 双重保障原则见 `references/ts-engine.md` §「注意力调度 (attention.ts)」。
 
-### 数据查询工具（中等+ 方案强烈推荐）
+### 数据查询工具（标准方案强烈推荐）
 
 凡是有结构化数据集合（地点 ≥20、NPC ≥5、DLC 模块），必须配查询工具。否则数据等于不存在：
 
@@ -189,7 +188,7 @@ LLM 不擅长计数和定时触发。游戏存在「每 N 轮调用同伴」「�
 | `agents/gm.md` | ✅ 必须 | GM system prompt |
 | `agents/<npc_xxx>.md` | 有隐藏信息/视角隔离需求时 | NPC subagent（每个需隔离的 NPC 一个，上下文隔离）；触发条件详见 §三「多 agent 判定」 |
 | `engine/state.ts` | 轻量+ | 状态引擎 |
-| `engine/dice.ts` 等 | 中等+ | 按需 |
+| `engine/dice.ts` 等 | 标准 | 按需 |
 | `tools/registry.ts` | 轻量+ | 工具实现集中地（**不要内联到 extension.ts**） |
 | `extension.ts` | 轻量+ | pi 入口，只做注册：注入 system prompt + 调用 `registerAllTools(pi)` + hooks。详见 `references/platform-adapters.md` |
 | `start.sh` | ✅ 必须 | 启动脚本，用户直接 `./start.sh` 进游戏。从 `tavern2agent/scripts/start.sh` 复制到项目根目录 |
@@ -211,17 +210,59 @@ LLM 不擅长计数和定时触发。游戏存在「每 N 轮调用同伴」「�
 - [ ] `start.sh` 已生成：从 `tavern2agent/scripts/start.sh` 复制到项目根目录，可执行权限已设
 - [ ] `extension.ts` 已生成且只做注册：顶层 `import`（无动态 `import()`）、`registerAllTools(pi)` 被调用
 - [ ] `tools/registry.ts` 不是死代码：extension.ts 真的引用了它
-- [ ] 中间检查点已交付（中等+ 方案）：state schema + 事件清单单独发给用户 review 过
+- [ ] 中间检查点已交付（标准方案）：state schema + engine 操作清单单独发给用户 review 过
 - [ ] 第一层 grep 残留扫描通过
-- [ ] 中等+ 方案：`engine/attention.ts` 已覆盖所有"每 N 轮/条件触发"需求
-- [ ] 中等+ 方案：结构化数据集合（地点/NPC/DLC）已配查询工具 + 索引文件
+- [ ] 标准方案：`engine/attention.ts` 已覆盖所有"每 N 轮/条件触发"需求
+- [ ] 标准方案：结构化数据集合（地点/NPC/DLC）已配查询工具 + 索引文件
+- [ ] 项目根已是 git 仓库（`./start.sh` 兜底会跑 `git init`，但确认 `state/` **未**进 `.gitignore`——否则 pi-rewind-hook 等回退扩展会跳过游戏状态。详见 §五）
 - [ ] 至少跑过 1 轮下场玩（第二层校验），观察 4 点全部 ✓
 
 任何一项打不上 ✓，**继续做完再报告**，不要把"还差 X"作为收工话术。
 
 ---
 
-## 六、校验
+## 六、回退 / 存档
+
+**结论先行**：tavern2agent **不在 engine 内做回退**。死亡回溯、章节存档、撤销上一轮——一律外包给 pi 平台层的回退扩展。理由：state 能回滚但 chat 是 pi session jsonl 的 append-only 流，agent 删不掉自己已发的消息——半实现的回滚反而比明说做不到更糟。
+
+### 推荐扩展：pi-rewind-hook
+
+```bash
+pi install npm:pi-rewind-hook   # pi ≥ 0.65.0
+```
+
+用 pi 原生的 `/fork`（或 Tab 开 `/tree`）选目标轮 → "Restore all (files + conversation)"。rewind 元数据写进 session 自己的隐藏 ledger entry，能跨 fork / resume / compaction 存活。
+
+### 项目侧约束（迁移产物必须满足）
+
+1. **项目根必须是 git 仓库**——`start.sh` 内置 `git init` 兜底，但若用户在迁移产物外另做了改动，确认仍是 git repo
+2. **`state/` 不能进 `.gitignore`**——否则游戏状态不入 snapshot，回退时数值不会跟着回去
+3. **`sessions/` 可以 `.gitignore`**——chat 回滚走扩展自己的 ledger entries，不依赖 git
+4. **不进 snapshot 的项**：`toolResult` 和 `bashExecution` 节点没有精确恢复点（影响小，玩家不会从工具调用中途切回）
+
+### 跨回退持久的"永久记忆"
+
+真死亡循环类机制（"你保留了上一周目的记忆"）需要一份**不被回退**的状态文件。模式：
+
+- 在 `engine/state.ts` 里读写 `meta/persistent.json`
+- 把 `meta/` 加进 `.gitignore`——pi-rewind-hook 只 snapshot tracked + 非 ignored untracked 文件，gitignored 路径会被跳过，刚好绕过回退
+- 注册 `get_persistent` / `set_persistent` 工具供 GM 在死亡/周目切换时写入"记忆"标记
+
+无此类机制的卡跳过。
+
+### 备选方案
+
+迁移产物本身**不依赖任何特定扩展**——换一个回退扩展只是 UX 差异：
+
+| 扩展 | 入口 | 特点 |
+|---|---|---|
+| `npm:pi-rewind-hook` | `/fork` + `/tree` | 元数据进 session，跨 fork/compact 存活；推荐 |
+| `arpagon/pi-rewind` | `/rewind` 命令 + 浏览器 | 命令式入口最直接 |
+| `prateekmedia/pi-hooks` 的 Checkpoint 子模块 | 大包内统一交互 | 捆绑 LSP/Permission 等不相干模块 |
+
+---
+
+## 七、校验
 
 ### 第一层：grep 残留扫描
 
@@ -267,7 +308,7 @@ grep -rnE '\{\{(user|char|random|roll|pick|getvar|setvar)' \
 | `mvu-mapping.md` | 轻量+ | MVU 条目 → engine 映射、initvar 读取、紧凑索引、条目分类完整表 |
 | `setup.md` | 全部 | 开局 setup 分析、开局 skill 模板、平台集成 |
 | `platform-adapters.md` | 全部 | pi 胶水层 |
-| `ts-engine.md` | 中等+ | TS 引擎代码（轻量 state、完整事件溯源、dice.ts） |
+| `ts-engine.md` | 标准 | TS 引擎代码（state.ts、dice.ts、attention.ts、工具注册模式） |
 | `multi-agent-architecture.md` | NPC 隔离场景 | 多 agent 架构（GM + NPC subagent 上下文隔离，含适用场景速查） |
 | `storytelling.md` | 全部（可选） | 叙事节拍参考 |
 | `validation.md` | 全部 | 残留检测 + 人工检查清单 |

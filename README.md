@@ -56,7 +56,7 @@ pi
 > 帮我把这张卡迁移成 agent 跑团环境
 ```
 
-agent 会自动按 skill 流程：解包 PNG → 分析世界书 → 决定方案档位 → 生成 engine/agents/data → 校验。中等以上复杂度的卡会在写代码前发一份 state schema 给你 review，避免后期返工。
+agent 会自动按 skill 流程：解包 PNG → 分析世界书 → 决定方案档位 → 生成 engine/agents/data → 校验。标准方案（有 engine 模块）的卡会在写代码前发一份 state schema 给你 review，避免后期返工。
 
 迁移完成后，agent 自带交互式调试能力——「这条规则没生效」「这个 NPC 该有秘密」直接告诉它。
 
@@ -74,7 +74,7 @@ project/
         └── SKILL.md
 ```
 
-最复杂（带战斗 + 死亡回溯 + 多 NPC 信息隔离）：
+最复杂（带战斗 + 多 NPC 信息隔离）：
 
 ```
 project/
@@ -82,10 +82,10 @@ project/
 │   ├── gm.md
 │   └── npc_*.md             # 每个有秘密的 NPC 一个
 ├── engine/
-│   ├── state.ts             # 事件溯源
+│   ├── state.ts             # patchState (RFC 6902)
 │   ├── dice.ts
 │   ├── combat.ts
-│   └── death.ts
+│   └── attention.ts
 ├── tools/registry.ts
 ├── extension.ts             # pi 入口
 ├── data/
@@ -97,7 +97,9 @@ project/
         └── SKILL.md
 ```
 
-中间还有「轻量」「中等」两档，按卡片复杂度自动落档，决策表见 `SKILL.md`。
+中间还有「轻量」一档，按卡片复杂度自动落档，决策表见 `SKILL.md`。
+
+**回退 / 存档**：tavern2agent 不自建回滚，统一外包给 pi 平台层扩展。推荐 `pi install npm:pi-rewind-hook`——`/fork` 或 Tab 进 `/tree` 选目标轮还原。详见 `SKILL.md` §六。
 
 ## 目录
 

@@ -2,15 +2,15 @@
 
 以下是 TypeScript 原生引擎的核心模块骨架。extensions 直接 import，工具零开销调用。
 
-> **重要**：以下代码中的 `initialBlankState()`、`death_rewind` 事件处理器、`get_status` / `skill_check` 工具都是**通用示例骨架**，演示模式而非提供可照搬的 schema。转换其他卡片时，状态结构必须从卡片 MVU 条目（`[mvu_update]` / `[mvu_plot]`）的变量定义中动态提取，事件类型也按本卡机制设计——不要照搬示例字段名。
+> **重要**：以下代码中的 `initialBlankState()`、`get_status` / `skill_check` 工具都是**通用示例骨架**，演示模式而非提供可照搬的 schema。转换其他卡片时，状态结构必须从卡片 MVU 条目（`[mvu_update]` / `[mvu_plot]`）的变量定义中动态提取——不要照搬示例字段名。
+
+> **回退 / 存档不在本文档**。死亡回溯、章节存档、撤销上一轮交给 pi 平台层的回退扩展（`pi-rewind-hook` 等），见 SKILL.md §六。本文档只讲状态写入。
 
 ## 状态引擎 (state.ts)
 
-> **建议流程（中等+ 方案）**：写 `state.ts` 之前，先单独输出 state schema + 事件/操作清单给用户 review，再动手。schema 必须覆盖用户卡创建字段；详见 SKILL.md §四「中间检查点」+ `mvu-mapping.md` 两条 ⚠️ 块。
+> **建议流程（标准方案）**：写 `state.ts` 之前，先单独输出 state schema + engine 操作清单给用户 review，再动手。schema 必须覆盖用户卡创建字段；详见 SKILL.md §四「中间检查点」+ `mvu-mapping.md` 两条 ⚠️ 块。
 
-### 轻量 / 中等方案
-
-适用于键值状态或整轮回滚场景（不需要事件溯源）。
+### 轻量 / 标准方案
 
 **状态更新使用 JSON Patch（RFC 6902）**：`patch_state` 工具只传变化字段路径，不传整个 state。省 token 且防 LLM 覆盖无关字段。
 
@@ -75,235 +75,57 @@ export function deepGet(obj: Record<string, unknown>, path: string): unknown {
   }
   return current;
 }
-
-// — 仅中等方案需要以下 —
-const SNAP_DIR = join(STATE_DIR, "snapshots");
-
-export function snapshotBeforeTurn(turnId: string) {
-  if (!existsSync(STATE_FILE)) return;
-  mkdirSync(SNAP_DIR, { recursive: true });
-  copyFileSync(STATE_FILE, join(SNAP_DIR, `${turnId}.json`));
-}
-
-export function rollbackToTurn(turnId: string) {
-  const snap = join(SNAP_DIR, `${turnId}.json`);
-  if (!existsSync(snap)) throw new Error(`无快照: ${turnId}`);
-  copyFileSync(snap, STATE_FILE);
-}
 ```
 
-胶水层挂钩（每轮开始前）：
-- pi：`before_agent_start` 事件没有 `turnId` 字段；用 `event.prompt` 的前 20 字符 + `Date.now()` 做简易 ID，或自行维护递增计数器
+轻量方案注册 `get_status` / `patch_state` 两个工具；标准方案在此基础上注册 engine 模块工具（dice、combat 等）。
 
-轻量方案注册 `get_status` / `patch_state` 两个工具；中等方案在此基础上注册 engine 模块工具。
+### 跨回退持久的「永久记忆」（可选，仅死亡循环类机制需要）
 
-### 中等方案：重 roll / 回滚（粗粒度）
-
-agent 删不掉自己已发出的 chat turn，不支持单条 swipe。只做粗粒度：扔掉整段 chat、回退 state 到指定 snapshot，重开会话。
-
-在 `state.ts` 末尾加：
+需要"玩家在死亡/周目切换后保留某些记忆"时，加一份**不被回退扩展 snapshot** 的持久层。方法是把它写到 gitignored 路径——`pi-rewind-hook` 等扩展会跳过 gitignored 文件，刚好绕过整体回退。
 
 ```typescript
-export function markResume(turnId: string) {
-  rollbackToTurn(turnId);
-  writeFileSync(join(STATE_DIR, "resume-to.txt"), turnId);
+const META_DIR = process.env.TAVERN2AGENT_META_DIR ?? "meta";  // 加进 .gitignore
+const PERSISTENT_FILE = join(META_DIR, "persistent.json");
+
+export function getPersistent(): Record<string, unknown> {
+  if (!existsSync(PERSISTENT_FILE)) return {};
+  return JSON.parse(readFileSync(PERSISTENT_FILE, "utf-8"));
+}
+
+export function setPersistent(key: string, value: unknown) {
+  const cur = getPersistent();
+  cur[key] = value;
+  mkdirSync(dirname(PERSISTENT_FILE), { recursive: true });
+  writeFileSync(PERSISTENT_FILE, JSON.stringify(cur, null, 2));
 }
 ```
 
-注册 `request_rollback(turnId)` 工具。流程：
-1. 用户说「回到第 5 轮重新开始」
-2. agent 调 `request_rollback("5")` → state 回滚 + 写入 `resume-to.txt`
-3. agent 提示用户关掉重开
-4. 启动 hook 检测 `resume-to.txt`，把 state 内容 +「你回到了第 5 轮开始」前置到第一条用户消息，然后删除 marker
+注册 `get_persistent` / `set_persistent` 工具供 GM 在死亡或周目切换时写入"记忆"标记。无此类机制的卡跳过——绝大多数卡用不到。
 
-chat 全清，state 干净。需要保留对白的细粒度 reroll 必须靠平台原生删消息 API，pi 若有就用。
+### 历史日志（可选，仅审计/调试需要）
 
-### 完整方案（事件溯源）
+如需追溯「上一轮 GM 改了哪些字段」，在 `patchState` 里 append 一条 JSONL：
 
 ```typescript
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
-import { join } from "node:path";
-
-// 跨平台契约：胶水层通过 TAVERN2AGENT_STATE_DIR 注入。
-// pi extension 通常设为 `.pi/extensions/<name>/state`；
-// 独立运行默认落到项目根的 `state/`。
-const STATE_DIR = process.env.TAVERN2AGENT_STATE_DIR ?? join(process.cwd(), "state");
-const EVENTS_FILE = join(STATE_DIR, "events", "events.jsonl");
-const INDEX_FILE = join(STATE_DIR, "index.json");
-
-interface Event {
-  id: number;
-  type: string;
-  path: string;
-  value: unknown;
-  oldValue?: unknown;
-  timestamp: number;
-}
-
-interface Index {
-  head: number;
-  eventCount: number;
-  checkpoint: { event_id: number; 年月日: string; 时间: string } | null;
-}
-
-// ── 文件管理 ──
-function ensureFiles() {
-  mkdirSync(join(STATE_DIR, "events"), { recursive: true });
-  if (!existsSync(INDEX_FILE)) {
-    writeFileSync(INDEX_FILE, JSON.stringify({ head: 0, eventCount: 0, checkpoint: null }));
-  }
-}
-
-function readIndex(): Index {
-  return JSON.parse(readFileSync(INDEX_FILE, "utf-8"));
-}
-
-function writeIndex(idx: Index) {
-  writeFileSync(INDEX_FILE, JSON.stringify(idx, null, 2));
-}
-
-// ── 事件日志 ──
-function readAllEvents(): Event[] {
-  if (!existsSync(EVENTS_FILE)) return [];
-  const raw = readFileSync(EVENTS_FILE, "utf-8").trim();
-  if (!raw) return [];
-  return raw.split("\n").map(line => JSON.parse(line));
-}
-
-function appendEvent(event: Omit<Event, "id" | "timestamp">): number {
-  const idx = readIndex();
-  const id = idx.eventCount + 1;
-  const full: Event = { ...event, id, timestamp: Date.now() };
-  writeFileSync(EVENTS_FILE, JSON.stringify(full) + "\n", { flag: "a" });
-  idx.head = id;
-  idx.eventCount = id;
-  writeIndex(idx);
-  return id;
-}
-
-// ── 状态计算 ──
-function deepGet(obj: Record<string, unknown>, path: string): unknown {
-  const keys = path.split(".");
-  let current: unknown = obj;
-  for (const k of keys) {
-    if (current && typeof current === "object" && k in current) {
-      current = (current as Record<string, unknown>)[k];
-    } else return undefined;
-  }
-  return current;
-}
-
-function deepSet(obj: Record<string, unknown>, path: string, value: unknown) {
-  const keys = path.split(".");
-  let current: Record<string, unknown> = obj;
-  for (let i = 0; i < keys.length - 1; i++) {
-    const k = keys[i];
-    if (!(k in current) || typeof current[k] !== "object") {
-      current[k] = {};
-    }
-    current = current[k] as Record<string, unknown>;
-  }
-  current[keys[keys.length - 1]] = value;
-}
-
-function applyEvent(state: Record<string, unknown>, evt: Event) {
-  const { type, path, value } = evt;
-  // path-less 事件（如 death_rewind）走 switch 的 default 分支；其他事件必须带 path
-  if (!path && type !== "death_rewind") return;
-
-  switch (type) {
-    case "set":
-      deepSet(state, path, value);
-      break;
-    case "delta": {
-      const current = deepGet(state, path);
-      if (typeof current === "number" && typeof value === "number") {
-        deepSet(state, path, current + value);
-      }
-      break;
-    }
-    case "death_rewind": {
-      // 演示：死亡回溯类机制把多个字段一并更新，事件溯源天然支持
-      const count = (deepGet(state, "主角.回溯次数") as number) || 0;
-      deepSet(state, "主角.回溯次数", count + 1);
-      break;
-    }
-    // ... 其他事件类型按需添加
-  }
-}
-
-// ── 公共 API ──
-export function getCurrentState(): Record<string, unknown> {
-  ensureFiles();
-  const idx = readIndex();
-  const events = readAllEvents().filter(e => e.id <= idx.head);
-  const state = initialBlankState();  // ← 替换为卡片专属的初始状态
-  for (const evt of events) applyEvent(state, evt);
-  return state;
-}
-
-export function dispatch(event: Omit<Event, "id" | "timestamp">): number {
-  ensureFiles();
-  return appendEvent(event);
-}
-
-export function rollback(toEventId: number): Record<string, unknown> {
-  ensureFiles();
-  const idx = readIndex();
-  const allEvents = readAllEvents();
-  const kept = allEvents.filter(e => e.id <= toEventId);
-  writeFileSync(EVENTS_FILE, kept.map(e => JSON.stringify(e)).join("\n") + "\n");
-  idx.head = toEventId;
-  idx.eventCount = toEventId;
-  writeIndex(idx);
-  return getCurrentState();
-}
-
-export function setCheckpoint(date: string, time: string) {
-  const idx = readIndex();
-  idx.checkpoint = { event_id: idx.head, 年月日: date, 时间: time };
-  writeIndex(idx);
-}
-
-export function getCheckpoint() {
-  return readIndex().checkpoint;
-}
-
-// ⚠️ 以下是通用骨架示例。转换具体卡片时，
-// 必须从 MVU 条目（[mvu_update] 和 [mvu_plot]）的变量定义中提取 schema 动态生成。
-// 详见 SKILL.md「卡片分析」中的提取规则。
-function initialBlankState() {
-  return {
-    主角: {
-      姓名: "待初始化",  // 实际值来自开局 skill 的 setup 阶段；不要写 {{user}} 字面量
-      种族: "人类",
-      生命值: { 当前值: 10, 最大值: 10 },
-      魔法值: { 当前值: 0, 最大值: 0 },
-      体力值: { 当前值: 10, 最大值: 10 },
-      护甲值: { 当前值: 0, 最大值: 0 },
-      属性列表: { 力量: 10, 敏捷: 10, 智力: 10, 耐力: 10, 精神: 10, 魅力: 10 },
-      物品列表: {},
-      装备栏: {},
-      技能列表: {},
-    },
-    关系列表: {},
-    敌人列表: {},
-    任务列表: {},
-    时间: { 年月日: "", 时间: "" },
-  };
-}
+const LOG_FILE = join(STATE_DIR, "patches.jsonl");
+// 在 applyPatch 之前/之后写入：
+appendFileSync(LOG_FILE, JSON.stringify({ ts: Date.now(), ops }) + "\n");
 ```
+
+只用于人工查 bug；不用于回退（回退走 pi-rewind-hook）。原事件溯源 + `dispatch()/rollback()/setCheckpoint()` 设计已删除——chat 与 state 解耦让自建回滚做不干净，统一外包给平台层扩展更可靠。
 
 ## 注意力调度 (attention.ts)
 
-LLM 不擅长计数和定时触发。中等+ 方案存在「每 N 轮调用同伴」「战斗后必须 try_level_up」「NPC 互动后必更新好感度」「DLC 启用后定期提醒」任一需求时，写本模块。
+LLM 不擅长计数和定时触发。标准方案存在「每 N 轮调用同伴」「战斗后必须 try_level_up」「NPC 互动后必更新好感度」「DLC 启用后定期提醒」任一需求时，写本模块。
+
+回合数自行维护：在 `state.ts` 给 state 加一个 `meta.turn` 计数器（每次 `patchState` 或 `before_agent_start` 自增 1），跨进程持久靠 state.json 本身。
 
 ```typescript
 // engine/attention.ts
 export function buildReminders(): AttentionReminder[] {
   const reminders: AttentionReminder[] = [];
   const state = getState();
-  const turn = countSnapshots();  // 磁盘计数，跨进程持久
+  const turn = ((state.meta as Record<string, unknown>)?.turn as number) ?? 0;
 
   // 每 4 轮提醒同伴
   if (companionEnabled && turn % 4 === 0) {

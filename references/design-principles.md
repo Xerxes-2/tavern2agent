@@ -26,11 +26,9 @@ agent 的核心能力是 **loop + meta**：查询状态 → 判断 → 掷骰 �
 
 ## 3. 状态写入必须原子化、可追溯
 
-LLM 不能直接 mutate state。所有写入走工具调用，引擎层保证原子性：
-- **轻量/中等方案**：JSON Patch (RFC 6902) 原地修改 + 每轮快照；patch ops 在工具调用日志里天然可追溯。
-- **完整 engine 方案**：事件溯源（Event Sourcing）——每次变更是一条不可变事件，支持回退到任意历史回合 / 死亡回溯（截断事件流到存档点 + 注入死亡事件）。
+LLM 不能直接 mutate state。所有写入走工具调用，引擎层保证原子性：JSON Patch (RFC 6902) 原地修改；patch ops 在工具调用日志里天然可追溯，必要时再加一份 `patches.jsonl` 审计日志（见 `ts-engine.md`）。
 
-档位选择见 SKILL.md §三决策表，不要无条件上事件溯源——轻量场景下是 over-engineering。
+**回退 / 存档不在 engine 内做**——死亡回溯、章节存档、撤销上一轮交给 pi 平台层的回退扩展（`pi-rewind-hook` 等，见 SKILL.md §六）。chat 与 state 解耦让自建回滚做不干净，事件溯源那套已弃用。
 
 ## 4. prompt 极简
 
