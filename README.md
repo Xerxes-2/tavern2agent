@@ -10,7 +10,7 @@ SillyTavern 用大量机制（MVU 更新、强化思考链、JSON Patch 等）�
 
 ## 能不能用
 
-- **角色卡**：SillyTavern v2 / v3（`spec: "chara_card_v2"` 或 `"chara_card_v3"`）。v1 老卡请先用 ST 或第三方工具升级
+- **角色卡**：SillyTavern v1 / v2 / v3（`spec: "chara_card_v2"` / `"chara_card_v3"`，或 v1 平铺老卡——脚本自动归一化为 v2 schema 处理）
 - **平台**：pi coding agent。其他平台理论上替换胶水层即可，但未官方支持
 - **只做文字交互**：前端面板/状态条 HTML、文生图提示词、预设模板等不迁移——它们多是 ST 运行时补丁，留着反而损失灵活性，想要的人转换完成后自行接入
 

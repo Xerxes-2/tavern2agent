@@ -41,7 +41,7 @@ python3 scripts/list_entries.py card.json --filter initvar # 看初始值
 | `list_entries.py <json> [--filter mvu\|initvar]` | 世界书条目概览 |
 | `get_entry.py <json> <索引>` | 读条目完整内容 |
 
-> **支持 v2 / v3 卡**：JSON 顶层 `spec` 为 `chara_card_v2` 或 `chara_card_v3`，且 `data.character_book` 存在即可。v3 新增字段（`assets` / `group_only_greetings` / `creator_notes_multilingual` / `source` 等）当前不专门处理：`group_only_greetings` 与 `alternate_greetings` 同等对待（路线选项 / 合并 setup），其余视为元数据忽略。v1 老卡（字段直接挂在顶层、无 `data` 包装）请先用 SillyTavern 或第三方工具升级到 v2/v3 再迁移。
+> **支持 v1 / v2 / v3 卡**：v2/v3 卡（`spec` 为 `chara_card_v2` 或 `chara_card_v3`）原样处理；**v1 老卡（字段直接挂顶层）由 `extract_card.py` 自动归一化为 v2 schema**（产出 JSON 带 `_normalized_from_v1: true` 标记），下游一律按 v2 路径读。v1 卡通常无世界书 + 无 MVU，几乎只落「纯 prompt」档——可以正常跑，但 agent 的复杂决策（多 agent / engine 模块）基本用不上。v3 新增字段（`assets` / `group_only_greetings` / `creator_notes_multilingual` / `source` 等）当前不专门处理：`group_only_greetings` 与 `alternate_greetings` 同等对待（路线选项 / 合并 setup），其余视为元数据忽略。
 
 **大数据量卡片（条目 ≥100）**：脚本工具仅供探索阶段使用；构建阶段用 `python3 -c` 批量提取 + 紧凑索引法（先建 5-10K tokens 索引，再按需 lazy load 正文）。具体样例代码见 `references/mvu-mapping.md` §「探索阶段：紧凑索引」。
 

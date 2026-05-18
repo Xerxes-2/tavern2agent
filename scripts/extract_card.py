@@ -167,10 +167,65 @@ def _from_json(raw: bytes) -> dict:
     return obj
 
 
+# ─── v1 归一化 ─────────────────────────────────────────────────
+
+# 老 v1 字段名（TavernAI / 早期 ST）→ v2 schema 字段名
+_V1_LEGACY_MAP = {
+    "char_name": "name",
+    "char_persona": "personality",
+    "char_greeting": "first_mes",
+    "world_scenario": "scenario",
+    "example_dialogue": "mes_example",
+}
+
+# v1 卡可能直接在顶层用的字段（v1.5 起多用 v2 风格名）
+_V1_FLAT_FIELDS = (
+    "name", "description", "personality", "scenario",
+    "first_mes", "mes_example", "creator_notes", "system_prompt",
+    "post_history_instructions", "alternate_greetings", "tags", "creator",
+    "character_version", "extensions", "character_book",
+)
+
+
+def _normalize_v1(card: dict) -> dict:
+    """把 v1 平铺结构抬升为 v2 schema（`spec` + `data: {...}`）。
+
+    检测条件：无 v2/v3 `spec` 字段。已是 v2/v3 的卡原样返回。
+    """
+    spec = card.get("spec", "")
+    if spec in ("chara_card_v2", "chara_card_v3"):
+        return card
+
+    data: dict = {}
+    # 1. 老字段名 → 新字段名
+    for old, new in _V1_LEGACY_MAP.items():
+        if old in card and new not in card:
+            data[new] = card[old]
+    # 2. v1.5 风格的平铺字段直接搬
+    for field in _V1_FLAT_FIELDS:
+        if field in card and field not in data:
+            data[field] = card[field]
+    # 3. 如果原卡已有 data 块（罕见的混合形态），合并
+    if isinstance(card.get("data"), dict):
+        for k, v in card["data"].items():
+            data.setdefault(k, v)
+
+    return {
+        "spec": "chara_card_v2",
+        "spec_version": "2.0",
+        "data": data,
+        "_normalized_from_v1": True,  # 标记，便于下游/调试识别
+    }
+
+
 # ─── 入口 ───────────────────────────────────────────────────────
 
 def extract_card(path: str) -> dict:
-    """按文件扩展名分派；扩展名缺失或不匹配时按 magic bytes 兜底。"""
+    """按文件扩展名分派；扩展名缺失或不匹配时按 magic bytes 兜底。
+
+    v1 卡（平铺、无 spec 字段）自动归一化为 v2 schema，下游脚本/agent
+    无需区分版本。归一化的卡带 `_normalized_from_v1: true` 标记。
+    """
     raw = Path(path).read_bytes()
     ext = Path(path).suffix.lower()
 
@@ -182,17 +237,17 @@ def extract_card(path: str) -> dict:
         ".json": _from_json,
     }
     if ext in dispatch:
-        return dispatch[ext](raw)
+        return _normalize_v1(dispatch[ext](raw))
 
     # 按 magic bytes 兜底
     if raw[:8] == b"\x89PNG\r\n\x1a\n":
-        return _from_png(raw)
+        return _normalize_v1(_from_png(raw))
     if raw[:4] == b"RIFF" and raw[8:12] == b"WEBP":
-        return _from_webp(raw)
+        return _normalize_v1(_from_webp(raw))
     if raw[:2] == b"\xff\xd8":
-        return _from_jpeg(raw)
+        return _normalize_v1(_from_jpeg(raw))
     if raw.lstrip()[:1] == b"{":
-        return _from_json(raw)
+        return _normalize_v1(_from_json(raw))
     raise ValueError(f"无法识别文件格式: {path}")
 
 
