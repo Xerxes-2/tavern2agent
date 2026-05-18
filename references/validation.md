@@ -38,15 +38,15 @@ grep 和人工清单只能验证"文件是否存在、是否残留 ST 痕迹"，
 
 ```bash
 cd 项目目录
-pi --session-dir ./sessions -e ./extension.ts -p "开始游戏"
+./start.sh -p "开始游戏"
 ```
 
-用 `-p`（print mode）发送第一条消息，`--session-dir` 保证会话留在项目里。
+`start.sh` 已内置 `-e ./extension.ts --session-dir ./sessions`，保证测试条件一致。用 `-p`（print mode）发送第一条消息。
 
 ### 2. 逐轮继续
 
 ```bash
-pi --session-dir ./sessions -e ./extension.ts --continue "你的回应"
+./start.sh --continue "你的回应"
 ```
 
 每轮：读完 GM 的终端输出 → 想好回应 → 用 `--continue` 发送。像真人一样——问什么答什么，想探索就探索，想打架就拔刀。让 GM 措辞变化时也能跟上，而不是按固定 checklist 逐条对标。
