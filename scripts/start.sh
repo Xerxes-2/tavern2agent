@@ -22,11 +22,37 @@ if [ ! -d .git ]; then
   echo "✓ 已初始化 git 仓库（回退扩展所需）"
 fi
 
-# -ne (--no-extensions): 禁用全局/项目自动发现的扩展，只加载本项目的 extension.ts
-# -ns (--no-skills):    禁用全局/项目自动发现的技能，只加载 extension 注册的 skills/
-# 如果你需要额外扩展或技能，去掉对应 flag 或在命令行显式加 -e/-skill 参数
+# ---- 项目隔离 ----
+# PI_CODING_AGENT_DIR 将 pi 的配置目录从 ~/.pi/agent/ 切换到 .pi/agent/，
+# 实现全局插件/skills 的完全隔离。项目自己的 extension.ts 通过 -e 显式加载，
+# skills/ 目录通过 extension 的 resources_discover 钩子注册（见 pi-integration.md）。
+#
+# 首次启动时自动初始化 .pi/agent/：
+#   1. 如有全局 auth，复制过来（也可在后续手动 /login）
+#   2. 创建最小 settings.json
+#
+# 如需额外扩展或技能，用 -e / --skill 显式指定（不受 PI_CODING_AGENT_DIR 影响）
+
+mkdir -p .pi/agent
+
+if [ ! -f .pi/agent/auth.json ] && [ -f "$HOME/.pi/agent/auth.json" ]; then
+  cp "$HOME/.pi/agent/auth.json" .pi/agent/auth.json
+  echo "✓ 已复制认证信息到项目隔离环境"
+fi
+
+if [ ! -f .pi/agent/settings.json ]; then
+  cat > .pi/agent/settings.json <<-'EOF'
+{
+  "theme": "dark"
+}
+EOF
+  echo "✓ 已创建项目隔离配置 (.pi/agent/settings.json)"
+  echo "  （如需指定默认模型，编辑此文件添加 defaultProvider / defaultModel）"
+fi
+
+export PI_CODING_AGENT_DIR=".pi/agent"
+
 exec pi \
   -e ./extension.ts \
   --session-dir ./sessions \
-  -ne -ns \
   "$@"
