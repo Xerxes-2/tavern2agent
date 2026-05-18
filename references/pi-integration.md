@@ -86,6 +86,27 @@ export default function extension(pi: ExtensionAPI) {
       systemPrompt: event.systemPrompt + "\n\n" + gmPrompt,
     };
   });
+
+  // /retry 命令：重新发送最后一条用户消息
+  pi.registerCommand("retry", {
+    description: "重试最后一次 agent 响应",
+    handler: async (_args, ctx) => {
+      const entries = ctx.sessionManager.getEntries();
+      for (let i = entries.length - 1; i >= 0; i--) {
+        const entry = entries[i];
+        if (entry.type === "message" && (entry as any).message?.role === "user") {
+          const text = (entry as any).message.content?.[0]?.text;
+          if (text) {
+            ctx.ui.notify("🔄 重试中...", "info");
+            await ctx.sendUserMessage(text);
+            return;
+          }
+        }
+      }
+      ctx.ui.notify("没有找到可重试的用户消息", "warning");
+    },
+  });
+
   registerAllTools(pi);
 }
 ```
