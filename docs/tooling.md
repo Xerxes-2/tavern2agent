@@ -65,11 +65,41 @@ pi install npm:pi-web-access
 
 ## 听说（未亲测）
 
-### PiClaw —— Web 前端壳
+跟迁移产物**完全正交**——装不装只影响 UI 层，不影响卡本身。所有方案都基于 pi 自己，回退扩展、状态文件照常工作。
 
-[GitHub](https://github.com/rcarmo/piclaw)。把 pi 包成自托管 web 工作台（聊天 + 编辑器 + 终端 + 文件浏览器 + MCP），可 Docker 部署。
+### Tau —— pi 原生 web mirror（轻量）
 
-对跑团来说理论上更接近 SillyTavern 那种「聊天框 + 状态面板」的体验，门槛比 CLI 低。**但跟迁移产物正交**——装不装只影响 UI 层，不影响卡本身。如果想给非技术朋友演示卡的话可以试试。
+```bash
+pi install npm:tau-mirror
+```
+
+[GitHub](https://github.com/deflating/tau)。pi 扩展形态，自动跟着 pi 启动/退出，默认 3001 端口起一个浏览器镜像。terminal 和 browser 双向输入——你 zellij 里看输出、手机扫 QR 进同一 session 打字，无缝同步。
+
+特别契合现有 SSH + zellij 工作流：
+
+```
+云服务器：pi 起，tau-mirror 自动起 → 3001 端口
+你的 PC：zellij attach 看 terminal
+你的手机：扫 QR 进浏览器，地铁上回一句
+```
+
+支持 voice input、PWA 装到手机、HTTP basic auth。**没用过但看上去最契合跑团的多设备/碎片时间游玩场景**——SillyTavern 用户最怀念的「手机继续聊」这件事 Tau 直接覆盖。
+
+### PiClaw —— 自托管工作台（重型）
+
+[GitHub](https://github.com/rcarmo/piclaw)。**不是** pi 扩展——是把 pi 包进一个独立的 web app（聊天 + 编辑器 + 终端 + 文件浏览器 + MCP + draw.io + VNC……），Docker 部署。
+
+跟 Tau 的关键区别：
+
+|  | Tau | PiClaw |
+|---|---|---|
+| 形态 | pi 扩展，单进程共生 | 独立 web app，bundle 了 pi |
+| 安装 | `pi install` 一行 | Docker / 桌面包装器 |
+| 目标 | 给现有 pi session 加 web 视图 | 整套自托管 AI 工作台 |
+| 重量 | 轻 | 重 |
+| 适合 | 多设备/手机访问 | 给非技术朋友/团队展示 |
+
+如果只想要"手机能继续玩"，装 Tau。如果想把整个项目当一个可分享的 web 服务给别人用，PiClaw。
 
 ---
 
