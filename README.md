@@ -44,19 +44,26 @@ SillyTavern 用大量机制（MVU 更新、强化思考链、JSON Patch 等）�
 ## 最小示例
 
 ```bash
-# 1. 安装为 pi skill
-git clone https://github.com/Xerxes-2/tavern2agent ~/.pi/agent/skills/tavern2agent
+# 1. 安装为 pi skill（pi 自动递归扫描 ~/.pi/agent/skills/ 下的 SKILL.md，无需注册）
+git clone --depth 1 https://github.com/Xerxes-2/tavern2agent \
+  ~/.pi/agent/skills/tavern2agent
 
-# 2. 在工作目录放一张角色卡
+# 2. 在工作目录放一张角色卡（支持 PNG/WEBP/JPEG/JSON，含 v1/v2/v3）
 mkdir my-card && cd my-card
 cp ~/Downloads/某角色卡.png .
 
-# 3. 启动 pi 告诉 agent
+# 3. 启动 pi，提到「角色卡」「迁移」「转换」等关键词即可触发 skill
 pi
-> 帮我把这张卡迁移成 agent 跑团环境
+> 帮我转换这张角色卡
 ```
 
-agent 会自动按 skill 流程：解包 PNG → 分析世界书 → 决定方案档位 → 生成 engine/agents/data → 校验。标准方案（有 engine 模块）的卡会在写代码前发一份 state schema 给你 review，避免后期返工。
+更新到最新版：
+
+```bash
+cd ~/.pi/agent/skills/tavern2agent && git pull
+```
+
+agent 会自动按 skill 流程：解包 → 分析世界书 → 决定方案档位 → 生成 engine/agents/data → 校验。标准方案（有 engine 模块）的卡会在写代码前发一份 state schema 给你 review，避免后期返工。
 
 迁移完成后，agent 自带交互式调试能力——「这条规则没生效」「这个 NPC 该有秘密」直接告诉它。
 
