@@ -68,7 +68,7 @@ extension 入口契约：只做平台注册（system prompt 注入 + 技能路�
 ```typescript
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { registerAllTools } from "./tools/registry";
-import { registerCommands } from "./commands/retry";
+import { registerAllCommands } from "./commands/registry";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
@@ -89,7 +89,7 @@ export default function extension(pi: ExtensionAPI) {
   });
 
   // 注册自定义命令（/retry 等）
-  registerCommands(pi);
+  registerAllCommands(pi);
 
   registerAllTools(pi);
 }
@@ -97,13 +97,11 @@ export default function extension(pi: ExtensionAPI) {
 
 ## 自定义命令
 
-命令（`/xxx`）放在 `commands/` 目录，每个命令一个文件，统一导出 `registerCommands(pi)` 由 `extension.ts` 调用。模板见 `tavern2agent/commands/retry.ts`。
-
-产出项目的目录结构：
+命令（`/xxx`）放在 `commands/registry.ts`，统一导出 `registerAllCommands(pi)`，由 `extension.ts` 调用。与 `tools/registry.ts` → `registerAllTools(pi)` 一致。
 
 ```
 commands/
-└── retry.ts       ← /retry 命令：撤销上一轮回复后重试
+└── registry.ts    ← registerAllCommands(pi)：注册 /retry 等所有命令
 ```
 
 ## 工具返回值格式（必读）

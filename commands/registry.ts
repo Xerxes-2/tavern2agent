@@ -1,6 +1,6 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
-export function registerCommands(pi: ExtensionAPI) {
+export function registerAllCommands(pi: ExtensionAPI) {
   pi.registerCommand("retry", {
     description: "撤销上一轮 agent 响应并重新发送最后一条用户消息",
     handler: async (_args, ctx) => {

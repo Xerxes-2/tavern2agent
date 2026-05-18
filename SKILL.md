@@ -195,7 +195,7 @@ LLM 不擅长计数和定时触发。游戏存在「每 N 轮调用同伴」「�
 | `engine/state.ts` | 轻量+ | 状态引擎 |
 | `engine/dice.ts` 等 | 标准 | 按需 |
 | `tools/registry.ts` | 轻量+ | 工具实现集中地（**不要内联到 extension.ts**） |
-| `commands/retry.ts` | ✅ 推荐 | `/retry` 命令：撤销上一轮 agent 响应后重试。从 `tavern2agent/commands/retry.ts` 复制 |
+| `commands/registry.ts` | ✅ 推荐 | `registerAllCommands(pi)`——注册 `/retry` 等自定义命令。与 `tools/registry.ts` 一致 |
 | `extension.ts` | 轻量+ | pi 入口，只做注册：注入 system prompt + 调用 `registerAllTools(pi)` + `registerCommands(pi)` + hooks。详见 `references/pi-integration.md` |
 | `start.sh` | ✅ 必须 | 启动脚本，用户直接 `./start.sh` 进游戏。从 `tavern2agent/scripts/start.sh` 复制到项目根目录。**已内置 `PI_CODING_AGENT_DIR` 隔离**——首次运行自动初始化 `.pi/agent/` 并复制全局 auth，后续运行完全隔离全局扩展/skills |
 | `pi` | ✅ 推荐 | pi 包装脚本，自动设置隔离环境变量。用户用 `./pi install npm:@foo/bar -l` 安装包，无需手动 export。从 `tavern2agent/scripts/pi` 复制 |
@@ -216,7 +216,7 @@ LLM 不擅长计数和定时触发。游戏存在「每 N 轮调用同伴」「�
 - [ ] **所有世界书条目（含 disabled）都有去向**：按条目分类表落到 `data/*.json` / `engine/*.ts` / 开局可选开关 / 渐进披露逻辑 / 显式丢弃。disabled 条目须逐一判断是否为可选配置或 MVU 渐进披露，不能因「看起来不重要」就默认丢弃
 - [ ] `start.sh` 已生成：从 `tavern2agent/scripts/start.sh` 复制到项目根目录，可执行权限已设
 - [ ] `pi` 已生成：从 `tavern2agent/scripts/pi` 复制到项目根目录，可执行权限已设
-- [ ] `commands/retry.ts` 已生成：从 `tavern2agent/commands/retry.ts` 复制，（含 `/retry` 命令实装）
+- [ ] `commands/registry.ts` 已生成：从 `tavern2agent/commands/registry.ts` 复制，（含 `/retry` 命令实装）
 - [ ] `.pi/agent/` 已在 start.sh 首次运行时自动初始化（首次启动会从全局复制 auth 并创建最小 settings.json）。如需手动干预：run `./pi install ...` 或手动 copy `~/.pi/agent/auth.json` → `.pi/agent/auth.json`，编辑 `.pi/agent/settings.json` 配置模型等
 - [ ] `extension.ts` 已生成且只做注册：顶层 `import`（无动态 `import()`）、`registerAllTools(pi)` 被调用
 - [ ] `tools/registry.ts` 不是死代码：extension.ts 真的引用了它
