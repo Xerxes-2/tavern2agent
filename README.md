@@ -101,7 +101,7 @@ project/
 
 **回退 / 存档**：tavern2agent 不自建回滚，统一外包给 pi 平台层扩展。推荐 `pi install npm:pi-rewind-hook`——`/fork` 或 Tab 进 `/tree` 选目标轮还原。详见 `SKILL.md` §六。
 
-**迁移完成后怎么继续打磨**（git 工作流、下场玩节奏、重跑 skill 增量更新、仓库清理等）见 `docs/developing-cards.md`。
+**迁移完成后怎么继续打磨**（git 工作流、下场玩节奏、重跑 skill 增量更新、仓库清理等）见 `docs/developing-cards.md`。**工具与工作流推荐**（SSH + zellij、viddy 看 state、ask_user_question、web 查询等扩展）见 `docs/tooling.md`。
 
 ## 目录
 
