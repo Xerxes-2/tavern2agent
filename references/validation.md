@@ -46,7 +46,7 @@ cd 项目目录
 ### 2. 逐轮继续
 
 ```bash
-./start.sh -p --continue "你的回应"
+./start.sh --continue -p "你的回应"
 ```
 
 每轮：读完 GM 的终端输出 → 想好回应 → 用 `--continue` 发送。像真人一样——问什么答什么，想探索就探索，想打架就拔刀。让 GM 措辞变化时也能跟上，而不是按固定 checklist 逐条对标。
