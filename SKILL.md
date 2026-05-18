@@ -30,14 +30,14 @@ SillyTavern 的很多机制是绕过单次 LLM 调用限制的补丁。agent 天
 ## 一、快速开始
 
 ```bash
-python3 scripts/extract_png.py <角色卡.png> card.json   # PNG 解包
+python3 scripts/extract_card.py <角色卡>  card.json   # PNG/WEBP/JPEG/JSON 解包
 python3 scripts/list_entries.py card.json --filter mvu     # 看 MVU 条目
 python3 scripts/list_entries.py card.json --filter initvar # 看初始值
 ```
 
 | 脚本 | 用途 |
 |------|------|
-| `extract_png.py <png> [out.json]` | PNG → JSON |
+| `extract_card.py <file> [out.json]` | 角色卡 → JSON（PNG/WEBP/JPEG/JSON） |
 | `list_entries.py <json> [--filter mvu\|initvar]` | 世界书条目概览 |
 | `get_entry.py <json> <索引>` | 读条目完整内容 |
 
