@@ -52,7 +52,19 @@ fi
 
 export PI_CODING_AGENT_DIR=".pi/agent"
 
-exec pi \
+# 记录 pi 退出码，但保证提示始终显示
+pi_exit=0
+pi \
   -e ./extension.ts \
   --session-dir ./sessions \
-  "$@"
+  "$@" || pi_exit=$?
+
+cat <<'MSG'
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️  提示：如要分享此项目（git push / 打包发送等），
+   请删除 .pi/agent/auth.json（包含 API 密钥）
+   否则密钥会随项目一起泄漏。
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+MSG
+exit $pi_exit
