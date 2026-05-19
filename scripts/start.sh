@@ -24,14 +24,18 @@ fi
 
 # ---- 项目隔离 ----
 # PI_CODING_AGENT_DIR 将 pi 的配置目录从 ~/.pi/agent/ 切换到 .pi/agent/，
-# 实现全局插件/skills 的完全隔离。项目自己的 extension.ts 通过 -e 显式加载，
+# 实现全局配置/skills 的隔离。项目自己的 extension.ts 通过 -e 显式加载，
 # skills/ 目录通过 extension 的 resources_discover 钩子注册（见 pi-integration.md）。
+#
+# 项目级 pi 包（例如 npm:pi-subagents / npm:pi-rewind-hook）应声明在
+# 项目根 .pi/settings.json 的 packages 数组中；pi 首次启动会自动安装到 .pi/npm/。
+# 发布包保留 .pi/settings.json 和 .pi/agents/，不要打包 .pi/npm/。
 #
 # 首次启动时自动初始化 .pi/agent/：
 #   1. 如有全局 auth，复制过来（也可在后续手动 /login）
 #   2. 创建最小 settings.json
 #
-# 如需额外扩展或技能，用 -e / --skill 显式指定（不受 PI_CODING_AGENT_DIR 影响）
+# 如需额外本地 extension 或 skill 文件，用 -e / --skill 显式指定。
 
 mkdir -p .pi/agent
 

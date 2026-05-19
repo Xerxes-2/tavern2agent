@@ -81,13 +81,21 @@ SillyTavern 单一 context 的经典缺陷：模型同时读到所有它本不�
 
 ### 前置依赖
 
-```bash
-pi install npm:pi-subagents
+把 pi-subagents 声明到项目根 `.pi/settings.json`，让 pi 首次启动自动安装到项目本地 `.pi/npm/`：
+
+```json
+{
+  "packages": [
+    "npm:pi-subagents"
+  ]
+}
 ```
+
+如果同时需要回退扩展，把 `"npm:pi-rewind-hook"` 放进同一个 `packages` 数组。不要要求玩家手动安装项目级扩展；发布物应直接包含 `.pi/settings.json`。
 
 ### NPC Agent 定义模板
 
-每个需要隔离的 NPC 一个 `.md` 文件，放在 `agents/` 目录，symlink 到 `~/.pi/agent/agents/`（全局作用域）或 `.pi/agents/`（项目作用域）：
+每个需要隔离的 NPC 一个 `.md` 文件，发布用项目作用域放在 `.pi/agents/`；如需在源码中另保留一份，可从 `agents/` 复制/同步过去：
 
 ```markdown
 ---
@@ -134,14 +142,16 @@ NPC agent 返回台词和动作后，你将其织入主叙事，自己负责场�
 
 ```
 project/
+├── .pi/
+│   ├── settings.json          # packages: ["npm:pi-subagents", ...]
+│   └── agents/                # pi-subagents 项目级 agent 定义
+│       ├── npc_bartender.md   # 酒保 NPC（有隐藏故事）
+│       ├── npc_stranger.md    # 神秘旅人 NPC（有秘密身份）
+│       └── npc_bard.md        # 吟游诗人 NPC（消息灵通但不可信）
 ├── agents/
-│   ├── gm.md                  # GM system prompt
-│   ├── npc_bartender.md       # 酒保 NPC（有隐藏故事）
-│   ├── npc_stranger.md        # 神秘旅人 NPC（有秘密身份）
-│   └── npc_bard.md            # 吟游诗人 NPC（消息灵通但不可信）
+│   └── gm.md                  # GM system prompt
 ├── engine/                    # TS 引擎（按需）
-├── extensions/
-│   └── index.ts               # pi extension 入口
+├── extension.ts               # pi extension 入口
 ├── data/
 │   ├── world.json             # 世界设定（所有 NPC 的公开信息）
 │   └── characters.json        # 角色数据
@@ -153,7 +163,7 @@ project/
 ## pi extension 集成要点
 
 ```typescript
-// extensions/index.ts
+// extension.ts
 pi.on("before_agent_start", async (event) => {
   // 注入 GM prompt + 实时状态
   // GM prompt 中包含 NPC 调用指南

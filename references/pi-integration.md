@@ -17,7 +17,7 @@
 | System prompt 注入 | `pi.on("before_agent_start")` extension hook |
 | 工具注册 | `pi.registerTool(...)` |
 | 技能路径注册 | `pi.on("resources_discover")` — 注册 `skills/` 目录，pi 递归发现其中的 `<name>/SKILL.md` 技能文件 |
-| NPC 上下文隔离 | `pi-subagents` 包，定义放 `agents/*.md`。常用于 NPC 信息隔离，防止秘密泄漏 |
+| NPC 上下文隔离 | `pi-subagents` 包，发布用 agent 定义放 `.pi/agents/*.md`。常用于 NPC 信息隔离，防止秘密泄漏 |
 | 钩子（日志等） | `pi.on("tool_result_end")` |
 | 状态文件 | 任意目录，建议 `state/` |
 
@@ -35,7 +35,18 @@
 ./start.sh --continue               # 继续上次会话
 ```
 
-> **注意**：`PI_CODING_AGENT_DIR` 切换配置目录后，pi 不再读取 `~/.pi/agent/settings.json` 中的全局包配置，因此全局安装的 npm 包（如 pi-rewind-hook、pi-subagents、pi-processes 等）也不会自动加载。如需使用这些包，可以用 `pi install npm:@foo/bar -l` 安装到项目本地（写入 `.pi/settings.json`），或在 `start.sh` 末尾加 `-e` / `--skill` 参数显式加载。详见 `scripts/start.sh` 注释。
+> **注意**：`PI_CODING_AGENT_DIR` 切换配置目录后，pi 不再读取 `~/.pi/agent/settings.json` 中的全局包配置，因此全局安装的 npm 包（如 pi-rewind-hook、pi-subagents、pi-processes 等）也不会自动加载。迁移产物需要的 pi 包应写进项目根 `.pi/settings.json` 的 `packages` 数组；pi 首次启动会自动安装到项目本地 `.pi/npm/`。不要把手动安装项目级扩展写成玩家启动前置步骤；发布物应直接包含 `.pi/settings.json`。显式本地文件仍可在 `start.sh` 末尾用 `-e` / `--skill` 加载。详见 `scripts/start.sh` 注释。
+>
+> 常见项目级包配置：
+>
+> ```json
+> {
+>   "packages": [
+>     "npm:pi-subagents",
+>     "npm:pi-rewind-hook"
+>   ]
+> }
+> ```
 
 ## extension 加载限制 + 技能路径注册（必读）
 

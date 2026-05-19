@@ -191,12 +191,13 @@ LLM 不擅长计数和定时触发。游戏存在「每 N 轮调用同伴」「�
 |------|:-----:|------|
 | `skills/<skill-name>/SKILL.md` | ✅ 必须 | 游戏入口 skill（如 `skills/start-game/SKILL.md`），处理 user 卡/配置/开场 |
 | `agents/gm.md` | ✅ 必须 | GM system prompt |
-| `agents/<npc_xxx>.md` | 有隐藏信息/视角隔离需求时 | NPC subagent（每个需隔离的 NPC 一个，上下文隔离）；触发条件详见 §三「多 agent 判定」 |
+| `.pi/agents/<npc_xxx>.md` | 有隐藏信息/视角隔离需求时 | pi-subagents 项目级 NPC subagent（每个需隔离的 NPC 一个，上下文隔离）；触发条件详见 §三「多 agent 判定」 |
 | `engine/state.ts` | 轻量+ | 状态引擎 |
 | `engine/dice.ts` 等 | 标准 | 按需 |
 | `tools/registry.ts` | 轻量+ | 工具实现集中地（**不要内联到 extension.ts**） |
 | `extension.ts` | 轻量+ | pi 入口，只做注册：注入 system prompt + 调用 `registerAllTools(pi)` + hooks。详见 `references/pi-integration.md` |
 | `start.sh` | ✅ 必须 | 启动脚本，用户直接 `./start.sh` 进游戏。从 `tavern2agent/scripts/start.sh` 复制到项目根目录。**已内置 `PI_CODING_AGENT_DIR` 隔离**——首次运行自动初始化 `.pi/agent/` 并复制全局 auth，后续运行完全隔离全局扩展/skills |
+| `.pi/settings.json` | 使用 pi 包时 ✅ | 项目级 pi 包清单。需要 `pi-subagents` / `pi-rewind-hook` 等扩展时写入 `packages`，发布时保留；`.pi/npm/` 不打包 |
 | `data/world.json` | ✅ 必须 | 世界设定 |
 | `data/characters.json` | ≥5 角色时 | 角色数据 |
 | `data/user.json` | 需要 user 卡时 | 用户角色**固定档案**（运行时可变状态走 state.json，详见下方说明） |
@@ -213,6 +214,7 @@ LLM 不擅长计数和定时触发。游戏存在「每 N 轮调用同伴」「�
 - [ ] **`alternate_greetings` 已处理**：每条都有去向（路线选项 / 合并 setup / 显式丢弃并说明原因）
 - [ ] **所有世界书条目（含 disabled）都有去向**：按条目分类表落到 `data/*.json` / `engine/*.ts` / 开局可选开关 / 渐进披露逻辑 / 显式丢弃。disabled 条目须逐一判断是否为可选配置或 MVU 渐进披露，不能因「看起来不重要」就默认丢弃
 - [ ] `start.sh` 已生成：从 `tavern2agent/scripts/start.sh` 复制到项目根目录，可执行权限已设
+- [ ] `.pi/settings.json` 已生成（如用项目级 pi 包）：所有依赖的 pi 扩展写在 `packages`，例如 `npm:pi-subagents`、`npm:pi-rewind-hook`；不要要求玩家手动安装项目级扩展；`.pi/npm/` 不发布
 - [ ] `.pi/agent/` 已在 start.sh 首次运行时自动初始化（首次启动会从全局复制 auth 并创建最小 settings.json）。如需手动干预：copy `~/.pi/agent/auth.json` → `.pi/agent/auth.json`，编辑 `.pi/agent/settings.json` 配置模型等
 - [ ] `extension.ts` 已生成且只做注册：顶层 `import`（无动态 `import()`）、`registerAllTools(pi)` 被调用
 - [ ] `tools/registry.ts` 不是死代码：extension.ts 真的引用了它
@@ -233,9 +235,17 @@ LLM 不擅长计数和定时触发。游戏存在「每 N 轮调用同伴」「�
 
 ### 推荐扩展：pi-rewind-hook
 
-```bash
-pi install npm:pi-rewind-hook   # pi ≥ 0.65.0
+迁移产物应把推荐扩展声明在项目根 `.pi/settings.json`，让 pi 首次启动时自动安装到项目本地 `.pi/npm/`：
+
+```json
+{
+  "packages": [
+    "npm:pi-rewind-hook"
+  ]
+}
 ```
+
+如果项目同时使用 subagent，把 `"npm:pi-subagents"` 也放进同一个 `packages` 数组。不要在交付说明里要求玩家手动安装项目级扩展；开发者可用 pi 的本地安装命令快速写入 `.pi/settings.json`，但发布物应直接包含这个文件。
 
 用 pi 原生的 `/fork`（或 Tab 开 `/tree`）选目标轮 → "Restore all (files + conversation)"。rewind 元数据写进 session 自己的隐藏 ledger entry，能跨 fork / resume / compaction 存活。
 
