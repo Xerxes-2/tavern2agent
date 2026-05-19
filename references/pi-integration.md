@@ -48,6 +48,19 @@
 > }
 > ```
 
+### 可选：项目本地 pi 包装器 `./pi`
+
+项目根放一个 `./pi` 脚本，内置 `PI_CODING_AGENT_DIR` 后 exec 真实 pi，这样 `./pi` 就完全取代全局 `pi` 命令操作当前项目：
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "$(readlink -f "$0")")"
+PI_CODING_AGENT_DIR=".pi/agent" exec pi "$@"
+```
+
+主要价值：可以直接用 `./pi install xxx` 安装项目本地扩展/包（安装到 `.pi/` 下，不影响全局）；其他 `./pi` 子命令同样生效。与 start.sh 的分工：`./pi` 是项目本地的 pi 命令入口，start.sh 是完整启动脚本（额外处理首次初始化——git init、复制 auth 等）。
+
 ## extension 加载限制 + 技能路径注册（必读）
 
 pi 通过 **jiti** 加载 `extension.ts`，几个坑：
@@ -98,6 +111,28 @@ export default function extension(pi: ExtensionAPI) {
   registerAllTools(pi);
 }
 ```
+
+## 工具参数格式（必读）
+
+**`parameters` 必须用 TypeBox `Type.Object()` 定义**。TypeBox 是 pi 内置包（`import { Type } from "typebox"`），直接用它声明字段类型：
+
+```typescript
+import { Type } from "typebox";
+
+pi.registerTool({
+  name: "lookup_item",
+  parameters: Type.Object({
+    name: Type.String({ description: "物品名称" }),
+    category: Type.Optional(Type.String({ description: "可选：过滤类别" })),
+  }),
+  async execute(_toolCallId, params, _signal, _onUpdate, _ctx) {
+    // params.name 和 params.category 已通过 TypeBox 校验
+    return { content: [{ type: "text", text: `查询: ${params.name}` }], details: {} };
+  },
+});
+```
+
+`Type.String()`、`Type.Number()`、`Type.Boolean()`、`Type.Array()`、`Type.Union()` 等类型均可用。
 
 ## 工具返回值格式（必读）
 
