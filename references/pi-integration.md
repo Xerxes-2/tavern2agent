@@ -50,7 +50,7 @@
 
 ### 可选：项目本地 pi 包装器 `./pi`
 
-start.sh 内部检测系统 `pi` 命令。如果希望项目更自包含，可以在项目根额外放一个 `./pi` 脚本，内置环境变量后 exec 真实 pi：
+项目根放一个 `./pi` 脚本，内置 `PI_CODING_AGENT_DIR` 后 exec 真实 pi，这样 `./pi` 就完全取代全局 `pi` 命令操作当前项目：
 
 ```bash
 #!/usr/bin/env bash
@@ -59,7 +59,7 @@ cd "$(dirname "$(readlink -f "$0")")"
 PI_CODING_AGENT_DIR=".pi/agent" exec pi "$@"
 ```
 
-用法：`./pi -e ./extension.ts --session-dir ./sessions`。与 start.sh 的区别：`./pi` 只设环境变量 + exec，start.sh 还包含首次初始化（git init、复制 auth 等）。
+主要价值：可以直接用 `./pi install xxx` 安装项目本地扩展/包（安装到 `.pi/` 下，不影响全局）；其他 `./pi` 子命令同样生效。与 start.sh 的分工：`./pi` 是项目本地的 pi 命令入口，start.sh 是完整启动脚本（额外处理首次初始化——git init、复制 auth 等）。
 
 ## extension 加载限制 + 技能路径注册（必读）
 
@@ -114,9 +114,7 @@ export default function extension(pi: ExtensionAPI) {
 
 ## 工具参数格式（必读）
 
-**pi `registerTool` 参数 schema 必须用 TypeBox `Type.Object()` 定义**，不能用原生 JSON Schema 对象。TypeBox 是 pi 内置包（`import { Type } from "typebox"`），`Type.Object()` 定义对象结构，内部字段用 `Type.String()`、`Type.Number()`、`Type.Boolean()`、`Type.Array()`、`Type.Union()` 等声明类型。
-
-### 正确模式
+**`parameters` 必须用 TypeBox `Type.Object()` 定义**。TypeBox 是 pi 内置包（`import { Type } from "typebox"`），直接用它声明字段类型：
 
 ```typescript
 import { Type } from "typebox";
@@ -134,23 +132,7 @@ pi.registerTool({
 });
 ```
 
-### 错误模式（静默失败）
-
-```typescript
-// ❌ 原生 JSON Schema —— pi 不认，工具注册后 LLM 调用会静默失败
-pi.registerTool({
-  name: "lookup_item",
-  parameters: {
-    type: "object",
-    properties: {
-      name: { type: "string", description: "物品名称" },
-    },
-    required: ["name"],
-  },
-});
-```
-
-TypeBox 不认 `{ type, properties }` 结构，传进去后 pi 的参数校验永远返回 false，表现是 LLM 正常生成调用 → pi 拒绝执行 → LLM 空转重试 → 看起来像工具没反应。
+`Type.String()`、`Type.Number()`、`Type.Boolean()`、`Type.Array()`、`Type.Union()` 等类型均可用。
 
 ## 工具返回值格式（必读）
 
