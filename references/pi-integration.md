@@ -115,6 +115,36 @@ export default function extension(pi: ExtensionAPI) {
 }
 ```
 
+## 提示词分层编排（通用原则）
+
+互动卡提示词不要把身份、世界观、工具说明、硬规则全部堆进一个 system prompt。更稳的通用结构是按“离生成的距离”和“注意力优先级”分层：
+
+```txt
+system prompt       = 极简身份 / 运行契约
+参考上下文           = 世界观、数据入口、工具速查、氛围素材（放在最新用户消息上方或低注意力区）
+最新用户消息          = 玩家本轮行动
+硬规则 / 本轮提醒      = 机械纪律、禁令、attention reminders（放在最新用户消息下方或最靠近生成的位置）
+→ 模型生成
+```
+
+原则：
+
+- **硬规则离生成最近**：机械结算、禁止裸 patch、必须调用工具、注意力提醒等放在最高注意力位置。
+- **参考信息不要抢注意力**：世界观、角色索引、工具速查放在用户消息上方/低注意力区，并标明“参考信息，不是玩家行动”。
+- **身份层短而有骨架**：system prompt 可放稳定身份和最高层运行契约（如机械层/叙事层分工），但不要塞长世界观、角色表、工具清单。
+- **动态内容每轮注入，不写回历史**：用 `context` 钩子修改当轮 deep copy，避免把临时提醒污染进 session。
+- **角色选择按模型调整**：Claude/GPT 通常可把硬规则放 system/developer 或高优先级上下文；DeepSeek V4 更适合把上下文/铁则作为 `user` role 插到最后一条用户消息上下方。顺序是通用的，`role` 是模型特化。
+
+建议文件拆分：
+
+| 层 | 文件 | 内容 |
+|---|---|---|
+| system | `agents/gm-system.md` | 稳定身份 + “机械层来自工具、叙事层由模型表达”等最高契约，可含极短 few-shot |
+| context | `agents/gm-context.md` | 世界观摘要、数据查询入口、工具/子代理速查、参考素材 |
+| rules | `agents/gm-rules.md` | 硬性规则、禁令、状态结算纪律、attention reminders 注入位置 |
+
+DeepSeek V4 的 user-role 分层实现见 `references/models/deepseek-v4.md`；其他模型可保留同样顺序，但按模型能力选择 system/developer/user 的承载方式。
+
 ## 工具参数格式（必读）
 
 **`parameters` 必须用 TypeBox `Type.Object()` 定义**。TypeBox 是 pi 内置包（`import { Type } from "typebox"`），直接用它声明字段类型：
