@@ -152,6 +152,8 @@ TAVERN2AGENT_DEV=1 ./start.sh # 开发模式：保留内置 agents
 
 ## 什么时候用
 
+这张表只判断 subagent 需求，不判断卡片系统复杂度。无骰子、无 state 的纯 prompt 卡，只要有信息隔离/角色分离/进程隔离，也可以使用 subagent；反过来，战斗经济很复杂但没有隔离需求，也未必需要 subagent。
+
 | 条件 | 决策 |
 |------|------|
 | NPC 不多（经验阈值 ~4）且无隐藏信息、无隐藏真相 | 单 agent，GM 自己扮演所有 NPC |
@@ -301,11 +303,13 @@ NPC agent 通过 `defaultReads: data/world.json` 自动获得世界公开信息�
 | 多地点同时叙事 | 队伍分头行动。多个场景并行推进，GM 汇总 |
 | 多 NPC 同时反应 | 一个事件发生，多个 NPC 同时反应——并行调多个 NPC agent |
 
-### 五、状态跟踪型（可选）
+### 五、状态审计型（谨慎使用）
 
-**问题**：主 GM agent 在叙事中经常忘记调用 `patch_state` 更新游戏状态（时间、地点、角色属性、伤势等）。单靠 prompt 约束不可靠。
+**当前优先方案**不是每轮开 scribe，而是把状态纪律下沉到：专用工具、strict patch、state schema 校验、attention 提醒和工具 description。绝大多数“GM 忘记改状态”的问题，应该先通过这些机制解决。
 
-**方案**：每轮叙事后启动一个专职 `scribe` 子代理，从叙事中提取状态变化并写入。GM 只负责叙事，scribe 只负责状态——认知分离。
+只有当状态变化来自大段自由叙事、字段很多且很难用专用工具覆盖时，才考虑启动专职 `scribe` 子代理做状态审计。scribe 是补充机制，不是默认架构。
+
+**方案**：关键轮次后启动一个专职 `scribe` 子代理，从叙事中提取状态变化并写入。GM 只负责叙事，scribe 只负责状态审计——认知分离。
 
 ```
 GM (主模型)  叙事 → subagent(scribe) → scribe (轻量副模型)
@@ -315,7 +319,7 @@ GM (主模型)  叙事 → subagent(scribe) → scribe (轻量副模型)
                                               └─ 返回变更摘要
 ```
 
-> 主模型负责叙事，副模型用更便宜/更快的型号专做状态提取（如 DS V4-Pro + V4-Flash、Claude Sonnet + Haiku）。延迟数据见下文「实测参考」。
+> 主模型负责叙事，副模型可用更便宜/更快的型号专做状态提取。这里仍然走 pi-subagents，不手写 provider API。
 
 **实现要点**：
 
@@ -326,7 +330,7 @@ GM (主模型)  叙事 → subagent(scribe) → scribe (轻量副模型)
    - 加载一个极简扩展（只注册 `get_status`/`patch_state`/`get_character_detail`），不挂任何生命周期钩子——否则主 extension 的 `before_agent_start` 会给 scribe 注入 GM 身份
 
 2. **GM 指令**（`agents/gm.md`）：
-   - 每轮叙事结束后调 `subagent({ agent: "scribe", task: "提取本轮叙事中的状态变化并更新" })`
+   - 在状态复杂且自由叙事较长的关键轮次后调 `subagent({ agent: "scribe", task: "提取本轮叙事中的状态变化并更新" })`
    - **同步执行，不带 `async: true`**——否则 scribe 完成后 GM 会继续叙事
    - 明确标注「启动 scribe 后本轮结束，不要再继续叙事」
 
@@ -335,33 +339,33 @@ GM (主模型)  叙事 → subagent(scribe) → scribe (轻量副模型)
    - 与主 `extension.ts` 分离，避免 GM 规则泄漏进 scribe
 
 4. **为什么用 fork 不用 fresh + 传叙事**：
-   - fresh + 传叙事：GM 需输出 ~5000 token 叙事原文作为 task 参数，输出延迟远超 fork 的序列化开销
-   - fork：GM 只输出 ~20 token 的短 task，叙事通过会话继承零成本传导
-   - **实测参考**（DS V4-Pro 主 + V4-Flash 副、单轮叙事 ~3-5K token）：fork ~15s < fresh+传叙事 ~20s+。换模型/卡片复杂度后绝对数会变，但 fork 优势的方向稳定。
+   - fresh + 传叙事：GM 需要把本轮叙事原文复制进 task，token 和延迟都更高
+   - fork：GM 只输出一个短 task，叙事通过会话继承传导
+   - 具体延迟随模型/卡片复杂度变化，但 fork 的方向性优势稳定
 
-5. **禁止输出**：scribe 只需调工具，不应输出任何文字。DeepSeek 模型尤其倾向「完成任务后加一段总结」，需要在多处反复强调：
+5. **禁止输出**：scribe 只需调工具，不应输出任何文字。部分模型会倾向「完成任务后加一段总结」，需要在多处反复强调：
    - 身份声明首句：`**你只调工具，不输出任何文字。**`（粗体）
    - 工作流末步：`结束——不要输出任何确认、摘要、清单`
    - 删除「输出」section——不给模型任何「输出格式」的暗示
 
 **权衡**：
 
-| | subagent (scribe) | inline API 调用 |
-|---|---|---|
-| 延迟 | ~15s（fork 复制 + 子进程启动） | ~2-4s（单次 fetch） |
-| 架构 | 全走 pi 原生 subagent 基础设施 | 手动 fetch + auth.json 解析（hack） |
-| 可靠性 | 子代理有完整工具链，输出直接到 patch_state | LLM 输出解析可能出错 |
-| 依赖 | 需要 pi-subagents 包 | 需要环境中有 DeepSeek API key |
+| 优点 | 代价 |
+|---|---|
+| GM 的叙事职责和状态提取职责分离 | 多一次子进程/模型调用，有额外延迟 |
+| scribe 可使用更便宜/更快的模型 | 需要严格禁止自然语言总结 |
+| 状态更新逻辑更集中、更可测试 | 不适合每轮都只改一两个简单字段的轻量卡 |
 
 **适用条件**：
-- 状态字段多（≥10 个 key），GM 手工维护 patch_state 容易遗漏
-- 每轮叙事后状态必然变化（时间推进、伤势演变等）
-- 能接受 ~15s 的额外延迟
+- 状态字段多，且很多变化来自自由叙事而非专用工具
+- 需要在章节/长场景结束时做一致性审计
+- 能接受额外延迟
 
 **不适用**：
-- 状态字段少（≤5 个），GM prompt 约束就够
+- 状态字段少，或已有专用工具能覆盖主要变化
 - 需要亚秒级响应
 - 不使用 pi-subagents 的项目
+- 只是为了替代 `manage_item`、`change_scene`、`manage_quest` 等明确工具调用
 
 ### 反模式——这些不要用 subagent
 

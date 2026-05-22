@@ -17,7 +17,7 @@ SillyTavern 的很多机制是绕过单次 LLM 调用限制的补丁。agent 天
 ## 〇、开工前确认
 
 1. **先读 `references/design-principles.md`**——十条核心原则（agent 是程序本身、所有计算进引擎、prompt 极简、砍掉强化思考链等）决定了产出的形态，不读容易把 ST 机制直译为代码，错过 agent 的核心优势。
-2. **复杂卡再读四份实战文档**：`references/data-layer.md`（数据层 + 查询工具）、`references/toolsets.md`（动态工具集取舍）、`references/state-schema-migrations.md`（state schema 防腐 + 存档迁移）、`references/multi-agent-architecture.md`（subagent 实操：prompt/extension/task/history 四层）。这些是后续项目实跑补出来的经验，不再只是设想。
+2. **按需求读实战文档**：数据/状态/工具集复杂度与 subagent 需求是正交维度，不要把 subagent 只归到“复杂卡”。有结构化数据读 `references/data-layer.md`；有 state 读 `references/state-schema-migrations.md`；工具较多读 `references/toolsets.md`；只要有信息隔离、角色分离或进程隔离需求，即使是纯 prompt 卡，也读 `references/multi-agent-architecture.md`。这些是后续项目实跑补出来的经验，不再只是设想。
 3. **确认输出目录**：用户如果说「输出到 xxx 目录」「放到 cards/ 下」，直接照做。如果用户只说「转换这张卡」没指定路径，主动问一句：「输出到哪个目录？目录名用卡片名还是自定义？」用户没指定命名规则时，默认取卡片 `data.name` 作为目录名（非法字符替换为下划线），放在卡片 PNG 同级目录下。
 4. **检查工作目录**：如果目标目录已存在 `agents/`、`engine/`、`skills/start-game/SKILL.md` 等，先和用户确认是覆盖、增量更新、还是另开目录。用户没明说时直接问一句。
    - **增量更新模式**（用户选「增量」时的硬约束）：
@@ -42,7 +42,7 @@ python3 scripts/list_entries.py card.json --filter initvar # 看初始值
 | `list_entries.py <json> [--filter mvu\|initvar]` | 世界书条目概览 |
 | `get_entry.py <json> <索引>` | 读条目完整内容 |
 
-> **支持 v1 / v2 / v3 卡**：v2/v3 卡（`spec` 为 `chara_card_v2` 或 `chara_card_v3`）原样处理；**v1 老卡（字段直接挂顶层）由 `extract_card.py` 自动归一化为 v2 schema**（产出 JSON 带 `_normalized_from_v1: true` 标记），下游一律按 v2 路径读。v1 卡通常无世界书 + 无 MVU，几乎只落「纯 prompt」档——可以正常跑，但 agent 的复杂决策（多 agent / engine 模块）基本用不上。v3 新增字段（`assets` / `group_only_greetings` / `creator_notes_multilingual` / `source` 等）当前不专门处理：`group_only_greetings` 与 `alternate_greetings` 同等对待（路线选项 / 合并 setup），其余视为元数据忽略。
+> **支持 v1 / v2 / v3 卡**：v2/v3 卡（`spec` 为 `chara_card_v2` 或 `chara_card_v3`）原样处理；**v1 老卡（字段直接挂顶层）由 `extract_card.py` 自动归一化为 v2 schema**（产出 JSON 带 `_normalized_from_v1: true` 标记），下游一律按 v2 路径读。v1 卡通常无世界书 + 无 MVU，几乎只落「纯 prompt」档——可以正常跑，engine 模块通常用不上；是否需要多 agent 仍按隐藏信息/角色分离/进程隔离独立判断。v3 新增字段（`assets` / `group_only_greetings` / `creator_notes_multilingual` / `source` 等）当前不专门处理：`group_only_greetings` 与 `alternate_greetings` 同等对待（路线选项 / 合并 setup），其余视为元数据忽略。
 
 **大数据量卡片（条目 ≥100）**：脚本工具仅供探索阶段使用；构建阶段用 `python3 -c` 批量提取 + 紧凑索引法（先建 5-10K tokens 索引，再按需 lazy load 正文）。具体样例代码见 `references/mvu-mapping.md` §「探索阶段：紧凑索引」。
 
@@ -136,7 +136,7 @@ python3 scripts/list_entries.py card.json
 
 判断标准三选一：**信息隔离**（角色不该看到的东西）、**角色分离**（跟 GM 完全不同的人格/文风）、**进程隔离**（适合异步/并行）。完整分类（含信息隔离/角色分离/进程隔离/并行/状态跟踪/反模式）见 `references/multi-agent-architecture.md` §附录。
 
-**实战模式**：subagent 不只是 `.pi/agents/*.md`。复杂卡建议采用「稳定 agent prompt + `extensions/subagents/<agent>.ts` 动态注入 + 短 task + 会话历史」四层结构。人格、当前状态、世界摘要由子代理 extension 从 state/data 读取后注入；GM 的 task 只补本轮触发原因，不要每次手写完整上下文，也不要让子代理先调用工具自查自己是谁。详见 `references/multi-agent-architecture.md` §「实战经验」。
+**实战模式**：subagent 不只是 `.pi/agents/*.md`。凡使用 subagent 的卡，都建议采用「稳定 agent prompt + `extensions/subagents/<agent>.ts` 动态注入 + 短 task + 会话历史」四层结构。人格、当前状态、世界摘要由子代理 extension 从 state/data 读取后注入；GM 的 task 只补本轮触发原因，不要每次手写完整上下文，也不要让子代理先调用工具自查自己是谁。详见 `references/multi-agent-architecture.md` §「实战经验」。
 
 **临界场景拿不准时**，去 `references/decision-tree.md` 查辅助判定信号（5 条）+ 归档样例（8 条具体卡片特征 → 落档结论），按样例粒度对齐，不要纠结临界条款的字面。
 
@@ -195,7 +195,7 @@ LLM 不擅长计数和定时触发。游戏存在「每 N 轮调用同伴」「�
 
 ### 动态工具集（标准方案强烈推荐）
 
-复杂卡不要把所有工具都常驻。保留极少 `always` 工具（状态查询、基础 lookup、`switch_toolset`），按场景切换 `setup` / `combat` / `social` / `craft` / `world` / `debug` / `full`。低频维护工具（`migrate_state`、`get_state_schema`、修档工具）只放 `debug`/`full`，不要出现在普通叙事轮。
+工具数量较多时，不要把所有工具都常驻。保留极少 `always` 工具（状态查询、基础 lookup、`switch_toolset`），按场景切换 `setup` / `combat` / `social` / `craft` / `world` / `debug` / `full`。低频维护工具（`migrate_state`、`get_state_schema`、修档工具）只放 `debug`/`full`，不要出现在普通叙事轮。
 
 命名用 `toolset`，不要用 `context`，避免和叙事上下文/模型 context 混淆。完整分组、`switch_toolset` 模式和“专用工具优先于裸 patch”的取舍见 `references/toolsets.md`。
 
