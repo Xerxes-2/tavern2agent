@@ -17,8 +17,9 @@ SillyTavern 的很多机制是绕过单次 LLM 调用限制的补丁。agent 天
 ## 〇、开工前确认
 
 1. **先读 `references/design-principles.md`**——十条核心原则（agent 是程序本身、所有计算进引擎、prompt 极简、砍掉强化思考链等）决定了产出的形态，不读容易把 ST 机制直译为代码，错过 agent 的核心优势。
-2. **确认输出目录**：用户如果说「输出到 xxx 目录」「放到 cards/ 下」，直接照做。如果用户只说「转换这张卡」没指定路径，主动问一句：「输出到哪个目录？目录名用卡片名还是自定义？」用户没指定命名规则时，默认取卡片 `data.name` 作为目录名（非法字符替换为下划线），放在卡片 PNG 同级目录下。
-3. **检查工作目录**：如果目标目录已存在 `agents/`、`engine/`、`skills/start-game/SKILL.md` 等，先和用户确认是覆盖、增量更新、还是另开目录。用户没明说时直接问一句。
+2. **复杂卡再读四份实战文档**：`references/data-layer.md`（数据层 + 查询工具）、`references/toolsets.md`（动态工具集取舍）、`references/state-schema-migrations.md`（state schema 防腐 + 存档迁移）、`references/multi-agent-architecture.md`（subagent 实操：prompt/extension/task/history 四层）。这些是后续项目实跑补出来的经验，不再只是设想。
+3. **确认输出目录**：用户如果说「输出到 xxx 目录」「放到 cards/ 下」，直接照做。如果用户只说「转换这张卡」没指定路径，主动问一句：「输出到哪个目录？目录名用卡片名还是自定义？」用户没指定命名规则时，默认取卡片 `data.name` 作为目录名（非法字符替换为下划线），放在卡片 PNG 同级目录下。
+4. **检查工作目录**：如果目标目录已存在 `agents/`、`engine/`、`skills/start-game/SKILL.md` 等，先和用户确认是覆盖、增量更新、还是另开目录。用户没明说时直接问一句。
    - **增量更新模式**（用户选「增量」时的硬约束）：
      - **不要 `rm -rf` 或全量重写**——目标目录可能有用户手改过的 prompt、engine 公式、data 字段
      - 动手前 `git log --oneline -20` + `git diff` 当前 worktree，识别人工调整的痕迹
@@ -135,6 +136,8 @@ python3 scripts/list_entries.py card.json
 
 判断标准三选一：**信息隔离**（角色不该看到的东西）、**角色分离**（跟 GM 完全不同的人格/文风）、**进程隔离**（适合异步/并行）。完整分类（含信息隔离/角色分离/进程隔离/并行/状态跟踪/反模式）见 `references/multi-agent-architecture.md` §附录。
 
+**实战模式**：subagent 不只是 `.pi/agents/*.md`。复杂卡建议采用「稳定 agent prompt + `extensions/subagents/<agent>.ts` 动态注入 + 短 task + 会话历史」四层结构。人格、当前状态、世界摘要由子代理 extension 从 state/data 读取后注入；GM 的 task 只补本轮触发原因，不要每次手写完整上下文，也不要让子代理先调用工具自查自己是谁。详见 `references/multi-agent-architecture.md` §「实战经验」。
+
 **临界场景拿不准时**，去 `references/decision-tree.md` 查辅助判定信号（5 条）+ 归档样例（8 条具体卡片特征 → 落档结论），按样例粒度对齐，不要纠结临界条款的字面。
 
 ---
@@ -155,6 +158,19 @@ state 骨架代码见 `references/ts-engine.md`「轻量 / 标准方案」。eng
 
 标准方案的 `gm.md` 末尾建议加一行引用 `references/storytelling.md`，让 GM 在叙事卡壳时按需自查节拍——具体引用句式见 storytelling.md §「在 gm.md 里如何引用」。
 
+### State schema 防腐与存档迁移（轻量+ 必走）
+
+轻量/标准方案都必须把 state 当成版本化数据结构，而不是让模型随手长字段：
+
+- `INITIAL_STATE` + schema + 派生逻辑描述同一套当前结构。
+- 顶层 root 白名单，拒绝 `/player`、`/user`、`/玩家`、旧字段等污染路径。
+- 有专用工具负责的字段禁止裸 `patch_state` 绕过，例如金钱、经验、属性点、背包、装备、技能、任务、场景。
+- 派生值运行时计算，不落盘。
+- 旧存档只经 `state-migrations.ts` / `legacy-migrations.ts` 迁移；运行时不保留旧字段 fallback。
+- schema 变化时 bump `CURRENT_STATE_SCHEMA_VERSION`，提供 `migrate_state` 和 `get_state_schema`，且只放 `debug`/`setup`/`full` toolset。
+
+完整模式、迁移函数模板、测试建议见 `references/state-schema-migrations.md`。
+
 ### 中间检查点（标准方案必走）
 
 写 `engine/*.ts` 前，先把 **state schema** + **engine 操作清单** 单独发给用户 review。schema 必须覆盖**用户卡创建字段**（姓名/性别/外貌等）——它们不在 InitVar 里，遗漏会让 `patch_state` 的 `replace` 操作静默失败。技术细节与 RFC 6902 陷阱见 `references/mvu-mapping.md` §「⚠️ 用户卡字段不在 InitVar 里」+ §「⚠️ RFC 6902 陷阱」。
@@ -167,15 +183,21 @@ LLM 不擅长计数和定时触发。游戏存在「每 N 轮调用同伴」「�
 
 ### 数据查询工具（标准方案强烈推荐）
 
-凡是有结构化数据集合（地点 ≥20、NPC ≥5、DLC 模块），必须配查询工具。否则数据等于不存在：
+凡是有结构化数据集合（地点 ≥20、NPC ≥5、DLC 模块），必须配查询工具。否则数据等于不存在：LLM 运行时不应靠 `bash`/`read` 翻 JSON，也不能把大段世界书塞进 prompt。
 
 | 数据 | 工具 | 索引文件 |
 |------|------|---------|
-| 世界地点 | `lookup_location` | `data/location_index.json`（地点名 → world.json 条目映射） |
-| 预设 NPC | `lookup_npc` | `data/npc_index.json`（NPC 名 → characters.json 条目映射） |
-| DLC 模块 | `get_dlc_info` | `data/dlc_index.json`（模块名 → 数据键 + 摘要 + 文件位置） |
+| 世界地点 | `lookup_location` 或统一 `lookup(type="location")` | `data/location_index.json`（地点名/别名 → 正文 path + 摘要） |
+| 预设 NPC | `lookup_npc` 或统一 `lookup(type="npc")` | `data/npc_index.json`（NPC 名/别名 → characters.json 条目） |
+| DLC 模块 | `get_dlc_info` 或统一 `lookup(type="dlc")` | `data/dlc_index.json`（模块名 → 数据键 + 摘要 + 文件位置） |
 
-索引文件用 `python3 -c` 批量扫描生成，不要手写。
+索引文件用脚本批量扫描生成，不要手写。工具返回的 `content` 是模型可见的权威事实；`details` 只给 TUI/日志/hooks，不要只把结构化数据放 `details`。完整模式见 `references/data-layer.md`。
+
+### 动态工具集（标准方案强烈推荐）
+
+复杂卡不要把所有工具都常驻。保留极少 `always` 工具（状态查询、基础 lookup、`switch_toolset`），按场景切换 `setup` / `combat` / `social` / `craft` / `world` / `debug` / `full`。低频维护工具（`migrate_state`、`get_state_schema`、修档工具）只放 `debug`/`full`，不要出现在普通叙事轮。
+
+命名用 `toolset`，不要用 `context`，避免和叙事上下文/模型 context 混淆。完整分组、`switch_toolset` 模式和“专用工具优先于裸 patch”的取舍见 `references/toolsets.md`。
 
 ### 工具 description 工程（所有方案，凡注册工具就必读）
 
@@ -191,7 +213,8 @@ LLM 不擅长计数和定时触发。游戏存在「每 N 轮调用同伴」「�
 |------|:-----:|------|
 | `skills/<skill-name>/SKILL.md` | ✅ 必须 | 游戏入口 skill（如 `skills/start-game/SKILL.md`），处理 user 卡/配置/开场 |
 | `agents/gm.md` | ✅ 必须 | GM system prompt |
-| `.pi/agents/<npc_xxx>.md` | 有隐藏信息/视角隔离需求时 | pi-subagents 项目级 NPC subagent（每个需隔离的 NPC 一个，上下文隔离）；触发条件详见 §三「多 agent 判定」 |
+| `.pi/agents/<npc_xxx>.md` | 有隐藏信息/视角隔离需求时 | pi-subagents 项目级 subagent 定义（NPC/同伴/新闻等）；触发条件详见 §三「多 agent 判定」 |
+| `extensions/subagents/*.ts` | subagent 需要动态人格/状态/世界摘要时 | 每个子代理单独维护动态注入与轻量工具集，公共摘要放 `extensions/subagents/common.ts` |
 | `engine/state.ts` | 轻量+ | 状态引擎 |
 | `engine/dice.ts` 等 | 标准 | 按需 |
 | `tools/registry.ts` | 轻量+ | 工具实现集中地（**不要内联到 extension.ts**） |
@@ -221,7 +244,11 @@ LLM 不擅长计数和定时触发。游戏存在「每 N 轮调用同伴」「�
 - [ ] 中间检查点已交付（标准方案）：state schema + engine 操作清单单独发给用户 review 过
 - [ ] 第一层 grep 残留扫描通过
 - [ ] 标准方案：`engine/attention.ts` 已覆盖所有"每 N 轮/条件触发"需求
-- [ ] 标准方案：结构化数据集合（地点/NPC/DLC）已配查询工具 + 索引文件
+- [ ] 标准方案：结构化数据集合（地点/NPC/DLC）已配查询工具 + 索引文件；运行时不依赖 `bash`/`read` 查设定
+- [ ] 轻量+：state schema 防腐完成——非法顶层 root 会被拒绝，专用工具字段禁止裸 patch，派生值不落盘
+- [ ] 轻量+：如存在旧存档/旧字段，已提供确定性 migration；运行时代码不保留旧字段 fallback
+- [ ] 标准方案：工具集已按场景分组；`debug`/`setup`/迁移工具不在 `always`
+- [ ] 使用 subagent 时：每个子代理定义在 `.pi/agents/`，动态状态注入拆到 `extensions/subagents/<agent>.ts`；task 只需补最近事件，不要求子代理自查人格/世界状态
 - [ ] 项目根已是 git 仓库（`./start.sh` 兜底会跑 `git init`，但确认 `state/` **未**进 `.gitignore`——否则 pi-rewind-hook 等回退扩展会跳过游戏状态。详见 §五）
 - [ ] 至少跑过 1 轮下场玩（第二层校验），观察 4 点全部 ✓
 
@@ -324,8 +351,11 @@ grep -rnE '\{\{(user|char|random|roll|pick|getvar|setvar)' \
 | `mvu-mapping.md` | 轻量+ | MVU 条目 → engine 映射、initvar 读取、紧凑索引、条目分类完整表 |
 | `setup.md` | 全部 | 开局 setup 分析、开局 skill 模板、平台集成 |
 | `pi-integration.md` | 全部 | pi extension 集成（hook 时机、tool schema、subagent、工具 description 工程） |
+| `data-layer.md` | 标准 | 数据层 + 索引 + 查询工具设计：让 LLM 查得到，数据才算存在 |
+| `toolsets.md` | 标准 | 动态工具集设计：always/setup/combat/social/debug 等分组取舍 |
+| `state-schema-migrations.md` | 轻量+ | state schema 防腐、strict patch、schemaVersion、确定性存档迁移 |
 | `ts-engine.md` | 标准 | TS 引擎代码（state.ts、dice.ts、attention.ts、工具注册模式） |
-| `multi-agent-architecture.md` | NPC 隔离场景 | 多 agent 架构（GM + NPC subagent 上下文隔离，含适用场景速查） |
+| `multi-agent-architecture.md` | NPC 隔离场景 | 多 agent 架构（GM + NPC subagent 上下文隔离，含动态注入实战） |
 | `storytelling.md` | 全部（可选） | 叙事节拍参考 |
 | `validation.md` | 全部 | 残留检测 + 人工检查清单 |
 | `models/deepseek-v4.md` | V4 目标 | DeepSeek V4 特化：system 极简 + 规则入 user 流 + 全链路中文化 |

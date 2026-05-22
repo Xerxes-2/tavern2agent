@@ -54,6 +54,29 @@ EOF
   echo "  （如需指定默认模型，编辑此文件添加 defaultProvider / defaultModel）"
 fi
 
+# 普通玩家模式禁用 pi-subagents 内置 coding agents，避免 reviewer/worker/oracle 等出现在游戏运行时。
+# 开发时如需保留内置 agents：TAVERN2AGENT_DEV=1 ./start.sh
+node - <<'NODE'
+const fs = require('fs');
+const path = '.pi/agent/settings.json';
+const dev = process.env.TAVERN2AGENT_DEV === '1';
+let settings = {};
+try {
+  if (fs.existsSync(path)) settings = JSON.parse(fs.readFileSync(path, 'utf8'));
+} catch {
+  settings = {};
+}
+settings.theme ??= 'dark';
+settings.subagents ??= {};
+settings.subagents.disableBuiltins = !dev;
+fs.writeFileSync(path, JSON.stringify(settings, null, 2) + '\n');
+NODE
+if [ "${TAVERN2AGENT_DEV:-}" = "1" ]; then
+  echo "✓ 开发模式：保留 pi-subagents 内置 agents"
+else
+  echo "✓ 玩家模式：已禁用 pi-subagents 内置 coding agents（开发模式: TAVERN2AGENT_DEV=1 ./start.sh）"
+fi
+
 export PI_CODING_AGENT_DIR=".pi/agent"
 
 # 记录 pi 退出码，但保证提示始终显示

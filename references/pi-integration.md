@@ -30,10 +30,13 @@
 玩家直接 `./start.sh` 进游戏，支持透传参数：
 
 ```bash
-./start.sh                          # 默认模型
+./start.sh                          # 默认模型；玩家模式
 ./start.sh --model deepseek/v4-pro  # 指定模型
 ./start.sh --continue               # 继续上次会话
+TAVERN2AGENT_DEV=1 ./start.sh       # 开发模式：保留 pi-subagents 内置 coding agents
 ```
+
+如果项目使用 `pi-subagents`，模板启动脚本会在项目隔离 `.pi/agent/settings.json` 中按模式设置 `subagents.disableBuiltins`：玩家模式禁用 reviewer/worker/oracle 等内置 coding agents，只保留项目 `.pi/agents/`；开发模式保留内置 agents，方便维护者继续用 reviewer/oracle。
 
 > **注意**：`PI_CODING_AGENT_DIR` 切换配置目录后，pi 不再读取 `~/.pi/agent/settings.json` 中的全局包配置，因此全局安装的 npm 包（如 pi-rewind-hook、pi-subagents、pi-processes 等）也不会自动加载。迁移产物需要的 pi 包应写进项目根 `.pi/settings.json` 的 `packages` 数组；pi 首次启动会自动安装到项目本地 `.pi/npm/`。不要把手动安装项目级扩展写成玩家启动前置步骤；发布物应直接包含 `.pi/settings.json`。显式本地文件仍可在 `start.sh` 末尾用 `-e` / `--skill` 加载。详见 `scripts/start.sh` 注释。
 >

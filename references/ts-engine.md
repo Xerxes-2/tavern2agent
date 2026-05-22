@@ -8,6 +8,17 @@
 
 ## 状态引擎 (state.ts)
 
+复杂卡建议把状态层当成“宪法”设计：
+
+- `INITIAL_STATE` + schema 是唯一当前结构。
+- 运行时只支持当前 schema；旧字段只在 migration 中读取。
+- `patch_state` 做 strict path 保护：已有专用工具负责的字段禁止裸 patch。
+- 派生值运行时计算，不写回 state（例如总攻击、HP 上限、资源上限）。
+- 状态迁移用显式 `migrate_state` 工具触发，不让 GM 自由手写迁移 patch。
+
+这能显著降低 vibe coding 项目的长期腐化：不要为兼容临时在运行时到处加 fallback。完整迁移与测试模式见 `references/state-schema-migrations.md`。
+
+
 > **建议流程（标准方案）**：写 `state.ts` 之前，先单独输出 state schema + engine 操作清单给用户 review，再动手。schema 必须覆盖用户卡创建字段；详见 SKILL.md §四「中间检查点」+ `mvu-mapping.md` 两条 ⚠️ 块。
 
 ### 轻量 / 标准方案

@@ -59,6 +59,97 @@ SillyTavern 单一 context 的经典缺陷：模型同时读到所有它本不�
 └──────────────────────────┘  └──────────────────────────┘
 ```
 
+## 实战经验：subagent 不是“再开一个万能助手”
+
+经过完整项目实跑后，推荐把 subagent 拆成四层：
+
+```txt
+agent prompt       = 稳定职责 / 输出格式 / 角色边界
+subagent extension = 当前人格、状态切片、世界摘要等动态事实
+task               = 本轮触发原因 / 最近事件重点
+chat history       = 叙事脉络（fork/defaultContext 时可见）
+```
+
+这样 GM 不需要每次给子代理手写完整上下文，也不需要让子代理先调用工具“自查自己是谁”。子代理进入时就已经拥有当前身份和必要状态，只需完成本轮小任务。
+
+**不要把实现细节写进角色知识。** 注入出来的段落应像自然事实：
+
+```md
+## 人格
+<当前核心/队友的人格设定>
+
+## 当前感知
+<玩家状态、地点、任务、关系摘要>
+```
+
+不要写：
+
+```md
+这是 extension 自动注入的 system prompt……
+```
+
+子代理不需要知道“注入机制”；它只需要知道角色事实。
+
+### 推荐文件结构
+
+```txt
+project/
+├── .pi/agents/
+│   ├── companion.md
+│   └── news-writer.md
+├── extensions/
+│   └── subagents/
+│       ├── common.ts          # 公共状态摘要、轻量工具注册
+│       ├── companion.ts       # companion 专属注入
+│       └── news-writer.ts     # news-writer 专属注入
+└── tools/
+    └── registry.ts
+```
+
+每个 `.pi/agents/*.md` 的 frontmatter 指向自己的 extension：
+
+```yaml
+---
+name: news-writer
+description: 生成世界新闻与酒馆传闻
+tools: lookup,get_status
+extensions: ./extensions/subagents/news-writer.ts
+systemPromptMode: replace
+---
+```
+
+### 子代理 extension 职责
+
+- 注册该子代理需要的**轻量工具集**，不要继承主 GM 的全量工具。
+- 在 `before_agent_start` 读取 state，构造短摘要。
+- 只注入这个子代理需要知道的切片：companion 看人格/玩家状态，news-writer 看世界时间/地点/任务/近闻。
+- 读取失败时给安全退路：例如 companion 无当前人格时只输出 `（沉默）`。
+- 不向子代理暴露实现词：`extension`、`system prompt`、`subagent-tools` 等。
+
+### GM 调用方式
+
+GM 的 task 应短，只补“最近发生了什么/为什么叫你”：
+
+```typescript
+subagent({
+  agent: "news-writer",
+  task: "近期重点：玩家完成灰咳活捉任务，公会正在改写档案。请生成三栏新闻。",
+})
+```
+
+不要把地点、时间、DLC、任务列表全部塞进 task；这些应由子代理 extension 从 state 注入。task 负责近因，state 负责当前事实，聊天历史负责叙事脉络。
+
+### 内置 coding subagent 的处理
+
+`pi-subagents` 自带 reviewer/worker/oracle 等 coding agents。互动卡发布给玩家时通常不希望它们出现在运行时。推荐在 `start.sh` 的项目隔离 settings 里按模式控制：
+
+```bash
+./start.sh                    # 玩家模式：disableBuiltins=true
+TAVERN2AGENT_DEV=1 ./start.sh # 开发模式：保留内置 agents
+```
+
+不要把开发者自己的全局 subagent 配置当作玩家运行前置条件。
+
 ## 什么时候用
 
 | 条件 | 决策 |
