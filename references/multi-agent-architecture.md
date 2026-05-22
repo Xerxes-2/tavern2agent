@@ -303,69 +303,11 @@ NPC agent 通过 `defaultReads: data/world.json` 自动获得世界公开信息�
 | 多地点同时叙事 | 队伍分头行动。多个场景并行推进，GM 汇总 |
 | 多 NPC 同时反应 | 一个事件发生，多个 NPC 同时反应——并行调多个 NPC agent |
 
-### 五、状态审计型（谨慎使用）
+### 五、状态更新不是 subagent 的默认职责
 
-**当前优先方案**不是每轮开 scribe，而是把状态纪律下沉到：专用工具、strict patch、state schema 校验、attention 提醒和工具 description。绝大多数“GM 忘记改状态”的问题，应该先通过这些机制解决。
+状态变化优先下沉到专用工具、strict patch、state schema 校验、attention 提醒和工具 description。不要为了弥补 GM 偶尔忘记 patch 就新增一个状态子代理；这会引入额外延迟和职责重叠。
 
-只有当状态变化来自大段自由叙事、字段很多且很难用专用工具覆盖时，才考虑启动专职 `scribe` 子代理做状态审计。scribe 是补充机制，不是默认架构。
-
-**方案**：关键轮次后启动一个专职 `scribe` 子代理，从叙事中提取状态变化并写入。GM 只负责叙事，scribe 只负责状态审计——认知分离。
-
-```
-GM (主模型)  叙事 → subagent(scribe) → scribe (轻量副模型)
-                                              ├─ fork 上下文（继承对话）
-                                              ├─ get_status → 当前状态
-                                              ├─ 提取 delta → patch_state 写入
-                                              └─ 返回变更摘要
-```
-
-> 主模型负责叙事，副模型可用更便宜/更快的型号专做状态提取。这里仍然走 pi-subagents，不手写 provider API。
-
-**实现要点**：
-
-1. **scribe agent 定义**（`.pi/agents/scribe.md`）：
-   - `defaultContext: fork`——继承会话，能看到 GM 的叙事
-   - `systemPromptMode: replace`——纯状态提取器身份，不被 GM 规则污染
-   - model 用 flash（更快更省），不用 pro
-   - 加载一个极简扩展（只注册 `get_status`/`patch_state`/`get_character_detail`），不挂任何生命周期钩子——否则主 extension 的 `before_agent_start` 会给 scribe 注入 GM 身份
-
-2. **GM 指令**（`agents/gm.md`）：
-   - 在状态复杂且自由叙事较长的关键轮次后调 `subagent({ agent: "scribe", task: "提取本轮叙事中的状态变化并更新" })`
-   - **同步执行，不带 `async: true`**——否则 scribe 完成后 GM 会继续叙事
-   - 明确标注「启动 scribe 后本轮结束，不要再继续叙事」
-
-3. **scribe 专属扩展**（`tools/scribe-extension.ts`）：
-   - 只注册三个工具，不挂 `before_agent_start` / `context` 等钩子
-   - 与主 `extension.ts` 分离，避免 GM 规则泄漏进 scribe
-
-4. **为什么用 fork 不用 fresh + 传叙事**：
-   - fresh + 传叙事：GM 需要把本轮叙事原文复制进 task，token 和延迟都更高
-   - fork：GM 只输出一个短 task，叙事通过会话继承传导
-   - 具体延迟随模型/卡片复杂度变化，但 fork 的方向性优势稳定
-
-5. **禁止输出**：scribe 只需调工具，不应输出任何文字。部分模型会倾向「完成任务后加一段总结」，需要在多处反复强调：
-   - 身份声明首句：`**你只调工具，不输出任何文字。**`（粗体）
-   - 工作流末步：`结束——不要输出任何确认、摘要、清单`
-   - 删除「输出」section——不给模型任何「输出格式」的暗示
-
-**权衡**：
-
-| 优点 | 代价 |
-|---|---|
-| GM 的叙事职责和状态提取职责分离 | 多一次子进程/模型调用，有额外延迟 |
-| scribe 可使用更便宜/更快的模型 | 需要严格禁止自然语言总结 |
-| 状态更新逻辑更集中、更可测试 | 不适合每轮都只改一两个简单字段的轻量卡 |
-
-**适用条件**：
-- 状态字段多，且很多变化来自自由叙事而非专用工具
-- 需要在章节/长场景结束时做一致性审计
-- 能接受额外延迟
-
-**不适用**：
-- 状态字段少，或已有专用工具能覆盖主要变化
-- 需要亚秒级响应
-- 不使用 pi-subagents 的项目
-- 只是为了替代 `manage_item`、`change_scene`、`manage_quest` 等明确工具调用
+如果某类状态变化有明确规则，写专用工具；如果是低频条件提醒，写 attention；如果是非法路径，写 schema/strict path。subagent 只在信息隔离、角色分离、进程隔离确实成立时使用。
 
 ### 反模式——这些不要用 subagent
 

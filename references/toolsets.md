@@ -82,7 +82,6 @@ pi 会把当前可见工具签名注入给模型，模型按**当前签名**调�
 
 - companion/队友心声：通常只需查询工具；当前人格和状态由子代理 extension 注入。
 - news-writer/传闻作者：只需查询工具；世界状态由 extension 注入，返回文本给 GM，写 state 仍由 GM 负责。
-- scribe/状态抄写员：只拿 `get_status` + `patch_state` 等必要写入工具，不要注入 GM prompt。
 
 每个子代理若需要动态状态，优先为它写 `extensions/subagents/<name>.ts`，而不是要求 GM 每次把完整状态塞进 task。
 

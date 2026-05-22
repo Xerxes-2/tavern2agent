@@ -134,7 +134,7 @@ python3 scripts/list_entries.py card.json
 
 ### subagent 适用场景
 
-判断标准三选一：**信息隔离**（角色不该看到的东西）、**角色分离**（跟 GM 完全不同的人格/文风）、**进程隔离**（适合异步/并行）。完整分类（含信息隔离/角色分离/进程隔离/并行/状态跟踪/反模式）见 `references/multi-agent-architecture.md` §附录。
+判断标准三选一：**信息隔离**（角色不该看到的东西）、**角色分离**（跟 GM 完全不同的人格/文风）、**进程隔离**（适合异步/并行）。完整分类（含信息隔离/角色分离/进程隔离/并行/反模式）见 `references/multi-agent-architecture.md` §附录。
 
 **实战模式**：subagent 不只是 `.pi/agents/*.md`。凡使用 subagent 的卡，都建议采用「稳定 agent prompt + `extensions/subagents/<agent>.ts` 动态注入 + 短 task + 会话历史」四层结构。人格、当前状态、世界摘要由子代理 extension 从 state/data 读取后注入；GM 的 task 只补本轮触发原因，不要每次手写完整上下文，也不要让子代理先调用工具自查自己是谁。详见 `references/multi-agent-architecture.md` §「实战经验」。
 
