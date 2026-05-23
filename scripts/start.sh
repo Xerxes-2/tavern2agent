@@ -13,21 +13,18 @@ fi
 cd "$(dirname "$(readlink -f "$0")")"
 
 echo "启动《$(basename "$PWD")》..."
-# 会话存档放在项目内，方便打包带走
+# 会话存档放在项目内，方便打包带走；发布前删除 sessions/。
 mkdir -p ./sessions
 
-# pi-rewind-hook 等回退扩展依赖 git 仓库——确保已 init（state/ 不要 .gitignore）
-if [ ! -d .git ]; then
-  git init -q
-  echo "✓ 已初始化 git 仓库（回退扩展所需）"
-fi
+# state/ 是 session-backed 状态的 debug export / legacy fallback，真实存档在 pi session 快照中。
+# 生成项目时应把 state/ 写进 .gitignore；发布包不要包含 state/。
 
 # ---- 项目隔离 ----
 # PI_CODING_AGENT_DIR 将 pi 的配置目录从 ~/.pi/agent/ 切换到 .pi/agent/，
 # 实现全局配置/skills 的隔离。项目自己的 extension.ts 通过 -e 显式加载，
 # skills/ 目录通过 extension 的 resources_discover 钩子注册（见 pi-integration.md）。
 #
-# 项目级 pi 包（例如 npm:pi-subagents / npm:pi-rewind-hook）应声明在
+# 项目级 pi 包（例如 npm:pi-subagents / npm:pi-powerline-footer）应声明在
 # 项目根 .pi/settings.json 的 packages 数组中；pi 首次启动会自动安装到 .pi/npm/。
 # 发布包保留 .pi/settings.json 和 .pi/agents/，不要打包 .pi/npm/。
 #
@@ -90,8 +87,7 @@ cat <<'MSG'
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ⚠️  提示：如要分享此项目（git push / 打包发送等），
-   请删除 .pi/agent/auth.json（包含 API 密钥）
-   否则密钥会随项目一起泄漏。
+   请删除 .pi/agent/auth.json（包含 API 密钥）、sessions/（会话存档）和 state/（调试导出）。
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 MSG
 exit $pi_exit

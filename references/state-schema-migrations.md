@@ -15,16 +15,16 @@
 不要在运行时写：
 
 ```typescript
-const core = state.命定核心 ?? state.命定同伴 ?? state.companion;
+const core = state.核心系统 ?? state.旧同伴 ?? state.companion;
 ```
 
 应该写：
 
 ```typescript
-const core = state.命定核心;
+const core = state.核心系统;
 ```
 
-如果旧存档有 `/命定同伴`，在 migration 中一次性迁到 `/命定核心`。
+如果旧存档有 `/旧同伴`，在 migration 中一次性迁到当前字段 `/核心系统`。
 
 ### 2. 顶层 root 白名单
 
@@ -35,7 +35,7 @@ const core = state.命定核心;
 /user
 /玩家
 /角色
-/命定同伴
+/旧同伴
 ```
 
 这类错路径不能被静默创建。允许动态扩展的内容放在已知 root 下面，例如：
@@ -133,7 +133,7 @@ export const migrations: StateMigration[] = [
   {
     from: 1,
     to: 2,
-    description: "命定同伴 → 命定核心；装备槽位标准化",
+    description: "旧同伴字段 → 核心系统；装备槽位标准化",
     migrate(raw) {
       const state = structuredClone(raw) as Record<string, unknown>;
       migrateLegacyFateCompanion(state);
@@ -216,7 +216,7 @@ scripts/fixtures/state-current.json
 - 专用工具保护路径被拒绝。
 - 旧 schemaVersion 会触发 `StateMigrationRequiredError`。
 - `migrate_state` 能把 v1/v2 fixture 迁到当前 schema。
-- 迁移后旧字段不存在，例如 `/命定同伴` 被删除。
+- 迁移后旧字段不存在，例如 `/旧同伴` 被删除。
 - 派生值不落盘。
 
 ## 六、发布与玩家存档

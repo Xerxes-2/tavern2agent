@@ -1,6 +1,6 @@
 # pi extension 集成
 
-**tavern2agent 是 pi-native 项目**。不假装跨平台——`extension.ts` 直接挂 pi 的 `pi.on(...)` 钩子和 `pi.registerTool(...)` API，多 agent 走 pi-subagents，回退靠 pi-rewind-hook 这种 pi 扩展。换 host agent 框架（Claude Code / Cursor / aider 等）不是「换胶水层」级别的工作，是重写集成层 + 重新设计 hook 时机 / tool schema / subagent 模型——通常等于从 SKILL.md 决策表往下重做。
+**tavern2agent 是 pi-native 项目**。不假装跨平台——`extension.ts` 直接挂 pi 的 `pi.on(...)` 钩子和 `pi.registerTool(...)` API，状态持久化走 pi session custom entry，多 agent 走 pi-subagents。换 host agent 框架（Claude Code / Cursor / aider 等）不是「换胶水层」级别的工作，是重写集成层 + 重新设计 hook 时机 / tool schema / session state / subagent 模型——通常等于从 SKILL.md 决策表往下重做。
 
 `engine/*.ts`、`data/`、`scripts/` 理论上跟平台无关，但只在跑通 pi-native runtime 后才有意义。本文档记录所有 pi 特有的契约、坑、最佳实践。
 
@@ -19,7 +19,7 @@
 | 技能路径注册 | `pi.on("resources_discover")` — 注册 `skills/` 目录，pi 递归发现其中的 `<name>/SKILL.md` 技能文件 |
 | NPC 上下文隔离 | `pi-subagents` 包，发布用 agent 定义放 `.pi/agents/*.md`。常用于 NPC 信息隔离，防止秘密泄漏 |
 | 钩子（日志等） | `pi.on("tool_result_end")` |
-| 状态文件 | 任意目录，建议 `state/` |
+| 状态持久化 | pi session custom entry 为真相源；`state/` 仅 debug export / legacy fallback |
 
 ## 启动脚本
 
@@ -38,7 +38,7 @@ TAVERN2AGENT_DEV=1 ./start.sh       # 开发模式：保留 pi-subagents 内置 
 
 如果项目使用 `pi-subagents`，模板启动脚本会在项目隔离 `.pi/agent/settings.json` 中按模式设置 `subagents.disableBuiltins`：玩家模式禁用 reviewer/worker/oracle 等内置 coding agents，只保留项目 `.pi/agents/`；开发模式保留内置 agents，方便维护者继续用 reviewer/oracle。
 
-> **注意**：`PI_CODING_AGENT_DIR` 切换配置目录后，pi 不再读取 `~/.pi/agent/settings.json` 中的全局包配置，因此全局安装的 npm 包（如 pi-rewind-hook、pi-subagents、pi-processes 等）也不会自动加载。迁移产物需要的 pi 包应写进项目根 `.pi/settings.json` 的 `packages` 数组；pi 首次启动会自动安装到项目本地 `.pi/npm/`。不要把手动安装项目级扩展写成玩家启动前置步骤；发布物应直接包含 `.pi/settings.json`。显式本地文件仍可在 `start.sh` 末尾用 `-e` / `--skill` 加载。详见 `scripts/start.sh` 注释。
+> **注意**：`PI_CODING_AGENT_DIR` 切换配置目录后，pi 不再读取 `~/.pi/agent/settings.json` 中的全局包配置，因此全局安装的 npm 包（如 pi-subagents、pi-processes、状态栏扩展等）也不会自动加载。迁移产物需要的 pi 包应写进项目根 `.pi/settings.json` 的 `packages` 数组；pi 首次启动会自动安装到项目本地 `.pi/npm/`。不要把手动安装项目级扩展写成玩家启动前置步骤；发布物应直接包含 `.pi/settings.json`。显式本地文件仍可在 `start.sh` 末尾用 `-e` / `--skill` 加载。详见 `scripts/start.sh` 注释。
 >
 > 常见项目级包配置：
 >
@@ -46,7 +46,7 @@ TAVERN2AGENT_DEV=1 ./start.sh       # 开发模式：保留 pi-subagents 内置 
 > {
 >   "packages": [
 >     "npm:pi-subagents",
->     "npm:pi-rewind-hook"
+>     "npm:pi-powerline-footer"
 >   ]
 > }
 > ```
@@ -62,7 +62,7 @@ cd "$(dirname "$(readlink -f "$0")")"
 PI_CODING_AGENT_DIR=".pi/agent" exec pi "$@"
 ```
 
-主要价值：可以直接用 `./pi install xxx` 安装项目本地扩展/包（安装到 `.pi/` 下，不影响全局）；其他 `./pi` 子命令同样生效。与 start.sh 的分工：`./pi` 是项目本地的 pi 命令入口，start.sh 是完整启动脚本（额外处理首次初始化——git init、复制 auth 等）。
+主要价值：可以直接用 `./pi install xxx` 安装项目本地扩展/包（安装到 `.pi/` 下，不影响全局）；其他 `./pi` 子命令同样生效。与 start.sh 的分工：`./pi` 是项目本地的 pi 命令入口，start.sh 是完整启动脚本（额外处理首次初始化、复制 auth 等）。
 
 ## extension 加载限制 + 技能路径注册（必读）
 

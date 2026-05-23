@@ -11,7 +11,7 @@ SillyTavern 用大量机制（MVU 更新、强化思考链、JSON Patch 等）�
 ## 能不能用
 
 - **角色卡**：SillyTavern v1 / v2 / v3（`spec: "chara_card_v2"` / `"chara_card_v3"`，或 v1 平铺老卡——脚本自动归一化为 v2 schema 处理）
-- **平台**：pi coding agent。**单平台，pi-native**——`extension.ts` 深度依赖 pi 的 hook / tool registration / subagent / pi-rewind-hook 等原语，换 host agent 框架（Claude Code / Cursor / aider 等）不是「换胶水层」级别的工作，相当于从决策表重做
+- **平台**：pi coding agent。**单平台，pi-native**——`extension.ts` 深度依赖 pi 的 hook / tool registration / session custom entry / subagent 等原语，换 host agent 框架（Claude Code / Cursor / aider 等）不是「换胶水层」级别的工作，相当于从决策表重做
 - **只做文字交互**：前端面板/状态条 HTML、文生图提示词、预设模板等不迁移——它们多是 ST 运行时补丁，留着反而损失灵活性，想要的人转换完成后自行接入
 
 ### 推荐模型
@@ -86,7 +86,7 @@ project/
 ```
 project/
 ├── .pi/
-│   ├── settings.json        # npm:pi-subagents / pi-rewind-hook 等项目包
+│   ├── settings.json        # npm:pi-subagents / pi-powerline-footer 等项目包
 │   └── agents/              # companion / news-writer / npc_* 等子代理定义
 ├── agents/
 │   └── gm.md
@@ -113,7 +113,7 @@ project/
 
 中间还有「轻量」一档，按卡片复杂度自动落档，决策表见 `SKILL.md`。
 
-**回退 / 存档**：tavern2agent 不自建回滚，统一外包给 pi 平台层扩展。推荐在项目根 `.pi/settings.json` 声明 `npm:pi-rewind-hook`，首次启动自动安装；`/fork` 或 Tab 进 `/tree` 选目标轮还原。state 本身采用 schemaVersion + deterministic migration：旧存档只经 `migrate_state` 迁到当前结构，运行时不长期保留旧字段 fallback。详见 `SKILL.md` §六 与 `references/state-schema-migrations.md`。
+**状态 / 存档**：轻量/标准方案从一开始采用 session-backed state：pi session custom entry 是真相源，`state/` 只做 debug export / legacy fallback 且不发布。读档按 pi session tree/fork 的分支语义恢复对应状态快照；不默认安装文件回退扩展。state schema 采用 schemaVersion + deterministic migration：旧存档只经 `migrate_state` 迁到当前结构，运行时不长期保留旧字段 fallback。详见 `SKILL.md` §六 与 `references/state-schema-migrations.md`。
 
 **迁移完成后怎么继续打磨**（git 工作流、下场玩节奏、重跑 skill 增量更新、仓库清理等）见 `docs/developing-cards.md`。**工具与工作流推荐**（SSH + zellij、viddy 看 state、ask_user_question、web 查询等扩展）见 `docs/tooling.md`。
 

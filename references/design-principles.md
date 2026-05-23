@@ -28,7 +28,7 @@ agent 的核心能力是 **loop + meta**：查询状态 → 判断 → 掷骰 �
 
 LLM 不能直接 mutate state。所有写入走工具调用，引擎层保证原子性：JSON Patch (RFC 6902) 原地修改；patch ops 在工具调用日志里天然可追溯，必要时再加一份 `patches.jsonl` 审计日志（见 `ts-engine.md`）。
 
-**回退 / 存档不在 engine 内做**——死亡回溯、章节存档、撤销上一轮交给 pi 平台层的回退扩展（`pi-rewind-hook` 等，见 SKILL.md §六）。chat 与 state 解耦让自建回滚做不干净，事件溯源那套已弃用。
+**状态持久化从一开始 session-backed**——轻量/标准方案用 pi session custom entry 做真相源，`state/` 只做 debug export / legacy fallback。死亡回溯、章节存档、撤销上一轮不进 engine 事件溯源，而是按 pi session tree/fork 的分支恢复对应状态快照；默认玩家包不安装文件回退扩展。
 
 ## 4. prompt 极简
 

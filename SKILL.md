@@ -24,7 +24,8 @@ SillyTavern 的很多机制是绕过单次 LLM 调用限制的补丁。agent 天
      - **不要 `rm -rf` 或全量重写**——目标目录可能有用户手改过的 prompt、engine 公式、data 字段
      - 动手前 `git log --oneline -20` + `git diff` 当前 worktree，识别人工调整的痕迹
      - 改动只针对用户要求的部分；其他文件**只有在 schema 不兼容时才动**，动之前先在回复里列出来
-     - **不要碰 `refs/pi-rewind/*` 或 `sessions/`**——那是玩家存档/会话数据，不归迁移流程管
+     - **不要碰 `sessions/`、`state/`、`.pi/agent/`**——那是玩家存档/调试导出/本机配置，不归迁移流程管
+     - 若旧项目曾 track `state/`，迁移到 session-backed state 时只做 `git rm --cached -r state`，不要删除玩家本地文件
 
 ---
 
@@ -117,7 +118,7 @@ python3 scripts/list_entries.py card.json
 | 只有键值状态，无骰子/公式 | **轻量** | `patchState` | 上者 + `engine/state.ts` + `get_status`/`patch_state` 工具 |
 | 有骰子/战斗/经济等计算模块 | **标准** | `patchState` | 上者 + `engine/dice.ts` 等模块（多 agent 见下方独立判定） |
 
-> **回退 / 存档不进 engine**。死亡回溯、章节存档、撤销上一轮——以前用事件溯源做，现在统一外包给 pi 平台层的回退扩展（推荐 `pi-rewind-hook`），档位判定里不再考虑此维度。详见 §六「回退 / 存档」。
+> **状态持久化从一开始用 session-backed approach**。轻量/标准方案的真相源是 pi session custom entry（如 `<card-slug>-state`），`state/` 只做 debug export / 旧存档 migration fallback。死亡回溯、章节存档、撤销上一轮不进 engine，读档按 pi session tree/fork 的分支语义恢复对应状态快照；默认不安装文件回退扩展。详见 §六「状态持久化 / 回退 / 存档」。
 
 ### 多 agent 判定（独立维度，不跟方案档位绑定）
 
@@ -220,7 +221,7 @@ LLM 不擅长计数和定时触发。游戏存在「每 N 轮调用同伴」「�
 | `tools/registry.ts` | 轻量+ | 工具实现集中地（**不要内联到 extension.ts**） |
 | `extension.ts` | 轻量+ | pi 入口，只做注册：注入 system prompt + 调用 `registerAllTools(pi)` + hooks。详见 `references/pi-integration.md` |
 | `start.sh` | ✅ 必须 | 启动脚本，用户直接 `./start.sh` 进游戏。从 `tavern2agent/scripts/start.sh` 复制到项目根目录。**已内置 `PI_CODING_AGENT_DIR` 隔离**——首次运行自动初始化 `.pi/agent/` 并复制全局 auth，后续运行完全隔离全局扩展/skills |
-| `.pi/settings.json` | 使用 pi 包时 ✅ | 项目级 pi 包清单。需要 `pi-subagents` / `pi-rewind-hook` 等扩展时写入 `packages`，发布时保留；`.pi/npm/` 不打包 |
+| `.pi/settings.json` | 使用 pi 包时 ✅ | 项目级 pi 包清单。常见为 `pi-subagents` / `pi-powerline-footer`；发布时保留，`.pi/npm/` 不打包。默认不要为玩家包声明文件回退扩展 |
 | `data/world.json` | ✅ 必须 | 世界设定 |
 | `data/characters.json` | ≥5 角色时 | 角色数据 |
 | `data/user.json` | 需要 user 卡时 | 用户角色**固定档案**（运行时可变状态走 state.json，详见下方说明） |
@@ -237,7 +238,7 @@ LLM 不擅长计数和定时触发。游戏存在「每 N 轮调用同伴」「�
 - [ ] **`alternate_greetings` 已处理**：每条都有去向（路线选项 / 合并 setup / 显式丢弃并说明原因）
 - [ ] **所有世界书条目（含 disabled）都有去向**：按条目分类表落到 `data/*.json` / `engine/*.ts` / 开局可选开关 / 渐进披露逻辑 / 显式丢弃。disabled 条目须逐一判断是否为可选配置或 MVU 渐进披露，不能因「看起来不重要」就默认丢弃
 - [ ] `start.sh` 已生成：从 `tavern2agent/scripts/start.sh` 复制到项目根目录，可执行权限已设
-- [ ] `.pi/settings.json` 已生成（如用项目级 pi 包）：所有依赖的 pi 扩展写在 `packages`，例如 `npm:pi-subagents`、`npm:pi-rewind-hook`；不要要求玩家手动安装项目级扩展；`.pi/npm/` 不发布
+- [ ] `.pi/settings.json` 已生成（如用项目级 pi 包）：所有依赖的 pi 扩展写在 `packages`，例如 `npm:pi-subagents`、`npm:pi-powerline-footer`；不要要求玩家手动安装项目级扩展；`.pi/npm/` 不发布；默认不要安装文件回退扩展
 - [ ] `.pi/agent/` 已在 start.sh 首次运行时自动初始化（首次启动会从全局复制 auth 并创建最小 settings.json）。如需手动干预：copy `~/.pi/agent/auth.json` → `.pi/agent/auth.json`，编辑 `.pi/agent/settings.json` 配置模型等
 - [ ] `extension.ts` 已生成且只做注册：顶层 `import`（无动态 `import()`）、`registerAllTools(pi)` 被调用
 - [ ] `tools/registry.ts` 不是死代码：extension.ts 真的引用了它
@@ -249,61 +250,72 @@ LLM 不擅长计数和定时触发。游戏存在「每 N 轮调用同伴」「�
 - [ ] 轻量+：如存在旧存档/旧字段，已提供确定性 migration；运行时代码不保留旧字段 fallback
 - [ ] 标准方案：工具集已按场景分组；`debug`/`setup`/迁移工具不在 `always`
 - [ ] 使用 subagent 时：每个子代理定义在 `.pi/agents/`，动态状态注入拆到 `extensions/subagents/<agent>.ts`；task 只需补最近事件，不要求子代理自查人格/世界状态
-- [ ] 项目根已是 git 仓库（`./start.sh` 兜底会跑 `git init`，但确认 `state/` **未**进 `.gitignore`——否则 pi-rewind-hook 等回退扩展会跳过游戏状态。详见 §五）
+- [ ] session-backed state 落地完成：状态变化会写入 pi session custom entry；`state/` 已进 `.gitignore` 且不发布；`state/state.json` 仅作为 debug export / legacy fallback。详见 §六
 - [ ] 至少跑过 1 轮下场玩（第二层校验），观察 4 点全部 ✓
 
 任何一项打不上 ✓，**继续做完再报告**，不要把"还差 X"作为收工话术。
 
 ---
 
-## 六、回退 / 存档
+## 六、状态持久化 / 回退 / 存档
 
-**结论先行**：tavern2agent **不在 engine 内做回退**。死亡回溯、章节存档、撤销上一轮——一律外包给 pi 平台层的回退扩展。理由：state 能回滚但 chat 是 pi session jsonl 的 append-only 流，agent 删不掉自己已发的消息——半实现的回滚反而比明说做不到更糟。
+**结论先行**：轻量/标准方案从一开始就应走 **session-backed state**：
 
-### 推荐扩展：pi-rewind-hook
+- 真相源是 pi session 分支上的 `<card-slug>-state` custom entry。
+- `state/state.json` 只做 debug export / 旧文件存档 migration fallback。
+- `state/` 必须进 `.gitignore`，发布包不带；不要让 git/file-rewind 把调试导出当存档。
+- 不默认安装 `pi-rewind-hook`。玩家不改代码时用不到文件回退，默认带它反而会增加状态污染风险。
 
-迁移产物应把推荐扩展声明在项目根 `.pi/settings.json`，让 pi 首次启动时自动安装到项目本地 `.pi/npm/`：
+### 为什么不是文件 state 当真相源
 
-```json
-{
-  "packages": [
-    "npm:pi-rewind-hook"
-  ]
-}
+文件 state 看起来简单，但与 pi 的 append-only session/tree 模型会产生两个真相源：
+
+```txt
+会话分支 A 的叙事历史  ←→  state/state.json 当前文件
+会话分支 B 的叙事历史  ←→  同一个 state/state.json 当前文件
 ```
 
-如果项目同时使用 subagent，把 `"npm:pi-subagents"` 也放进同一个 `packages` 数组。不要在交付说明里要求玩家手动安装项目级扩展；开发者可用 pi 的本地安装命令快速写入 `.pi/settings.json`，但发布物应直接包含这个文件。
+当玩家 `/tree`、`/fork`、`--continue` 或文件回退后，单一 `state/state.json` 很容易落到错误时间线。正确做法是：每次状态变化把快照 pin 到 session 当前分支；切分支时从该分支最近的快照恢复内存状态，再把它 debug-export 到 `state/state.json` 方便人工查看。
 
-用 pi 原生的 `/fork`（或 Tab 开 `/tree`）选目标轮 → "Restore all (files + conversation)"。rewind 元数据写进 session 自己的隐藏 ledger entry，能跨 fork / resume / compaction 存活。
+### 推荐实现契约
 
-### 项目侧约束（迁移产物必须满足）
+1. `engine/core/state.ts` 维护 in-memory canonical state + `globalThis` store（防 jiti/tsx 多实例）。
+2. 每个 mutating tool 执行后，如果 `dirty=true`，把 `{ v, turn, state }` 放进 toolResult `details["<card-slug>-state"]`。
+3. `turn_start` / `agent_end` / `session_compact` 兜底 `pi.appendEntry("<card-slug>-state", snapshot)`。
+4. `session_start` / `session_tree` 从 `ctx.sessionManager.getBranch()` 倒序找最近快照 hydrate。
+5. 只有**空白新 session** 才允许创建 `INITIAL_STATE`；旧分支没有快照时，抛 `StateUnavailableError` 或提示用户恢复备份，**不要自动把 INITIAL_STATE 写成存档**。
+6. `state/state.json` 每次 hydrate/write 后 debug export；旧项目首次迁移可从它导入一次，但导入后应写 session 快照。
 
-1. **项目根必须是 git 仓库**——`start.sh` 内置 `git init` 兜底，但若用户在迁移产物外另做了改动，确认仍是 git repo
-2. **`state/` 不能进 `.gitignore`**——否则游戏状态不入 snapshot，回退时数值不会跟着回去
-3. **`sessions/` 可以 `.gitignore`**——chat 回滚走扩展自己的 ledger entries，不依赖 git
-4. **不进 snapshot 的项**：`toolResult` 和 `bashExecution` 节点没有精确恢复点（影响小，玩家不会从工具调用中途切回）
+### `.gitignore` 约束
 
-### 跨回退持久的"永久记忆"
+```gitignore
+sessions/
+state/
+.pi/agent/
+.pi/npm/
+node_modules/
+dist/
+```
 
-真死亡循环类机制（"你保留了上一周目的记忆"）需要一份**不被回退**的状态文件。模式：
+- `sessions/` 是玩家会话/存档，发布前不带。
+- `state/` 是 debug export / legacy fallback，不是正式存档，发布前不带。
+- 不要重新把 `state/` 纳入 git；如果项目里曾经 track 过，迁移时执行 `git rm --cached -r state`（必要时加 `--sparse`）。
 
-- 在 `engine/state.ts` 里读写 `meta/persistent.json`
-- 把 `meta/` 加进 `.gitignore`——pi-rewind-hook 只 snapshot tracked + 非 ignored untracked 文件，gitignored 路径会被跳过，刚好绕过回退
-- 注册 `get_persistent` / `set_persistent` 工具供 GM 在死亡/周目切换时写入"记忆"标记
+### 对话回退 / 读档
+
+读档走 pi 原生 session tree/fork 语义：切到某个历史节点后，扩展从该分支最近的 `<card-slug>-state` 恢复状态。不要在 engine 内做事件溯源式回滚；chat 是 pi session jsonl 的 append-only 流，engine 删不掉已发消息。
+
+如果维护者真的需要代码文件级回退，可在开发环境自行安装文件回退扩展；玩家发布包默认不带，也不依赖。
+
+### 跨读档持久的「永久记忆」
+
+真死亡循环类机制（“你保留了上一周目的记忆”）需要一份**不随 session 分支回退**的持久层。模式：
+
+- 写 `meta/persistent.json` 或独立 custom entry 类型（例如 `<card-slug>-permanent-memory`）。
+- `meta/` 加进 `.gitignore`，不发布。
+- 注册 `get_persistent` / `set_persistent` 工具供 GM 在死亡/周目切换时写入“记忆”标记。
 
 无此类机制的卡跳过。
-
-### 备选方案
-
-迁移产物本身**不依赖任何特定扩展**——换一个回退扩展只是 UX 差异：
-
-| 扩展 | 入口 | 特点 |
-|---|---|---|
-| `npm:pi-rewind-hook` | `/fork` + `/tree` | 元数据进 session，跨 fork/compact 存活；推荐 |
-| `arpagon/pi-rewind` | `/rewind` 命令 + 浏览器 | 命令式入口最直接 |
-| `prateekmedia/pi-hooks` 的 Checkpoint 子模块 | 大包内统一交互 | 捆绑 LSP/Permission 等不相干模块 |
-
----
 
 ## 七、校验
 

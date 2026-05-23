@@ -108,7 +108,7 @@ SKILL.md §二只列了常见五类，以下是逐条审计用的完整表：
 | 伤害公式、HP/护甲、暴击 | `engine/combat.ts` |
 | 好感度范围 + 增减规则 + 态度阈值 | `engine/affection.ts` |
 | 收入公式、声望、等级经验曲线 | `engine/economy.ts`（按需拆分） |
-| 死亡判定（HP<=0 触发什么）| `engine/death.ts`（叙事化处理；回退本身交 pi-rewind-hook，见 SKILL.md §六） |
+| 死亡判定（HP<=0 触发什么）| `engine/death.ts`（叙事化处理；读档/回溯按 session-backed state 分支恢复，见 SKILL.md §六） |
 | 周目继承的"永久记忆"字段 | `meta/persistent.json` 持久层，见 `ts-engine.md` §跨回退持久 |
 | 任务生成 + 完成条件 + 章节推进 | `engine/quest.ts` |
 

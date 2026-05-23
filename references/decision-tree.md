@@ -8,7 +8,7 @@ SKILL.md §三的决策表给出主轴判定；本文档收录两类辅助材料
 
 - `[mvu_update]`/`[mvu_plot]` 条目或 `tavern_helper.scripts` 里的 Zod 模型——存在则走带 state 方案。
 - 骰子（`d20`/`roll`/`掷骰`）、战斗判定、伤害公式、好感度阈值、经济流通——任一明显存在即倾向标准。
-- 死亡回溯/读档/章节存档/撤销上一回合（搜 `revert`/`undo`/`restore`/`存档`/`回档`/`重来`）——**不影响档位**。交给 pi 回退扩展（见 SKILL.md §六），档位仍按计算模块复杂度判定。仅当卡片要求"周目继承记忆"等跨回退持久状态时，加一个 `meta/persistent.json` 持久层（见 `ts-engine.md`），但不升档。
+- 死亡回溯/读档/章节存档/撤销上一回合（搜 `revert`/`undo`/`restore`/`存档`/`回档`/`重来`）——**不影响档位**。状态真相源仍是 pi session custom entry；读档按 session tree/fork 的分支恢复对应状态快照（见 SKILL.md §六）。仅当卡片要求“周目继承记忆”等跨分支持久状态时，加一个 `meta/persistent.json` 或独立 permanent custom entry，但不升档。
 - 临界：状态键值 ≤10 且只有 1-2 处简单加减，偏轻一档；prompt 反复强调"严格按公式""不许 LLM 自由发挥"，偏重一档。
 - 非 MVU 状态系统（极少数卡在 `tavern_helper.scripts` 里自定义变量）：按语义手工映射到等价档位，不单开方案。
 
@@ -24,6 +24,6 @@ SKILL.md §三的决策表给出主轴判定；本文档收录两类辅助材料
 | 有 `{{roll:1d6}}` 偶尔用于占卜，其余推进靠 prompt | 轻量 | 1-2 次偶发掷骰直接写进 GM 规则，不值得开 `dice.ts` |
 | 有伤害公式 + 装备护甲 + 命中检定 | 标准 | 战斗逻辑进 engine |
 | 死亡循环叙事性出现（"你回想起上次失败时…"），但不真回退 state | 视计算模块判档 | 是叙事手法，不是回退机制；档位按是否有骰子/战斗判 |
-| 真死亡回溯：死后回到存档点 + 全图重玩 | 视计算模块判档 + `.pi/settings.json` 声明 pi-rewind-hook | 回退是平台层职责，不升档；玩家用 `/fork` 选目标轮 → Restore all |
+| 真死亡回溯：死后回到存档点 + 全图重玩 | 视计算模块判档 + session-backed state | 读档是 session 分支语义，不升档；切到目标节点后从该分支状态快照恢复 |
 | 周目继承"记忆"标记（死后保留某些字段） | 同上 + `meta/persistent.json` | 持久层走 gitignored 路径绕过整体回退，见 `ts-engine.md` §跨回退持久 |
-| 多结局章节存档，玩家可读档到任一章节起点 | 视计算模块判档 + `.pi/settings.json` 声明 pi-rewind-hook | 同上 |
+| 多结局章节存档，玩家可读档到任一章节起点 | 视计算模块判档 + session-backed state | 同上 |

@@ -184,7 +184,7 @@ TAVERN2AGENT_DEV=1 ./start.sh # 开发模式：保留内置 agents
 }
 ```
 
-如果同时需要回退扩展，把 `"npm:pi-rewind-hook"` 放进同一个 `packages` 数组。不要要求玩家手动安装项目级扩展；发布物应直接包含 `.pi/settings.json`。
+如果同时需要状态栏等项目级扩展，把对应 npm 包放进同一个 `packages` 数组。不要要求玩家手动安装项目级扩展；发布物应直接包含 `.pi/settings.json`。默认玩家包不声明文件回退扩展。
 
 ### NPC Agent 定义模板
 

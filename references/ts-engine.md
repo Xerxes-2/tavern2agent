@@ -4,7 +4,7 @@
 
 > **重要**：以下代码中的 `initialBlankState()`、`get_status` / `skill_check` 工具都是**通用示例骨架**，演示模式而非提供可照搬的 schema。转换其他卡片时，状态结构必须从卡片 MVU 条目（`[mvu_update]` / `[mvu_plot]`）的变量定义中动态提取——不要照搬示例字段名。
 
-> **回退 / 存档不在本文档**。死亡回溯、章节存档、撤销上一轮交给 pi 平台层的回退扩展（`pi-rewind-hook` 等），见 SKILL.md §六。本文档只讲状态写入。
+> **状态持久化原则**：轻量/标准方案从一开始使用 session-backed state。pi session custom entry 是真相源；`state/` 只做 debug export / legacy fallback。死亡回溯、章节存档、撤销上一轮不在 engine 内做事件溯源，按 pi session tree/fork 的分支语义恢复对应状态快照，见 SKILL.md §六。
 
 ## 状态引擎 (state.ts)
 
@@ -23,76 +23,232 @@
 
 ### 轻量 / 标准方案
 
-**状态更新使用 JSON Patch（RFC 6902）**：`patch_state` 工具只传变化字段路径，不传整个 state。省 token 且防 LLM 覆盖无关字段。
+**状态更新仍使用 JSON Patch（RFC 6902）**：`patch_state` 工具只传变化字段路径，不传整个 state。省 token 且防 LLM 覆盖无关字段。
 
-依赖 `rfc6902`（同时提供 `applyPatch` + `createPatch` 做 diff）：
+但持久化不要以 `state/state.json` 为真相源。推荐骨架：
+
+```txt
+pi session custom entry (<card-slug>-state)  ← 真相源，跟随 session 分支
+        ↓ hydrate/export
+in-memory state + globalThis store           ← 工具和 hooks 读写
+        ↓ debug export
+state/state.json                             ← 人工查看 / 旧存档导入 fallback
+```
+
+依赖 `rfc6902`：
 
 ```bash
 npm install rfc6902
 ```
 
+`engine/core/state.ts` 只负责状态读写、patch、session snapshot 结构；具体 schema 字段由卡片 MVU/InitVar 提取：
+
 ```typescript
-import { readFileSync, writeFileSync, existsSync, mkdirSync, copyFileSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { applyPatch } from "rfc6902";
+import { INITIAL_STATE } from "./initial-state";
 
-const STATE_DIR = process.env.TAVERN2AGENT_STATE_DIR ?? "state";
-const STATE_FILE = join(STATE_DIR, "state.json");
-const INITIAL_STATE: Record<string, unknown> = { /* 从 initvar 或 MVU 条目提取 */ };
+export const STATE_SESSION_ENTRY_TYPE = "<card-slug>-state";
+export const STATE_SESSION_VERSION = 1;
 
-export function getState(): Record<string, unknown> {
-  if (!existsSync(STATE_FILE)) {
-    mkdirSync(dirname(STATE_FILE), { recursive: true });
-    writeFileSync(STATE_FILE, JSON.stringify(INITIAL_STATE, null, 2));
-    return { ...INITIAL_STATE };
-  }
+export interface SessionStateSnapshot {
+  v: typeof STATE_SESSION_VERSION;
+  turn: number;
+  state: Record<string, unknown>;
+}
+
+const STATE_FILE = join(process.cwd(), "state", "state.json");
+const TURN_FILE = join(process.cwd(), "state", ".turn");
+const STORE_KEY = "__<card_slug>_state_store__";
+
+type Store = { currentState: Record<string, unknown> | null; turn: number; dirty: boolean; unavailable?: string | null };
+
+function store(): Store {
+  const g = globalThis as Record<string, unknown>;
+  return (g[STORE_KEY] as Store) ?? (g[STORE_KEY] = { currentState: null, turn: 0, dirty: false }) as Store;
+}
+
+function clone<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function exportDebugState(state: Record<string, unknown>, turn: number) {
+  mkdirSync(dirname(STATE_FILE), { recursive: true });
+  writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
+  writeFileSync(TURN_FILE, String(turn));
+}
+
+function installState(state: Record<string, unknown>, turn = 0, dirty = false) {
+  const s = store();
+  s.currentState = clone(state);
+  s.turn = Math.max(0, Math.floor(turn) || 0);
+  s.dirty = dirty;
+  s.unavailable = null;
+  exportDebugState(s.currentState, s.turn);
+}
+
+function readLegacyDebugState(): Record<string, unknown> | null {
+  if (!existsSync(STATE_FILE)) return null;
   return JSON.parse(readFileSync(STATE_FILE, "utf-8"));
 }
 
-export function writeState(state: Record<string, unknown>) {
-  writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
+function readLegacyDebugTurn(): number {
+  if (!existsSync(TURN_FILE)) return 0;
+  return Number(readFileSync(TURN_FILE, "utf-8").trim()) || 0;
 }
 
-/** JSON Patch (RFC 6902) — 递归创建缺失中间对象后原地修改 state */
-export function patchState(ops: Array<{ op: string; path: string; value?: unknown }>) {
-  const state = getState();
-  // rfc6902 不自动创建中间对象 — 预处理：逐段 ensure 路径存在
-  const raw = state as unknown as Record<string, unknown>;
-  for (const op of ops) {
-    if (op.op === "remove") continue;
-    const segments = op.path.split("/").filter(Boolean);
-    if (segments.length <= 1) continue; // 顶层 key 不需要预创建
-    let cur: Record<string, unknown> = raw;
-    for (let i = 0; i < segments.length - 1; i++) {
-      const key = segments[i];
-      if (!(key in cur) || typeof cur[key] !== "object" || cur[key] === null) {
-        cur[key] = {};
-      }
-      cur = cur[key] as Record<string, unknown>;
+export function hydrateStateFromSessionBranch(
+  entries: unknown[],
+  options: { allowFileFallback?: boolean; allowInitialFallback?: boolean } = {},
+) {
+  for (let i = entries.length - 1; i >= 0; i--) {
+    const entry = entries[i] as any;
+    const snapshot =
+      entry?.type === "custom" && entry?.customType === STATE_SESSION_ENTRY_TYPE ? entry.data :
+      entry?.message?.role === "toolResult" ? entry.message.details?.[STATE_SESSION_ENTRY_TYPE] :
+      null;
+
+    if (snapshot?.v === STATE_SESSION_VERSION && snapshot.state) {
+      installState(snapshot.state, snapshot.turn, false);
+      return { source: "session" as const, turn: store().turn };
     }
   }
-  applyPatch(raw, ops);
+
+  if (options.allowFileFallback) {
+    const fileState = readLegacyDebugState();
+    if (fileState) {
+      installState(fileState, readLegacyDebugTurn(), false);
+      return { source: "file" as const, turn: store().turn };
+    }
+  }
+
+  if (options.allowInitialFallback) {
+    installState(INITIAL_STATE, 0, true);
+    return { source: "initial" as const, turn: store().turn };
+  }
+
+  const s = store();
+  s.currentState = null;
+  s.dirty = false;
+  s.unavailable = "当前 session 分支没有状态快照；拒绝自动写入 INITIAL_STATE 以免污染存档。";
+  return { source: "unavailable" as const, turn: s.turn, reason: s.unavailable };
+}
+
+function ensureHydrated() {
+  const s = store();
+  if (s.unavailable) throw new Error(s.unavailable);
+  if (s.currentState) return;
+  const fileState = readLegacyDebugState();
+  if (fileState) installState(fileState, readLegacyDebugTurn(), false);
+  else installState(INITIAL_STATE, 0, true);
+}
+
+export function getState(): Record<string, unknown> {
+  ensureHydrated();
+  return clone(store().currentState!);
+}
+
+export function writeState(state: Record<string, unknown>) {
+  const s = store();
+  installState(state, s.turn, true);
+}
+
+export function patchState(ops: Array<{ op: string; path: string; value?: unknown }>) {
+  const state = getState();
+  const raw = state as Record<string, unknown>;
+  // rfc6902 不自动创建中间对象：这里按项目需要预创建并做 strict path 校验。
+  applyPatch(raw, ops as any);
   writeState(state);
 }
 
-/** 按 dot-separated 路径读嵌套值，如 deepGet(state, "主角.生命值.当前值") */
-export function deepGet(obj: Record<string, unknown>, path: string): unknown {
-  const keys = path.split(".");
-  let current: unknown = obj;
-  for (const k of keys) {
-    if (current && typeof current === "object" && k in (current as any)) {
-      current = (current as Record<string, unknown>)[k];
-    } else return undefined;
-  }
-  return current;
+export function getStateSnapshot(): SessionStateSnapshot {
+  ensureHydrated();
+  const s = store();
+  return { v: STATE_SESSION_VERSION, turn: s.turn, state: clone(s.currentState!) };
 }
+
+export function isStateDirty(): boolean {
+  return Boolean(store().dirty && !store().unavailable);
+}
+
+export function markStatePersisted() {
+  store().dirty = false;
+}
+
+export function incrementTurnCount(): number {
+  const s = store();
+  if (s.unavailable) return s.turn;
+  s.turn += 1;
+  s.dirty = true;
+  if (s.currentState) exportDebugState(s.currentState, s.turn);
+  return s.turn;
+}
+```
+
+`tools/registry.ts` 建议统一包装 mutating tools：
+
+```typescript
+import { STATE_SESSION_ENTRY_TYPE, getStateSnapshot, isStateDirty, markStatePersisted } from "../engine/core/state";
+
+function attachStateSnapshot(def: any) {
+  if (typeof def.execute !== "function") return def;
+  const execute = def.execute;
+  return {
+    ...def,
+    async execute(...args: any[]) {
+      const result = await execute(...args);
+      if (result && typeof result === "object" && isStateDirty()) {
+        result.details = { ...(result.details || {}), [STATE_SESSION_ENTRY_TYPE]: getStateSnapshot() };
+        markStatePersisted();
+      }
+      return result;
+    },
+  };
+}
+```
+
+`extension.ts` 负责 hydrate 和兜底 append：
+
+```typescript
+pi.on("session_start", async (_event, ctx) => {
+  const branch = ctx.sessionManager.getBranch();
+  hydrateStateFromSessionBranch(branch, {
+    allowFileFallback: true,          // 仅用于旧文件存档首次导入
+    allowInitialFallback: branch.length === 0,
+  });
+});
+
+pi.on("session_tree", async (_event, ctx) => {
+  hydrateStateFromSessionBranch(ctx.sessionManager.getBranch(), {
+    allowFileFallback: false,
+    allowInitialFallback: false,
+  });
+});
+
+pi.on("before_agent_start", async (event) => {
+  incrementTurnCount();
+  return { systemPrompt: event.systemPrompt };
+});
+
+pi.on("turn_start", async () => {
+  if (!isStateDirty()) return;
+  pi.appendEntry(STATE_SESSION_ENTRY_TYPE, getStateSnapshot());
+  markStatePersisted();
+});
+
+pi.on("agent_end", async () => {
+  if (!isStateDirty()) return;
+  pi.appendEntry(STATE_SESSION_ENTRY_TYPE, getStateSnapshot());
+  markStatePersisted();
+});
 ```
 
 轻量方案注册 `get_status` / `patch_state` 两个工具；标准方案在此基础上注册 engine 模块工具（dice、combat 等）。
 
 ### 跨回退持久的「永久记忆」（可选，仅死亡循环类机制需要）
 
-需要"玩家在死亡/周目切换后保留某些记忆"时，加一份**不被回退扩展 snapshot** 的持久层。方法是把它写到 gitignored 路径——`pi-rewind-hook` 等扩展会跳过 gitignored 文件，刚好绕过整体回退。
+需要“玩家在死亡/周目切换后保留某些记忆”时，加一份**不随 session 分支读档回退**的持久层。方法是把它写到 `meta/persistent.json`（gitignored，不发布），或写入独立 permanent custom entry 类型。
 
 ```typescript
 const META_DIR = process.env.TAVERN2AGENT_META_DIR ?? "meta";  // 加进 .gitignore
@@ -123,7 +279,7 @@ const LOG_FILE = join(STATE_DIR, "patches.jsonl");
 appendFileSync(LOG_FILE, JSON.stringify({ ts: Date.now(), ops }) + "\n");
 ```
 
-只用于人工查 bug；不用于回退（回退走 pi-rewind-hook）。原事件溯源 + `dispatch()/rollback()/setCheckpoint()` 设计已删除——chat 与 state 解耦让自建回滚做不干净，统一外包给平台层扩展更可靠。
+只用于人工查 bug；不用于读档。原事件溯源 + `dispatch()/rollback()/setCheckpoint()` 设计已删除——chat 与 state 解耦让自建回滚做不干净，统一按 pi session 分支恢复快照。
 
 ## 注意力调度 (attention.ts)
 

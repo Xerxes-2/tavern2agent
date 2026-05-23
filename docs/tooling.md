@@ -65,7 +65,7 @@ pi install npm:pi-web-access
 
 ## 听说（未亲测）
 
-跟迁移产物**完全正交**——装不装只影响 UI 层，不影响卡本身。所有方案都基于 pi 自己，回退扩展、状态文件照常工作。
+跟迁移产物**完全正交**——装不装只影响 UI 层，不影响卡本身。所有方案都基于 pi 自己，session-backed 状态与工具逻辑照常工作。
 
 ### Tau —— pi 原生 web mirror（轻量）
 
@@ -105,7 +105,7 @@ pi install npm:tau-mirror
 
 ## 不强求但顺手的小习惯
 
-- **每张卡开独立 git repo**——不要塞进同一个 monorepo。pi-rewind-hook 的 `refs/pi-rewind/store` 是 repo 级，多卡共仓会让 snapshot 历史互相污染
+- **每张卡开独立目录 / 独立 session-dir**——不要把多个游戏共享同一套 `sessions/` 和 `state/`，否则会话与调试导出容易互相污染
 - **`./start.sh -p "..."` 一行测**——`-p` 是 print mode，发一条消息看 agent 回应就退，适合改完 prompt 快速回归
 - **prompt 改动用 git tag 标志**——`git tag prompt-v2` 之类，回退时 `git checkout prompt-v1 -- agents/gm.md` 比翻 reflog 快
 - **engine 改动配单元测试**——`engine/dice.ts` 这种纯函数模块直接 `npx tsx --test engine/dice.test.ts` 跑，比下场玩 5 轮才发现公式错快
