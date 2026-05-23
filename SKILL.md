@@ -281,7 +281,7 @@ LLM 不擅长计数和定时触发。游戏存在「每 N 轮调用同伴」「�
 
 1. `engine/core/state.ts` 维护 in-memory canonical state + `globalThis` store（防 jiti/tsx 多实例）。
 2. 每个 mutating tool 执行后，如果 `dirty=true`，把 `{ v, turn, state }` 放进 toolResult `details["<card-slug>-state"]`。
-3. `turn_start` / `agent_end` / `session_compact` 兜底 `pi.appendEntry("<card-slug>-state", snapshot)`。
+3. `turn_start` / `agent_end` 兜底 `pi.appendEntry("<card-slug>-state", snapshot)`；`session_compact` 必须**强制**写（`force=true`）：compaction 会把旧 custom entries 和 toolResult.details 中的旧状态快照一起移出当前 branch，压缩完成后若不立即重新 pin 当前状态，后续 `/tree` 跳到该节点时会发现没有快照可恢复。
 4. `session_start` / `session_tree` 从 `ctx.sessionManager.getBranch()` 倒序找最近快照 hydrate。
 5. 只有**空白新 session** 才允许创建 `INITIAL_STATE`；旧分支没有快照时，抛 `StateUnavailableError` 或提示用户恢复备份，**不要自动把 INITIAL_STATE 写成存档**。
 6. `state/state.json` 每次 hydrate/write 后 debug export；旧项目首次迁移可从它导入一次，但导入后应写 session 快照。

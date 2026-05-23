@@ -237,6 +237,13 @@ pi.on("turn_start", async () => {
   markStatePersisted();
 });
 
+// 压缩可能丢掉较早 custom entries（含旧 dest-poet-state 快照与 toolResult.details 中的快照），
+// 压缩完成后必须立即补一个当前状态锚点，否则后续 /tree 跳到该节点时会丢失状态。
+pi.on("session_compact", async () => {
+  pi.appendEntry(STATE_SESSION_ENTRY_TYPE, getStateSnapshot());
+  markStatePersisted();
+});
+
 pi.on("agent_end", async () => {
   if (!isStateDirty()) return;
   pi.appendEntry(STATE_SESSION_ENTRY_TYPE, getStateSnapshot());
