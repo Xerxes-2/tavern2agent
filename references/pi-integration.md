@@ -190,7 +190,6 @@ pi 通过 **jiti** 加载 `extension.ts`（`.ts` 源文件，不经 `tsc` 编译
 
 - `moduleResolution: "bundler"` + `allowImportingTsExtensions: true` — 允许 import 带 `.ts` 后缀，jiti 兼容；**不要用 `NodeNext`**（会强求 `.js` 后缀，但 jiti 不认）。
 - `noEmit: true` — 不需要 `tsc` 输出，只做类型检查。
-- `strict: false` — jiti 宽松模式，避免大量隐式 `any` 报错干扰。
 
 ### package.json
 
