@@ -41,8 +41,6 @@ state/state.json                             ← 人工查看 / 旧存档导入 
 npm install rfc6902
 ```
 
-`engine/core/state.ts` 只负责状态读写、patch、session snapshot 结构；具体 schema 字段由卡片 MVU/InitVar 提取：
-
 ```typescript
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -59,131 +57,66 @@ export interface SessionStateSnapshot {
 }
 
 const STATE_FILE = join(process.cwd(), "state", "state.json");
-const TURN_FILE = join(process.cwd(), "state", ".turn");
 const STORE_KEY = "__<card_slug>_state_store__";
 
-type Store = { currentState: Record<string, unknown> | null; turn: number; dirty: boolean; unavailable?: string | null };
+type Store = { currentState: Record<string, unknown> | null; turn: number; dirty: boolean };
 
 function store(): Store {
   const g = globalThis as Record<string, unknown>;
   return (g[STORE_KEY] as Store) ?? (g[STORE_KEY] = { currentState: null, turn: 0, dirty: false }) as Store;
 }
 
-function clone<T>(value: T): T {
-  return JSON.parse(JSON.stringify(value));
-}
+function clone<T>(value: T): T { return JSON.parse(JSON.stringify(value)); }
 
-function exportDebugState(state: Record<string, unknown>, turn: number) {
+function exportDebug(state: Record<string, unknown>) {
   mkdirSync(dirname(STATE_FILE), { recursive: true });
   writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
-  writeFileSync(TURN_FILE, String(turn));
 }
 
-function installState(state: Record<string, unknown>, turn = 0, dirty = false) {
+function install(state: Record<string, unknown>, turn = 0, dirty = false) {
   const s = store();
   s.currentState = clone(state);
   s.turn = Math.max(0, Math.floor(turn) || 0);
   s.dirty = dirty;
-  s.unavailable = null;
-  exportDebugState(s.currentState, s.turn);
+  exportDebug(s.currentState);
 }
 
-function readLegacyDebugState(): Record<string, unknown> | null {
-  if (!existsSync(STATE_FILE)) return null;
-  return JSON.parse(readFileSync(STATE_FILE, "utf-8"));
-}
-
-function readLegacyDebugTurn(): number {
-  if (!existsSync(TURN_FILE)) return 0;
-  return Number(readFileSync(TURN_FILE, "utf-8").trim()) || 0;
-}
-
-export function hydrateStateFromSessionBranch(
-  entries: unknown[],
-  options: { allowFileFallback?: boolean; allowInitialFallback?: boolean } = {},
-) {
-  for (let i = entries.length - 1; i >= 0; i--) {
-    const entry = entries[i] as any;
+export function hydrate(sessionEntries: unknown[]): { source: "session" | "initial"; turn: number } {
+  for (let i = sessionEntries.length - 1; i >= 0; i--) {
+    const entry = sessionEntries[i] as Record<string, unknown>;
     const snapshot =
-      entry?.type === "custom" && entry?.customType === STATE_SESSION_ENTRY_TYPE ? entry.data :
-      entry?.message?.role === "toolResult" ? entry.message.details?.[STATE_SESSION_ENTRY_TYPE] :
-      null;
-
+      (entry?.type === "custom" && entry.customType === STATE_SESSION_ENTRY_TYPE ? entry.data : null) ??
+      ((entry?.message as Record<string, unknown>)?.role === "toolResult"
+        ? ((entry?.message as Record<string, unknown>).details as Record<string, unknown>)?.[STATE_SESSION_ENTRY_TYPE]
+        : null);
     if (snapshot?.v === STATE_SESSION_VERSION && snapshot.state) {
-      installState(snapshot.state, snapshot.turn, false);
-      return { source: "session" as const, turn: store().turn };
+      install(snapshot.state, snapshot.turn, false);
+      return { source: "session", turn: store().turn };
     }
   }
-
-  if (options.allowFileFallback) {
-    const fileState = readLegacyDebugState();
-    if (fileState) {
-      installState(fileState, readLegacyDebugTurn(), false);
-      return { source: "file" as const, turn: store().turn };
-    }
-  }
-
-  if (options.allowInitialFallback) {
-    installState(INITIAL_STATE, 0, true);
-    return { source: "initial" as const, turn: store().turn };
-  }
-
-  const s = store();
-  s.currentState = null;
-  s.dirty = false;
-  s.unavailable = "当前 session 分支没有状态快照；拒绝自动写入 INITIAL_STATE 以免污染存档。";
-  return { source: "unavailable" as const, turn: s.turn, reason: s.unavailable };
+  install(INITIAL_STATE, 0, true);
+  return { source: "initial", turn: 0 };
 }
 
-function ensureHydrated() {
-  const s = store();
-  if (s.unavailable) throw new Error(s.unavailable);
-  if (s.currentState) return;
-  const fileState = readLegacyDebugState();
-  if (fileState) installState(fileState, readLegacyDebugTurn(), false);
-  else installState(INITIAL_STATE, 0, true);
-}
+function ensure() { if (!store().currentState) install(INITIAL_STATE, 0, true); }
 
-export function getState(): Record<string, unknown> {
-  ensureHydrated();
-  return clone(store().currentState!);
-}
+export function getState(): Record<string, unknown> { ensure(); return clone(store().currentState!); }
 
-export function writeState(state: Record<string, unknown>) {
-  const s = store();
-  installState(state, s.turn, true);
-}
+export function writeState(state: Record<string, unknown>) { install(state, store().turn, true); }
 
 export function patchState(ops: Array<{ op: string; path: string; value?: unknown }>) {
   const state = getState();
-  const raw = state as Record<string, unknown>;
-  // rfc6902 不自动创建中间对象：这里按项目需要预创建并做 strict path 校验。
-  applyPatch(raw, ops as any);
+  applyPatch(state as Record<string, unknown>, ops as Parameters<typeof applyPatch>[1]);
   writeState(state);
 }
 
-export function getStateSnapshot(): SessionStateSnapshot {
-  ensureHydrated();
-  const s = store();
-  return { v: STATE_SESSION_VERSION, turn: s.turn, state: clone(s.currentState!) };
-}
+export function getStateSnapshot(): SessionStateSnapshot { ensure(); const s = store(); return { v: STATE_SESSION_VERSION, turn: s.turn, state: clone(s.currentState!) }; }
 
-export function isStateDirty(): boolean {
-  return Boolean(store().dirty && !store().unavailable);
-}
+export function isStateDirty(): boolean { return store().dirty; }
 
-export function markStatePersisted() {
-  store().dirty = false;
-}
+export function markStatePersisted() { store().dirty = false; }
 
-export function incrementTurnCount(): number {
-  const s = store();
-  if (s.unavailable) return s.turn;
-  s.turn += 1;
-  s.dirty = true;
-  if (s.currentState) exportDebugState(s.currentState, s.turn);
-  return s.turn;
-}
+export function incrementTurnCount(): number { const s = store(); s.turn += 1; s.dirty = true; if (s.currentState) exportDebug(s.currentState); return s.turn; }
 ```
 
 `tools/registry.ts` 建议统一包装 mutating tools：
@@ -212,18 +145,11 @@ function attachStateSnapshot(def: any) {
 
 ```typescript
 pi.on("session_start", async (_event, ctx) => {
-  const branch = ctx.sessionManager.getBranch();
-  hydrateStateFromSessionBranch(branch, {
-    allowFileFallback: true,          // 仅用于旧文件存档首次导入
-    allowInitialFallback: branch.length === 0,
-  });
+  hydrate(ctx.sessionManager.getBranch());
 });
 
 pi.on("session_tree", async (_event, ctx) => {
-  hydrateStateFromSessionBranch(ctx.sessionManager.getBranch(), {
-    allowFileFallback: false,
-    allowInitialFallback: false,
-  });
+  hydrate(ctx.sessionManager.getBranch());
 });
 
 pi.on("before_agent_start", async (event) => {

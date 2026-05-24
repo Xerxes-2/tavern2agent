@@ -118,7 +118,7 @@ python3 scripts/list_entries.py card.json
 | 只有键值状态，无骰子/公式 | **轻量** | `patchState` | 上者 + `engine/state.ts` + `get_status`/`patch_state` 工具 |
 | 有骰子/战斗/经济等计算模块 | **标准** | `patchState` | 上者 + `engine/dice.ts` 等模块（多 agent 见下方独立判定） |
 
-> **状态持久化从一开始用 session-backed approach**。轻量/标准方案的真相源是 pi session custom entry（如 `<card-slug>-state`），`state/` 只做 debug export / 旧存档 migration fallback。死亡回溯、章节存档、撤销上一轮不进 engine，读档按 pi session tree/fork 的分支语义恢复对应状态快照；默认不安装文件回退扩展。详见 §六「状态持久化 / 回退 / 存档」。
+> **状态持久化从一开始用 session-backed approach**。轻量/标准方案的真相源是 pi session custom entry（如 `<card-slug>-state`），`state/` 只做 debug export。死亡回溯、章节存档、撤销上一轮不进 engine，读档按 pi session tree/fork 的分支语义恢复对应状态快照。
 
 ### 多 agent 判定（独立维度，不跟方案档位绑定）
 
@@ -147,7 +147,7 @@ python3 scripts/list_entries.py card.json
 
 ### 纯 prompt 方案
 
-产出 `agents/gm.md`（角色+世界+规则，核心规则≤5条）+ `data/world.json` + `data/characters.json`（≥5角色时拆分）+ `data/chapters.json`（如有）。
+产出 `agents/gm-system.md` + `agents/gm-context.md` + `agents/gm-rules.md`，按「离生成距离」分三层——system（身份+契约）→ context（世界观/工具速查/参考素材）→ rules（硬规则+few-shot）。文件作用和组装顺序见 `references/pi-integration.md` §「提示词分层编排」。核心规则≤5条。另有 `data/world.json` + `data/characters.json`（≥5角色时拆分）+ `data/chapters.json`（如有）。
 
 开场白：所有方案都必须生成开局 skill，`first_mes` 改写后内联其中、由 agent 在开局时主动交付。命名规则、模板、checklist 生成规则统一见 `references/setup.md`。
 
@@ -259,32 +259,15 @@ LLM 不擅长计数和定时触发。游戏存在「每 N 轮调用同伴」「�
 
 ## 六、状态持久化 / 回退 / 存档
 
-**结论先行**：轻量/标准方案从一开始就应走 **session-backed state**：
+轻量/标准方案的真相源是 pi session 分支上的 `<card-slug>-state` custom entry。`state/state.json` 仅做 debug export，不进 git。
 
-- 真相源是 pi session 分支上的 `<card-slug>-state` custom entry。
-- `state/state.json` 只做 debug export / 旧文件存档 migration fallback。
-- `state/` 必须进 `.gitignore`，发布包不带；不要让 git/file-rewind 把调试导出当存档。
-- 不默认安装 `pi-rewind-hook`。玩家不改代码时用不到文件回退，默认带它反而会增加状态污染风险。
-
-### 为什么不是文件 state 当真相源
-
-文件 state 看起来简单，但与 pi 的 append-only session/tree 模型会产生两个真相源：
-
-```txt
-会话分支 A 的叙事历史  ←→  state/state.json 当前文件
-会话分支 B 的叙事历史  ←→  同一个 state/state.json 当前文件
-```
-
-当玩家 `/tree`、`/fork`、`--continue` 或文件回退后，单一 `state/state.json` 很容易落到错误时间线。正确做法是：每次状态变化把快照 pin 到 session 当前分支；切分支时从该分支最近的快照恢复内存状态，再把它 debug-export 到 `state/state.json` 方便人工查看。
-
-### 推荐实现契约
+### 实现契约
 
 1. `engine/core/state.ts` 维护 in-memory canonical state + `globalThis` store（防 jiti/tsx 多实例）。
 2. 每个 mutating tool 执行后，如果 `dirty=true`，把 `{ v, turn, state }` 放进 toolResult `details["<card-slug>-state"]`。
-3. `turn_start` / `agent_end` 兜底 `pi.appendEntry("<card-slug>-state", snapshot)`；`session_compact` 必须**强制**写（`force=true`）：compaction 会把旧 custom entries 和 toolResult.details 中的旧状态快照一起移出当前 branch，压缩完成后若不立即重新 pin 当前状态，后续 `/tree` 跳到该节点时会发现没有快照可恢复。
-4. `session_start` / `session_tree` 从 `ctx.sessionManager.getBranch()` 倒序找最近快照 hydrate。
-5. 只有**空白新 session** 才允许创建 `INITIAL_STATE`；旧分支没有快照时，抛 `StateUnavailableError` 或提示用户恢复备份，**不要自动把 INITIAL_STATE 写成存档**。
-6. `state/state.json` 每次 hydrate/write 后 debug export；旧项目首次迁移可从它导入一次，但导入后应写 session 快照。
+3. `turn_start` / `agent_end` 兜底 `pi.appendEntry("<card-slug>-state", snapshot)`。`session_compact` 后必须强制补锚点。
+4. `session_start` / `session_tree` 从 session 分支倒序找最近快照 hydrate。无快照时自动使用 `INITIAL_STATE`（新游戏）。
+5. `state/state.json` 每次 hydrate/write 后 debug export。
 
 ### `.gitignore` 约束
 
@@ -297,25 +280,13 @@ node_modules/
 dist/
 ```
 
-- `sessions/` 是玩家会话/存档，发布前不带。
-- `state/` 是 debug export / legacy fallback，不是正式存档，发布前不带。
-- 不要重新把 `state/` 纳入 git；如果项目里曾经 track 过，迁移时执行 `git rm --cached -r state`（必要时加 `--sparse`）。
-
 ### 对话回退 / 读档
 
-读档走 pi 原生 session tree/fork 语义：切到某个历史节点后，扩展从该分支最近的 `<card-slug>-state` 恢复状态。不要在 engine 内做事件溯源式回滚；chat 是 pi session jsonl 的 append-only 流，engine 删不掉已发消息。
-
-如果维护者真的需要代码文件级回退，可在开发环境自行安装文件回退扩展；玩家发布包默认不带，也不依赖。
+读档走 pi 原生 session tree/fork 语义：切到历史节点后扩展从该分支最近快照恢复状态。
 
 ### 跨读档持久的「永久记忆」
 
-真死亡循环类机制（“你保留了上一周目的记忆”）需要一份**不随 session 分支回退**的持久层。模式：
-
-- 写 `meta/persistent.json` 或独立 custom entry 类型（例如 `<card-slug>-permanent-memory`）。
-- `meta/` 加进 `.gitignore`，不发布。
-- 注册 `get_persistent` / `set_persistent` 工具供 GM 在死亡/周目切换时写入“记忆”标记。
-
-无此类机制的卡跳过。
+真死亡循环类机制（“你保留了上一周目的记忆”）需要 `meta/persistent.json` 或独立 permanent custom entry。无此类机制的卡跳过。
 
 ## 七、校验
 

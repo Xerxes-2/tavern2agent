@@ -145,6 +145,86 @@ system prompt       = 极简身份 / 运行契约
 
 DeepSeek V4 的 user-role 分层实现见 `references/models/deepseek-v4.md`；其他模型可保留同样顺序，但按模型能力选择 system/developer/user 的承载方式。
 
+## tsconfig.json / package.json 模板（必读）
+
+pi 通过 **jiti** 加载 `extension.ts`（`.ts` 源文件，不经 `tsc` 编译）。但项目仍需 `tsconfig.json` 供类型检查（`npx tsc --noEmit`）和 IDE 提示。以下模板直接复制到项目根目录：
+
+### tsconfig.json
+
+```json
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022"],
+    "types": ["node"],
+
+    "strict": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": false,
+
+    "skipLibCheck": true,
+    "noEmit": true,
+
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": [
+    "extension.ts",
+    "engine/**/*.ts",
+    "tools/**/*.ts",
+    "agents/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "sessions"
+  ]
+}
+```
+
+要点：
+
+- `moduleResolution: "bundler"` + `allowImportingTsExtensions: true` — 允许 import 带 `.ts` 后缀，jiti 兼容；**不要用 `NodeNext`**（会强求 `.js` 后缀，但 jiti 不认）。
+- `noEmit: true` — 不需要 `tsc` 输出，只做类型检查。
+- `strict: false` — jiti 宽松模式，避免大量隐式 `any` 报错干扰。
+
+### package.json
+
+```json
+{
+  "name": "卡片名",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "typebox": "*",
+    "rfc6902": "*"
+  },
+  "peerDependenciesMeta": {
+    "@earendil-works/pi-coding-agent": { "optional": true },
+    "typebox": { "optional": true }
+  },
+  "devDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "@types/node": "*",
+    "typebox": "*",
+    "typescript": "*"
+  }
+}
+```
+
+要点：
+
+- `typebox` 不是 `@sinclair/typebox`——pi 以别名 `typebox` 提供，安装到 devDependencies 后 `import { Type } from "typebox"` 才有类型。
+- `@earendil-works/pi-coding-agent` 在 devDependencies 中提供 `ExtensionAPI` 等类型。
+- `rfc6902` 用于 JSON Patch 状态更新。
+- deps 版本号用 `*`（让 npm 选最新），但 devDeps 也可以用 `*`——pi 运行时不读 `node_modules`，这些只服务 tsc。
+
 ## 工具参数格式（必读）
 
 **`parameters` 必须用 TypeBox `Type.Object()` 定义**。TypeBox 是 pi 内置包（`import { Type } from "typebox"`），直接用它声明字段类型：
