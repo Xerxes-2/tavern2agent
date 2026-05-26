@@ -115,10 +115,12 @@ python3 scripts/list_entries.py card.json
 | 情况 | 方案 | state 写入 | 产出 |
 |------|------|-----------|------|
 | 没有 MVU 条目 | **纯 prompt** | — | `agents/gm.md`、`data/` |
-| 只有键值状态，无骰子/公式 | **轻量** | `patchState` | 上者 + `engine/state.ts` + `get_status`/`patch_state` 工具 |
-| 有骰子/战斗/经济等计算模块 | **标准** | `patchState` | 上者 + `engine/dice.ts` 等模块（多 agent 见下方独立判定） |
+| 只有键值状态，无骰子/公式（与酒馆玩无本质区别，边缘场景） | **轻量** | `patch_state` 单工具 | 上者 + `engine/state.ts` + `get_status`/`patch_state` 工具 |
+| 有骰子/战斗/经济/多字段联动/反应级联/时间压缩任一需求 | **标准**（CodeAct 沙箱） | 沙箱内写函数 → `patchState` | 上者 + `engine/codeact.ts` + 三层 API（场景可选、组合原语必需）。详见 `references/codeact.md` |
 
-> **状态持久化从一开始用 session-backed approach**。轻量/标准方案的真相源是 pi session custom entry（如 `<card-slug>-state`），`state/` 只做 debug export。死亡回溯、章节存档、撤销上一轮不进 engine，读档按 pi session tree/fork 的分支语义恢复对应状态快照。
+> **本 skill 服务重心是标准方案的重型卡**。轻量档保留作为边缘场景（「在酒馆里玩也差不多」的卡不一定要迁过来）；标准方案已从「多 engine 模块 + 多工具 + 按场景切 toolset」**迁到 CodeAct 范式**：单个 `code_act` 工具 + node:vm 沙箱 + 三层 API（场景 / 组合 / 原语），prompt 和 engine 代码双瘦身。不要再默认写 `engine/dice.ts` / `engine/combat.ts` / `engine/economy.ts` / `engine/attention.ts` 这类多独立工具模块。
+
+> **状态持久化从一开始用 session-backed approach**。轻量/标准方案的真相源是 pi session custom entry（如 `<card-slug>-state`）；CodeAct 沙箱里的写函数最终也走这条链路（`patchState()` → in-memory → session entry）。`state/` 只做 debug export。死亡回溯、章节存档、撤销上一轮不进 engine，读档按 pi session tree/fork 的分支语义恢复对应状态快照。
 
 ### 多 agent 判定（独立维度，不跟方案档位绑定）
 
@@ -151,13 +153,25 @@ python3 scripts/list_entries.py card.json
 
 开场白：所有方案都必须生成开局 skill，`first_mes` 改写后内联其中、由 agent 在开局时主动交付。命名规则、模板、checklist 生成规则统一见 `references/setup.md`。
 
-### 轻量 / 标准方案
+### 轻量方案
 
-state 骨架代码见 `references/ts-engine.md`「轻量 / 标准方案」。engine 模块按需写（`dice.ts`/`combat.ts`/`affection.ts`/`economy.ts` 等），识别信号见 `references/mvu-mapping.md`。
+state 骨架代码见 `references/ts-engine.md` §state.ts。只有两个工具：`get_status` + `patch_state`。`patch_state` 加 strict path 保护（见下节）。
 
-如果同时触发多 agent 条件（见上文），叠加多 agent 架构，详见 `references/multi-agent-architecture.md`。
+### 标准方案（CodeAct 沙箱）——主推，重型卡默认选这个
+
+**全部设计点读 `references/codeact.md`**。本节只点 SKILL.md 主线需要明确的骨架：
+
+- **所有 engine 计算活进沙箱三层 API**：场景层 `scene(type, params)`（视题材可选） / 组合层 `post()` `advance()` `grow_fans()` 之类（必需） / 原语层 `adjust_*` `patch(ops)` `status()` `lookup()` `log()`（必需）。
+- **单个 `code_act` 工具对外**：GM 每轮写一段 JS 脚本，node:vm 跳 15s 超时，脚本跑完后 dirty state 走 `toolResult.details` dump 到 session entry——与轻量方案共用 in-memory + session-backed 底层链路（§六）。
+- **不再写多 engine 模块**：原 `dice.ts` / `combat.ts` / `economy.ts` / `attention.ts` 不写独立文件也不注册独立工具，逻辑携入沙箱原语层/组合层。原 attention.ts 的职责被 `codeact.md` §二·H（自动生成叙事张力提示）吸收。
+- **protected paths 必须设计**：金钱/粉丝/装备/技能/任务这类关键字段拒绝裸 `patch(ops)`，必须走对应组合函数；`codeact.md` §六 给了模板。
+- **GM prompt 三层优先级 + 反应性级联 few-shot 必须写进 `gm-context.md` / `gm-rules.md`**；严禁清单（不要 `log(scene(...))` / 不要在沙箱写叙事决策 / 不要 fs/process 出口）同带进 prompt。
+- **`code_act` 工具的 description 里直接嵌入 `engine/codeact-sandbox.d.ts`**作为三层 API 的签名约定（实战经验）——不用自然语言列函数，类型声明作为单一权威源同时服务 prompt、文档、tsc 检查三个场景；具体代码示例见 `codeact.md` §三·6 + §五 「四段式 description」。
+- **subagent 不拿 `code_act`**（§三 multi-agent 决议）——只返回文本/结构化建议，GM 在主沙箱里处理状态写入。
 
 标准方案的 `gm.md` 末尾建议加一行引用 `references/storytelling.md`，让 GM 在叙事卡壳时按需自查节拍——具体引用句式见 storytelling.md §「在 gm.md 里如何引用」。
+
+如同时触发多 agent 条件（见上文），叠加多 agent 架构，详见 `references/multi-agent-architecture.md`。
 
 ### State schema 防腐与存档迁移（轻量+ 必走）
 
@@ -178,9 +192,11 @@ state 骨架代码见 `references/ts-engine.md`「轻量 / 标准方案」。eng
 
 轻量方案 schema 一眼能看完，可跳过此步。
 
-### 注意力调度（标准方案强烈推荐）
+### 注意力调度（轻量方案可选，标准方案不写）
 
-LLM 不擅长计数和定时触发。游戏存在「每 N 轮调用同伴」「战斗后必须 try_level_up」「NPC 互动后必更新好感度」「DLC 启用后定期提醒」任一需求，写 `engine/attention.ts`。代码模式 + 注入点 + 双重保障原则见 `references/ts-engine.md` §「注意力调度 (attention.ts)」。
+**标准方案不写 `engine/attention.ts`**——「每轮扫描状态 + 注入提醒」的职责被 `codeact.md` §二·H（自动生成叙事张力提示）吸收：GM 在沙箱里 `status()` 后自己 log tensions，不需要独立 attention.ts，修改检查逻辑不要动代码。
+
+仅作为**轻量方案**出现「每 N 轮调用同伴」「XP 溢出提醒」这类需求时，写 `engine/attention.ts`；代码模式见 `references/ts-engine.md` §「注意力调度」。
 
 ### 数据查询工具（标准方案强烈推荐）
 
@@ -194,11 +210,11 @@ LLM 不擅长计数和定时触发。游戏存在「每 N 轮调用同伴」「�
 
 索引文件用脚本批量扫描生成，不要手写。工具返回的 `content` 是模型可见的权威事实；`details` 只给 TUI/日志/hooks，不要只把结构化数据放 `details`。完整模式见 `references/data-layer.md`。
 
-### 动态工具集（标准方案强烈推荐）
+### 动态工具集（轻量方案适用。标准方案只需 setup/debug 切换）
 
-工具数量较多时，不要把所有工具都常驻。保留极少 `always` 工具（状态查询、基础 lookup、`switch_toolset`），按场景切换 `setup` / `combat` / `social` / `craft` / `world` / `debug` / `full`。低频维护工具（`migrate_state`、`get_state_schema`、修档工具）只放 `debug`/`full`，不要出现在普通叙事轮。
+**标准方案（CodeAct）下**常驻工具只有「`code_act` + `get_status` + `lookup` + `switch_toolset`」，不需要按战斗 / 社交 / 制作 切组——多步操作在沙箱里自由组合。使用 `switch_toolset` 只为了隔离低频维护工具：`setup`（开局配置 / 迁移）、`debug`（`migrate_state` / `get_state_schema` / 修档工具）。
 
-命名用 `toolset`，不要用 `context`，避免和叙事上下文/模型 context 混淆。完整分组、`switch_toolset` 模式和“专用工具优先于裸 patch”的取舍见 `references/toolsets.md`。
+**轻量方案下**如果工具较多，按场景切 `setup` / `combat` / `social` / `craft` / `world` / `debug` / `full`。命名用 `toolset`，不要用 `context`。完整分组、`switch_toolset` 模式、「专用工具优先于裸 patch」的取舍见 `references/toolsets.md`。
 
 ### 工具 description 工程（所有方案，凡注册工具就必读）
 
@@ -217,7 +233,11 @@ LLM 不擅长计数和定时触发。游戏存在「每 N 轮调用同伴」「�
 | `.pi/agents/<npc_xxx>.md` | 有隐藏信息/视角隔离需求时 | pi-subagents 项目级 subagent 定义（NPC/同伴/新闻等）；触发条件详见 §三「多 agent 判定」 |
 | `extensions/subagents/*.ts` | subagent 需要动态人格/状态/世界摘要时 | 每个子代理单独维护动态注入与轻量工具集，公共摘要放 `extensions/subagents/common.ts` |
 | `engine/state.ts` | 轻量+ | 状态引擎 |
-| `engine/dice.ts` 等 | 标准 | 按需 |
+| `engine/codeact.ts` | 标准方案 ✅ | CodeAct 沙箱主体。详见 `references/codeact.md` |
+| `engine/codeact-sandbox.d.ts` | 标准方案 ✅ | 三层 API 类型声明——沙箱实现的接口 + `code_act` description 的主体（§三·6） |
+| `engine/scene.ts` + `data/scene-registry.ts` | 标准方案、题材有 scene 单元时 | 场景引擎 + 事件表（带 condition 过滤 + weight 加权 + 冷却） |
+| `engine/dice.ts` / `engine/combat.ts` / `engine/economy.ts` | **不再需要** | 标准方案下携入沙箱原语/组合层；不要默认写 |
+| `engine/attention.ts` | 轻量方案可选 | 标准方案不写——被 `codeact.md` §二·H 吸收 |
 | `tools/registry.ts` | 轻量+ | 工具实现集中地（**不要内联到 extension.ts**） |
 | `extension.ts` | 轻量+ | pi 入口，只做注册：注入 system prompt + 调用 `registerAllTools(pi)` + hooks。详见 `references/pi-integration.md` |
 | `start.sh` | ✅ 必须 | 启动脚本，用户直接 `./start.sh` 进游戏。从 `tavern2agent/scripts/start.sh` 复制到项目根目录。**已内置 `PI_CODING_AGENT_DIR` 隔离**——首次运行自动初始化 `.pi/agent/` 并复制全局 auth，后续运行完全隔离全局扩展/skills |
@@ -244,14 +264,21 @@ LLM 不擅长计数和定时触发。游戏存在「每 N 轮调用同伴」「�
 - [ ] `tools/registry.ts` 不是死代码：extension.ts 真的引用了它
 - [ ] 中间检查点已交付（标准方案）：state schema + engine 操作清单单独发给用户 review 过
 - [ ] 第一层 grep 残留扫描通过
-- [ ] 标准方案：`engine/attention.ts` 已覆盖所有"每 N 轮/条件触发"需求
+- [ ] **标准方案（CodeAct）专项完工自检**——完整 14 项检查见 `references/codeact.md` §七。重点发送前表面必对：
+  - 原语层 + 组合层齐全；题材有 scene 单元时场景层也齐全
+  - 所有写函数返回结构化结果（`{ before, after }` 或更具体）；`status()` 返回 clone；`lookup` 未命中则 throw
+  - 沙箱超时 15s；无 fs / process / require / import 出口
+  - protected paths 设计完整（金钱/粉丝/装备/技能/任务拒裸 patch）
+  - `gm-context.md` 教三层优先级；`gm-rules.md` 有反应性级联 + 时间压缩 few-shot + 严禁清单
+  - `code_act` 工具 description 是「四段式」：必须调用 / 严禁行为 / 三层优先级 + **拼了 `engine/codeact-sandbox.d.ts`**作为签名权威源
+  - 沙箱写函数最终走 `patchState()` → in-memory → session entry，与轻量方案共用同一链路
 - [ ] 标准方案：结构化数据集合（地点/NPC/DLC）已配查询工具 + 索引文件；运行时不依赖 `bash`/`read` 查设定
-- [ ] 轻量+：state schema 防腐完成——非法顶层 root 会被拒绝，专用工具字段禁止裸 patch，派生值不落盘
+- [ ] 轻量+：state schema 防腐完成——非法顶层 root 会被拒绝，专用工具/组合函数字段禁止裸 patch，派生值不落盘
 - [ ] 轻量+：如存在旧存档/旧字段，已提供确定性 migration；运行时代码不保留旧字段 fallback
-- [ ] 标准方案：工具集已按场景分组；`debug`/`setup`/迁移工具不在 `always`
-- [ ] 使用 subagent 时：每个子代理定义在 `.pi/agents/`，动态状态注入拆到 `extensions/subagents/<agent>.ts`；task 只需补最近事件，不要求子代理自查人格/世界状态
+- [ ] 标准方案：常驻工具只有「`code_act` + `get_status` + `lookup` + `switch_toolset`」；`setup` / `debug` / 迁移工具不在 `always`
+- [ ] 使用 subagent 时：每个子代理定义在 `.pi/agents/`，动态状态注入拆到 `extensions/subagents/<agent>.ts`；**subagent 不拿 `code_act`**，只返回结构化建议（§三 multi-agent 决议）；task 只需补最近事件
 - [ ] session-backed state 落地完成：状态变化会写入 pi session custom entry；`state/` 已进 `.gitignore` 且不发布；`state/state.json` 仅作为 debug export / legacy fallback。详见 §六
-- [ ] 至少跑过 1 轮下场玩（第二层校验），观察 4 点全部 ✓
+- [ ] 至少跑过 1 轮下场玩（第二层校验），观察 4 点全部 ✓；标准方案额外验证：GM 至少调用一次 `code_act`、脚本里出现 scene/组合层调用（不是只裸 patch）
 
 任何一项打不上 ✓，**继续做完再报告**，不要把"还差 X"作为收工话术。
 
@@ -314,7 +341,7 @@ grep -rnE '\{\{(user|char|random|roll|pick|getvar|setvar)' \
    - 开场叙事是否**含具体时空 + 情境**（"新的一天开始"算空洞，扣分）
    - **state 是否真的写入**（看 `state/state.json`，不是 GM 嘴上说"已记录"）
    - **裸数值不应出现在叙事里**（"粉丝+200" → 应该是「粉丝数量明显上涨」）
-4. 如有 engine 模块：第 3-5 轮**主动触发一次**骰子/战斗/经济动作，确认工具被调用而非 LLM 脑补结果
+4. 标准方案：第 3-5 轮**主动触发一次**骰子/战斗/经济动作，确认 GM 调用了 `code_act`、脚本里出现 scene/组合层调用（不是只裸 patch）而非 LLM 脑补结果。另起一轮试「一周后」式时间跳跃，验证 GM 是否在同一脚本里写一段 scene 序列（§二·G 时间压缩）而不是拆成6-7 轮工具调用
 
 完整玩法流程 + 工具调用验证命令 + 常见问题对照表见 `references/validation.md`。
 
@@ -335,9 +362,10 @@ grep -rnE '\{\{(user|char|random|roll|pick|getvar|setvar)' \
 | `setup.md` | 全部 | 开局 setup 分析、开局 skill 模板、平台集成 |
 | `pi-integration.md` | 全部 | pi extension 集成（hook 时机、tool schema、subagent、工具 description 工程） |
 | `data-layer.md` | 标准 | 数据层 + 索引 + 查询工具设计：让 LLM 查得到，数据才算存在 |
-| `toolsets.md` | 标准 | 动态工具集设计：always/setup/combat/social/debug 等分组取舍 |
+| `toolsets.md` | 轻量主适 | 动态工具集设计：always/setup/combat/social/debug 分组；标准方案下常驻只 `code_act`+少数 辅助 |
+| **`codeact.md`** | **标准方案主要** | **CodeAct 沙箱范式**：三层 API、八种能力、`.d.ts` 签名约定、沙箱实现要点、prompt 工程、protected paths |
 | `state-schema-migrations.md` | 轻量+ | state schema 防腐、strict patch、schemaVersion、确定性存档迁移 |
-| `ts-engine.md` | 标准 | TS 引擎代码（state.ts、dice.ts、attention.ts、工具注册模式） |
+| `ts-engine.md` | 底层基建（轻量+） | TS 状态引擎：state.ts + session-backed 持久化 + globalThis store；轻量方案可选的 attention.ts / dice.ts 骨架。标准方案的多 engine 模块都迁到 `codeact.md` |
 | `multi-agent-architecture.md` | NPC 隔离场景 | 多 agent 架构（GM + NPC subagent 上下文隔离，含动态注入实战） |
 | `storytelling.md` | 全部（可选） | 叙事节拍参考 |
 | `validation.md` | 全部 | 残留检测 + 人工检查清单 |

@@ -1,8 +1,11 @@
 # TS 引擎模块参考
 
+> **重要：标准方案的 dice/combat/economy/attention 不再写成多 engine 工具**。它们进 CodeAct 沙箱的原语层和组合层——架构、API 设计、prompt 工程跳转读 `codeact.md`。本文档剩余内容是**底层状态基建**（in-memory store + session-backed 持久化），轻量方案和标准方案**共用**这一层；标准方案的沙箱写函数最终也走这条链路。
+
+
 以下是 TypeScript 原生引擎的核心模块骨架。extensions 直接 import，工具零开销调用。
 
-> **重要**：以下代码中的 `initialBlankState()`、`get_status` / `skill_check` 工具都是**通用示例骨架**，演示模式而非提供可照搬的 schema。转换其他卡片时，状态结构必须从卡片 MVU 条目（`[mvu_update]` / `[mvu_plot]`）的变量定义中动态提取——不要照搬示例字段名。
+> **重要**：以下代码中的 `initialBlankState()`、`get_status` / `patch_state` 工具都是**通用示例骨架**，演示模式而非提供可照搬的 schema。转换其他卡片时，状态结构必须从卡片 MVU 条目（`[mvu_update]` / `[mvu_plot]`）的变量定义中动态提取——不要照搬示例字段名。
 
 > **状态持久化原则**：轻量/标准方案从一开始使用 session-backed state。pi session custom entry 是真相源；`state/` 只做 debug export / legacy fallback。死亡回溯、章节存档、撤销上一轮不在 engine 内做事件溯源，按 pi session tree/fork 的分支语义恢复对应状态快照，见 SKILL.md §六。
 
@@ -177,7 +180,7 @@ pi.on("agent_end", async () => {
 });
 ```
 
-轻量方案注册 `get_status` / `patch_state` 两个工具；标准方案在此基础上注册 engine 模块工具（dice、combat 等）。
+轻量方案注册 `get_status` / `patch_state` 两个工具。标准方案改为注册单个 `code_act` 工具（+ 可选的 `get_status` / `lookup` / `switch_toolset`），所有状态读写在沙箱里组合，详见 `codeact.md`。
 
 ### 跨回退持久的「永久记忆」（可选，仅死亡循环类机制需要）
 
@@ -214,9 +217,11 @@ appendFileSync(LOG_FILE, JSON.stringify({ ts: Date.now(), ops }) + "\n");
 
 只用于人工查 bug；不用于读档。原事件溯源 + `dispatch()/rollback()/setCheckpoint()` 设计已删除——chat 与 state 解耦让自建回滚做不干净，统一按 pi session 分支恢复快照。
 
-## 注意力调度 (attention.ts)
+## 注意力调度 (attention.ts)——轻量方案可选
 
-LLM 不擅长计数和定时触发。标准方案存在「每 N 轮调用同伴」「战斗后必须 try_level_up」「NPC 互动后必更新好感度」「DLC 启用后定期提醒」任一需求时，写本模块。
+> **标准方案不写本模块**。CodeAct 范式下，「每轮扫描状态 + 注入提醒」的职责被 `codeact.md` §二·H（自动生成叙事张力提示）吸收——GM 在沙箱里 `status()` 后自己 log tensions，比独立 attention.ts 更灵活（不需要改代码也能改检查逻辑）且不手动拼 system prompt。
+>
+> 下面代码骨架仅适用于**轻量方案**出现「每 N 轮调用同伴」「XP 溢出提醒」这类需求时。
 
 回合数自行维护：在 `state.ts` 给 state 加一个 `meta.turn` 计数器（每次 `patchState` 或 `before_agent_start` 自增 1），跨进程持久靠 state.json 本身。
 
@@ -243,7 +248,18 @@ export function buildReminders(): AttentionReminder[] {
 
 **双重保障原则**：系统级注入（`attention.ts`）+ 工具级 `promptGuidelines`（写死 ⚠️ 前缀），两层都失效才遗漏。
 
-## 骰子引擎 (dice.ts)
+## 原「骰子引擎 / 战斗 / 经济」模块 → 迁移到 CodeAct 沙箱
+
+标准方案不再写 `engine/dice.ts` / `engine/combat.ts` / `engine/economy.ts` 这类独立模块并暴露为独立工具。将上述计算逻辑携入 CodeAct 沙箱：
+
+- `roll_dice` / `check` / `calcDamage` → 沙箱原语层函数或不提供（直接用 `Math.random()` + `status()` 计算）
+- `combat_round` / `attack` / `take_damage` → 组合层函数（多字段联动写入 + 返回 `{ before, after, ... }`）
+- `earn_money` / `spend_money` / `buy_item` → 原语层 `adjust_money(delta)` + 组合层 `transaction(...)`
+- 「战斗 / 探险 / 休息」这类「持续若干时间 + 有结算 + 可能触发事件」的活动单元 → 场景层 `scene('combat', { ... })`
+
+三层 API 设计、沙箱实现要点、prompt 工程、protected paths 都在 `codeact.md` 里。以下代码仅作为原骰子引擎骨架保留，供少数轻量方案需要「独立骰子工具」时参考。
+
+### 轻量方案仅供参考：骰子/伤害函数骨架
 
 ```typescript
 export function attrMod(value: number): number {
@@ -377,31 +393,9 @@ export function registerAllTools(pi: ExtensionAPI) {
     },
   });
 
-  // ── 行动工具 ──
-  pi.registerTool({
-    name: "skill_check",
-    label: "属性检定",
-    description: "进行属性检定，掷骰判定成功/失败",
-    promptSnippet: "掷骰进行属性检定",
-    parameters: Type.Object({
-      attribute: Type.String({ description: "属性名" }),
-      difficulty: Type.Optional(Type.String({ description: "难度：简单/普通/困难/极难/噩梦" })),
-    }),
-    async execute(_id, params) {
-      const s = getState();
-      const attrs = (s.主角 as Record<string, unknown>).属性列表 as Record<string, number>;
-      const dcMap: Record<string, number> = { 简单: 8, 普通: 12, 困难: 16, 极难: 20, 噩梦: 25 };
-      const dc = dcMap[params.difficulty || "普通"] || 12;
-      const attrVal = attrs[params.attribute] || 10;
-      const result = check(attrVal, dc);
-      return {
-        content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-        details: {},
-      };
-    },
-  });
-
-  // ... 其他工具
+  // 轻量方案需要「偶发骰子」时可以在这里补一个 `roll_dice` 工具。
+  // **标准方案这里只有 `code_act`**（+ 可选 `get_status` / `lookup` / `switch_toolset`）——骰子、战斗、经济、场景都在沙箱里调。
+  // 详见 `codeact.md`。
 }
 ```
 
