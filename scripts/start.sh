@@ -21,8 +21,11 @@ mkdir -p ./sessions
 
 # ---- 项目隔离 ----
 # PI_CODING_AGENT_DIR 将 pi 的配置目录从 ~/.pi/agent/ 切换到 .pi/agent/，
-# 实现全局配置/skills 的隔离。项目自己的 extension.ts 通过 -e 显式加载，
-# skills/ 目录通过 extension 的 resources_discover 钩子注册（见 pi-integration.md）。
+# 实现全局配置/skills 的隔离。项目自己的 extension.ts 通过 -e 显式加载。
+#
+# --no-skills 禁用所有自动发现的 skill（全局、npm 包内置等），
+# 然后 --skill ./skills/ 显式加载项目自己的 skills 目录。
+# 确保 reviewer/coder/oracle 等开发用 skill 不会泄漏到游戏会话中。
 #
 # 项目级 pi 包（例如 npm:pi-subagents / npm:pi-powerline-footer）应声明在
 # 项目根 .pi/settings.json 的 packages 数组中；pi 首次启动会自动安装到 .pi/npm/。
@@ -31,8 +34,6 @@ mkdir -p ./sessions
 # 首次启动时自动初始化 .pi/agent/：
 #   1. 如有全局 auth，复制过来（也可在后续手动 /login）
 #   2. 创建最小 settings.json
-#
-# 如需额外本地 extension 或 skill 文件，用 -e / --skill 显式指定。
 
 mkdir -p .pi/agent
 
@@ -79,15 +80,18 @@ export PI_CODING_AGENT_DIR=".pi/agent"
 # 记录 pi 退出码，但保证提示始终显示
 pi_exit=0
 pi \
+  --no-skills \
+  --skill ./skills/ \
   -e ./extension.ts \
   --session-dir ./sessions \
+  --no-context-files \
   "$@" || pi_exit=$?
 
 cat <<'MSG'
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ⚠️  提示：如要分享此项目（git push / 打包发送等），
-   请删除 .pi/agent/auth.json（包含 API 密钥）、sessions/（会话存档）和 state/（调试导出）。
+    请删除 .pi/agent/auth.json（包含 API 密钥）、sessions/（会话存档）和 state/（调试导出）。
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 MSG
 exit $pi_exit
