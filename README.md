@@ -1,6 +1,6 @@
 # tavern2agent
 
-把 SillyTavern 角色卡迁移成 pi coding agent 可运行的文字游戏项目。
+把 SillyTavern 角色卡迁移成 pi coding agent 可运行的文字游戏。
 
 ## 范围
 
