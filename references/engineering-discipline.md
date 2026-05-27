@@ -33,12 +33,13 @@ format:check
 
 具体工具可用 `tsc`、oxlint、eslint、oxfmt、prettier 等；不要把版本和包管理器写死进 skill。
 
-完工前必须三项全过。
+完工前必须三项全过。lint 至少应覆盖 correctness/suspicious，并启用类型感知规则；必须拦截 unsafe assertion。
 
 ## 类型纪律
 
 - 业务代码零 `any`；外部 `any/unknown` 在边界立即窄化。
 - `as` 只能贴近验证点使用，或带安全理由。
+- 禁止 unsafe type assertion；能用 type guard / assert function 窄化就不用 `as`。
 - 禁止 `as unknown as T`。
 - 导出函数标注返回类型。
 - 状态多形态用 discriminated union，不用 optional 字段猜。
