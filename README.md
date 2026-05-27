@@ -1,135 +1,103 @@
 # tavern2agent
 
-将 SillyTavern 角色卡迁移为 pi coding agent 可运行的跑团/文字游戏环境。
+把 SillyTavern 角色卡迁移成 pi coding agent 可运行的文字游戏项目。
 
-## 这是什么
+## 范围
 
-SillyTavern 用大量机制（MVU 更新、强化思考链、JSON Patch 等）绕开单次 LLM 调用的限制。agent 原生就能推理、调工具、自主决策——把这些补丁替换成真正的代码逻辑，让 agent 自己掷骰、计算、更新状态、推动叙事。
+支持：
 
-支持从纯设定卡到带骰子/战斗/好感度/经济系统的复杂游戏卡。
+- ST v1/v2/v3：PNG、WEBP、JPEG、JSON
+- 纯设定卡
+- 世界书/MVU 卡
+- 骰子、战斗、好感度、经济等系统卡
+- 隐藏信息、多 NPC、多 agent 场景
 
-## 能不能用
+不迁移：HTML 状态栏、前端面板、文生图提示词、ST 预设模板。那些多是运行时补丁；迁移后可另接。
 
-- **角色卡**：SillyTavern v1 / v2 / v3（`spec: "chara_card_v2"` / `"chara_card_v3"`，或 v1 平铺老卡——脚本自动归一化为 v2 schema 处理）
-- **平台**：pi coding agent。**单平台，pi-native**——`extension.ts` 深度依赖 pi 的 hook / tool registration / session custom entry / subagent 等原语，换 host agent 框架（Claude Code / Cursor / aider 等）不是「换胶水层」级别的工作，相当于从决策表重做
-- **只做文字交互**：前端面板/状态条 HTML、文生图提示词、预设模板等不迁移——它们多是 ST 运行时补丁，留着反而损失灵活性，想要的人转换完成后自行接入
-
-### 推荐模型
-
-迁移阶段与运行阶段对模型的要求不同，分开看：
-
-**迁移阶段**（跑 skill 把卡转成 agent 项目）——吃指令遵循 + 长上下文 + 代码 + 自检：
-
-| 模型 | 适配点 |
-|---|---|
-| Claude Sonnet 4.6 / Opus 4.7 | 隐性约定推断最稳、SWE-bench 顶档；skill 默认环境 |
-| DeepSeek V4 Pro（Max 推理） | 1M context 整卡塞得下、中文母语级、价格友好 |
-| GPT-5.4 | Terminal-Bench 最强，重 agent loop 场景适用 |
-
-**运行阶段**（产出的 GM 跑游戏）——吃中文叙事 + 工具调用 + 长会话一致性：
-
-| 模型 | 适配点 |
-|---|---|
-| **DeepSeek V4 Pro** ⭐ | 已实测，中文叙事强、1M context、按 token 算极便宜 |
-| Kimi K2.6 | 256K 上下文 + 角色扮演场景调优，长跑游戏一致性好 |
-| GLM-5 | 国产 agent 调优、中文工具调用稳，比 Pro 更便宜 |
-| Claude Sonnet 4.6 | 规则遵循扎实、破第四墙概率低；预算够时优先 |
-
-### ⚠️ 不推荐
-
-- **DeepSeek V4 Flash / Flash@max** 等"省钱档"——实测会漏 `{{user}}`/`{{char}}` 字面量、自报"我已加载设定"破第四墙，隐性约定全靠 prompt 兜底。省下的钱不够调试时间
-- **<30B 激活参数的开源小模型**——跑得动 ≠ 跑得对
-- **GPT-4o / Gemini 1.5 等旧世代**——上下文小、工具调用绕
-
-## 最小示例
+## 安装
 
 ```bash
-# 1. 安装为 pi skill（pi 自动递归扫描 ~/.pi/agent/skills/ 下的 SKILL.md，无需注册）
 git clone --depth 1 https://github.com/Xerxes-2/tavern2agent \
   ~/.pi/agent/skills/tavern2agent
-
-# 2. 在工作目录放一张角色卡（支持 PNG/WEBP/JPEG/JSON，含 v1/v2/v3）
-mkdir my-card && cd my-card
-cp ~/Downloads/某角色卡.png .
-
-# 3. 启动 pi，提到「角色卡」「迁移」「转换」等关键词即可触发 skill
-pi
-> 帮我转换这张角色卡
 ```
 
-更新到最新版：
+更新：
 
 ```bash
 cd ~/.pi/agent/skills/tavern2agent && git pull
 ```
 
-agent 会自动按 skill 流程：解包 → 分析世界书 → 决定方案档位 → 生成 engine/agents/data/tools/subagents → 校验。标准方案（有 engine 模块）的卡会在写代码前发一份 state schema 给你 review，避免后期返工。
+## 使用
 
-迁移完成后，agent 自带交互式调试能力——「这条规则没生效」「这个 NPC 该有秘密」直接告诉它。
-
-## 产出形态
-
-最简（纯设定卡，无游戏系统）：
-
+```bash
+mkdir my-card && cd my-card
+cp ~/Downloads/card.png .
+pi
+# 对 agent 说：帮我转换这张角色卡
 ```
+
+agent 会解包、审计世界书、选方案、生成项目、下场校验。复杂卡写代码前会先给你看 state schema 和 engine API。
+
+## 产物形态
+
+最小：
+
+```txt
 project/
 ├── agents/gm.md
 ├── data/world.json
-├── data/characters.json     # ≥5 角色时拆分
-└── skills/
-    └── start-game/
-        └── SKILL.md
+├── skills/start-game/SKILL.md
+└── start.sh
 ```
 
-最复杂（带战斗 + 大型数据层 + 多 subagent）：
+复杂：
 
-```
+```txt
 project/
-├── .pi/
-│   ├── settings.json        # npm:pi-subagents / pi-powerline-footer 等项目包
-│   └── agents/              # companion / news-writer / npc_* 等子代理定义
-├── agents/
-│   └── gm.md
-├── extensions/
-│   └── subagents/           # 每个子代理自己的动态状态/人格注入
-├── engine/
-│   ├── state.ts             # patchState (RFC 6902)
-│   ├── dice.ts
-│   ├── combat.ts
-│   └── attention.ts
-├── tools/
-│   ├── registry.ts
-│   └── dynamic-tools.ts     # always/setup/combat/social/debug 等工具集切换
-├── data/
-│   ├── world.json
-│   ├── characters.json
-│   ├── chapters.json
-│   └── *_index.json         # 查询工具使用的索引
-├── extension.ts             # pi 入口
-└── skills/
-    └── start-game/
-        └── SKILL.md
+├── .pi/settings.json
+├── .pi/agents/*.md
+├── agents/gm.md
+├── data/*.json
+├── engine/codeact.ts
+├── engine/codeact-sandbox.d.ts
+├── engine/state.ts
+├── tools/registry.ts
+├── extension.ts
+├── skills/start-game/SKILL.md
+└── start.sh
 ```
 
-中间还有「轻量」一档，按卡片复杂度自动落档，决策表见 `SKILL.md`。
+`state/`、`sessions/`、`.pi/agent/`、`.pi/npm/` 不发布。
 
-**状态 / 存档**：轻量/标准方案从一开始采用 session-backed state：pi session custom entry 是真相源，`state/` 只做 debug export / legacy fallback 且不发布。读档按 pi session tree/fork 的分支语义恢复对应状态快照；不默认安装文件回退扩展。state schema 采用 schemaVersion + deterministic migration：旧存档只经 `migrate_state` 迁到当前结构，运行时不长期保留旧字段 fallback。详见 `SKILL.md` §六 与 `references/state-schema-migrations.md`。
+## 方案
 
-**迁移完成后怎么继续打磨**（git 工作流、下场玩节奏、重跑 skill 增量更新、仓库清理等）见 `docs/developing-cards.md`。**工具与工作流推荐**（SSH + zellij、viddy 看 state、ask_user_question、web 查询等扩展）见 `docs/tooling.md`。
+| 卡片特征 | 方案 |
+|---|---|
+| 纯设定 | prompt |
+| 少量键值状态 | light |
+| 骰子/战斗/经济/多字段联动 | standard / CodeAct |
+| 隐藏信息/秘密视角 | 叠加 subagent |
 
-## 目录
+状态真相源是 pi session custom entry；`state/` 只做 debug export。
 
+## 模型
+
+迁移阶段：优先长上下文、代码、自检强的模型，如 Claude Sonnet/Opus、DeepSeek V4 Pro、GPT-5 系列。
+
+运行阶段：优先中文叙事和工具调用稳定的模型，如 DeepSeek V4 Pro、Kimi、GLM、Claude Sonnet。
+
+避免省钱档小模型。跑得动不等于跑得对。
+
+## 文档
+
+```txt
+SKILL.md              agent 入口流程
+references/           迁移细节
+docs/developing-cards.md  迁移后维护
+docs/tooling.md       可选工具
+scripts/              卡片解包/审计脚本
 ```
-├── SKILL.md             # skill 主流程
-├── references/          # 各类参考文档
-├── scripts/             # Python 探索工具
-└── README.md
-```
 
-## 设计思路
+## 理念
 
-**酒馆的固有缺陷。** 单次 LLM 调用、被动的上下文窗口、没有真正的工具——卡片作者只能把规则编成 prompt 咒语，让模型"演"出在掷骰、算伤害。游戏机制成了叙事的幻觉，而非程序。
-
-**Agent 是程序本身。** Agent 自己调度、自己查询、算错了自我纠正，是一段持续运行的循环。掷骰是真的，状态写入是真的，回退是真的——不是 LLM 在文字里假装。
-
-**不复刻，要还原。** 不把 ST 机制原样翻译，而是读懂作者想做的那个游戏，再用 agent 原生形态把它跑起来。咒语换成代码，幻觉换成事实。
+不把 ST 机制逐字翻译。读懂卡作者想做的游戏，再用 agent 原生能力重建：数据可查，规则可算，状态可回退，叙事不破墙。
