@@ -133,9 +133,3 @@ extension.ts            pi 注册入口
 start.sh                启动入口
 ```
 
-## 过时内容处理
-
-- 不复制大段 pi API 模板；以当前 pi 类型/文档为准。
-- 不固定 package/tsconfig 版本；只保留“需要类型检查、严格模式、ESM”原则。
-- 不保留多套工具返回示例；统一成 content/details 契约。
-- 不把模型特化写在这里；放 `references/models/<model>.md`。
