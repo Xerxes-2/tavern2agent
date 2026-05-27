@@ -130,7 +130,7 @@ engine/codeact-sandbox.d.ts
 ## 完工
 
 1. 跑残留扫描：见 `references/validation.md`。
-2. 下场玩至少 20-30 轮，覆盖主要系统；测试玩家可明说自己在测试。
+2. 你作为测试玩家 Agent 下场玩至少 20-30 轮，覆盖主要系统；你可以明说自己在测试，请 GM 配合触发场景。
 3. 标准方案确认 `code_act` 被调用，且脚本使用组合/场景 API，不只裸 patch。
 4. TS 项目通过 typecheck/lint/format。
 5. 所有 alternate greetings、disabled entries、世界书条目都有去向。
