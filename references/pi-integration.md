@@ -1,436 +1,141 @@
-# pi extension 集成
+# pi 集成契约
 
-**tavern2agent 是 pi-native 项目**。不假装跨平台——`extension.ts` 直接挂 pi 的 `pi.on(...)` 钩子和 `pi.registerTool(...)` API，状态持久化走 pi session custom entry，多 agent 走 pi-subagents。换 host agent 框架（Claude Code / Cursor / aider 等）不是「换胶水层」级别的工作，是重写集成层 + 重新设计 hook 时机 / tool schema / session state / subagent 模型——通常等于从 SKILL.md 决策表往下重做。
+tavern2agent 是 pi-native。不要承诺跨平台。换 host 不是换胶水，而是重做 hook、tool schema、session state、subagent。
 
-`engine/*.ts`、`data/`、`scripts/` 理论上跟平台无关，但只在跑通 pi-native runtime 后才有意义。本文档记录所有 pi 特有的契约、坑、最佳实践。
+本文只写稳定契约；具体 API 以当前 pi 文档/类型为准。
 
-## 开场白
+## pi 负责什么
 
-由开局 skill 处理（详见 `references/setup.md`）。agent 首轮 call 开局 skill。
-
-> **注意**：`skills/` 不在 pi 默认技能发现路径中。extension 必须通过 `resources_discover` 钩子注册技能路径，否则开局 skill 不会被 pi 加载。详见下方「技能路径注册」。
-
-## pi 职责
-
-| 职责 | pi |
-|------|-----|
-| System prompt 注入 | `pi.on("before_agent_start")` extension hook |
-| 工具注册 | `pi.registerTool(...)` |
-| 技能路径注册 | `pi.on("resources_discover")` — 注册 `skills/` 目录，pi 递归发现其中的 `<name>/SKILL.md` 技能文件 |
-| NPC 上下文隔离 | `pi-subagents` 包，发布用 agent 定义放 `.pi/agents/*.md`。常用于 NPC 信息隔离，防止秘密泄漏 |
-| 钩子（日志等） | `pi.on("tool_result_end")` |
-| 状态持久化 | pi session custom entry 为真相源；`state/` 仅 debug export / legacy fallback |
+| 事项 | 契约 |
+|---|---|
+| 启动 | 项目根必须有 `start.sh` |
+| prompt 注入 | extension 在 agent 启动前注入 GM prompt/动态提醒 |
+| 工具 | 通过 pi tool API 注册；实现放 `tools/registry.ts` |
+| skill 发现 | 项目 `skills/` 需要显式注册资源路径 |
+| 存档 | pi session custom entry 是 state 真相源 |
+| subagent | 走 pi-subagents；定义放项目 `.pi/agents/` |
+| 项目依赖 | 写进 `.pi/settings.json`，不要要求玩家全局安装 |
 
 ## 启动脚本
 
-每个转换产出的项目目录**必须**包含 `start.sh`，模板见 `tavern2agent/scripts/start.sh`，迁移时直接复制到项目根目录并 `chmod +x`。
+迁移时从本仓库 `scripts/start.sh` 复制到项目根并保留可执行权限。
 
-`start.sh` 内置 **`PI_CODING_AGENT_DIR` 隔离方案**——将 pi 的配置目录从 `~/.pi/agent/` 切换到 `.pi/agent/`，首次运行自动初始化该目录（复制全局 auth、创建设置），后续运行完全隔离全局扩展/skills。仅隔离全局，不影响项目自己的 `.pi/extensions/`、`.pi/skills/`、及 `resources_discover` 注册的 skills。
+要求：
 
-玩家直接 `./start.sh` 进游戏，支持透传参数：
+- 隔离项目级 pi 配置，避免污染用户全局环境。
+- 自动处理项目依赖。
+- 支持继续会话、指定模型、开发模式。
+- 发布物不要包含 `.pi/agent/`、`.pi/npm/`、`sessions/`、`state/`。
 
-```bash
-./start.sh                          # 默认模型；玩家模式
-./start.sh --model deepseek/v4-pro  # 指定模型
-./start.sh --continue               # 继续上次会话
-TAVERN2AGENT_DEV=1 ./start.sh       # 开发模式：保留 pi-subagents 内置 coding agents
-```
+不要在文档里复制一份 start.sh 逻辑；模板文件是唯一来源。
 
-如果项目使用 `pi-subagents`，模板启动脚本会在项目隔离 `.pi/agent/settings.json` 中按模式设置 `subagents.disableBuiltins`：玩家模式禁用 reviewer/worker/oracle 等内置 coding agents，只保留项目 `.pi/agents/`；开发模式保留内置 agents，方便维护者继续用 reviewer/oracle。
+## extension.ts 边界
 
-> **注意**：`PI_CODING_AGENT_DIR` 切换配置目录后，pi 不再读取 `~/.pi/agent/settings.json` 中的全局包配置，因此全局安装的 npm 包（如 pi-subagents、pi-processes、状态栏扩展等）也不会自动加载。迁移产物需要的 pi 包应写进项目根 `.pi/settings.json` 的 `packages` 数组；pi 首次启动会自动安装到项目本地 `.pi/npm/`。不要把手动安装项目级扩展写成玩家启动前置步骤；发布物应直接包含 `.pi/settings.json`。显式本地文件仍可在 `start.sh` 末尾用 `-e` / `--skill` 加载。详见 `scripts/start.sh` 注释。
->
-> 常见项目级包配置：
->
-> ```json
-> {
->   "packages": [
->     "npm:pi-subagents",
->     "npm:pi-powerline-footer"
->   ]
-> }
-> ```
+`extension.ts` 只做注册：
 
-### 可选：项目本地 pi 包装器 `./pi`
+1. 注册项目 `skills/` 路径。
+2. 注入 GM prompt / 动态上下文。
+3. 调 `registerAllTools(pi)`。
+4. 注册必要 session/state hooks。
 
-项目根放一个 `./pi` 脚本，内置 `PI_CODING_AGENT_DIR` 后 exec 真实 pi，这样 `./pi` 就完全取代全局 `pi` 命令操作当前项目：
+不要在 `extension.ts` 内联工具实现。否则工具层无法测试和复用。
 
-```bash
-#!/usr/bin/env bash
-set -euo pipefail
-cd "$(dirname "$(readlink -f "$0")")"
-PI_CODING_AGENT_DIR=".pi/agent" exec pi "$@"
-```
+常见约束：
 
-主要价值：可以直接用 `./pi install xxx` 安装项目本地扩展/包（安装到 `.pi/` 下，不影响全局）；其他 `./pi` 子命令同样生效。与 start.sh 的分工：`./pi` 是项目本地的 pi 命令入口，start.sh 是完整启动脚本（额外处理首次初始化、复制 auth 等）。
+- 顶层 import，少用动态 import。
+- 初始化放 hook，不依赖 top-level await。
+- 路径用 extension 文件所在目录推导，不靠 cwd 猜。
+- 环境变量集中读取，别散在工具里。
 
-## extension 加载限制 + 技能路径注册（必读）
+## Prompt 分层
 
-pi 通过 **jiti** 加载 `extension.ts`，几个坑：
+不要把身份、世界书、工具说明、硬规则全塞 system。
 
-- **不要用动态 `import()`**——jiti 下行为不稳，所有依赖必须**顶层 `import`**（包括 `engine/state`、`tools/registry`、`engine/dice` 等）
-- **不要用 top-level await**——同样 jiti 兼容性问题，初始化逻辑写进 `before_agent_start` 钩子
-- **路径用相对 `./` 或 `../` 可能按 `cwd` 解析**——对外部文件和 `resources_discover` 路径注册一律用绝对路径，通过 `import.meta.url` 获取当前文件目录
-- **环境变量在 extension 顶层读取一次缓存**——别在工具 execute 里反复 `process.env.X`
-
-**技能路径注册**：pi 默认只从 `~/.pi/agent/skills/` 和 `.pi/skills/` 发现技能。项目自己的 `skills/` 需要通过 `resources_discover` 显式注册。pi 扫描注册目录时查找 `<name>/SKILL.md` 子目录结构（name 必须 ASCII a-z/0-9/-，且与目录名一致）：
-
-```typescript
-import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-
-pi.on("resources_discover", async () => {
-  return { skillPaths: [join(__dirname, "skills")] };
-});
-```
-
-extension 入口契约：只做平台注册（system prompt 注入 + 技能路径注册 + 调用 `registerAllTools(pi)` + 必要 hooks），**不要在 extension.ts 里内联工具实现**——工具一律放 `tools/registry.ts`，否则 registry.ts 变死代码。
-
-最小骨架：
-
-```typescript
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { registerAllTools } from "./tools/registry";
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-
-export default function extension(pi: ExtensionAPI) {
-  // 技能路径注册（pi 递归扫描 skills/ 发现 <name>/SKILL.md）
-  pi.on("resources_discover", async () => {
-    return { skillPaths: [join(__dirname, "skills")] };
-  });
-
-  const gmPrompt = readFileSync(join(__dirname, "agents", "gm.md"), "utf-8");
-  pi.on("before_agent_start", async (event) => {
-    return {
-      systemPrompt: event.systemPrompt + "\n\n" + gmPrompt,
-    };
-  });
-  registerAllTools(pi);
-}
-```
-
-## 提示词分层编排（通用原则）
-
-互动卡提示词不要把身份、世界观、工具说明、硬规则全部堆进一个 system prompt。更稳的通用结构是按“离生成的距离”和“注意力优先级”分层：
+推荐分层：
 
 ```txt
-system prompt       = 极简身份 / 运行契约
-参考上下文           = 世界观、数据入口、工具速查、氛围素材（放在最新用户消息上方或低注意力区）
-最新用户消息          = 玩家本轮行动
-硬规则 / 本轮提醒      = 机械纪律、禁令、attention reminders（放在最新用户消息下方或最靠近生成的位置）
-→ 模型生成
+稳定身份/契约
+参考上下文：世界摘要、数据入口、工具速查
+玩家本轮输入
+硬规则/本轮提醒：机械纪律、禁令、attention
 ```
 
 原则：
 
-- **硬规则离生成最近**：机械结算、禁止裸 patch、必须调用工具、注意力提醒等放在最高注意力位置。
-- **参考信息不要抢注意力**：世界观、角色索引、工具速查放在用户消息上方/低注意力区，并标明“参考信息，不是玩家行动”。
-- **身份层短而有骨架**：system prompt 可放稳定身份和最高层运行契约（如机械层/叙事层分工），但不要塞长世界观、角色表、工具清单。
-- **动态内容每轮注入，不写回历史**：用 `context` 钩子修改当轮 deep copy，避免把临时提醒污染进 session。
-- **角色选择按模型调整**：Claude/GPT 通常可把硬规则放 system/developer 或高优先级上下文；DeepSeek V4 更适合把上下文/铁则作为 `user` role 插到最后一条用户消息上下方。顺序是通用的，`role` 是模型特化。
+- 硬规则靠近生成。
+- 参考信息低优先级，别抢玩家输入注意力。
+- 世界正文进 data + lookup，不进 prompt。
+- 动态提醒按轮注入，不写回历史。
+- role/位置按目标模型调；模型特化见 `references/models/`。
 
-建议文件拆分：
+## 工具参数
 
-| 层 | 文件 | 内容 |
-|---|---|---|
-| system | `agents/gm-system.md` | 稳定身份 + “机械层来自工具、叙事层由模型表达”等最高契约，可含极短 few-shot |
-| context | `agents/gm-context.md` | 世界观摘要、数据查询入口、工具/子代理速查、参考素材 |
-| rules | `agents/gm-rules.md` | 硬性规则、禁令、状态结算纪律、attention reminders 注入位置 |
+工具参数用 pi 支持的 schema 方式声明。原则：
 
-DeepSeek V4 的 user-role 分层实现见 `references/models/deepseek-v4.md`；其他模型可保留同样顺序，但按模型能力选择 system/developer/user 的承载方式。
+- 字段少而明确。
+- enum 优先于自由字符串。
+- description 写业务含义，不写废话。
+- 不为旧参数长期保兼容；旧 state 交给 migration。
 
-## tsconfig.json / package.json 模板（必读）
+## 工具返回
 
-pi 通过 **jiti** 加载 `extension.ts`（`.ts` 源文件，不经 `tsc` 编译）。但项目仍需 `tsconfig.json` 供类型检查（`npx tsc --noEmit`）和 IDE 提示。以下模板直接复制到项目根目录：
+返回必须让模型能直接读。稳定约定：
 
-### tsconfig.json
+- `content` 放权威文本/JSON 摘要。
+- `details` 放 TUI、日志、hook 用的结构化数据。
+- 不要只把事实放 `details`。
+- 错误要可读，并告诉 GM 下一步怎么做。
 
-```json
-{
-  "compilerOptions": {
-    "target": "ES2022",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "lib": ["ES2022"],
-    "types": ["node"],
+工具内部可返回结构化对象，但注册层要统一包装成 pi 可消费的 tool result。不要让每个工具各写一套格式。
 
-    "strict": true,
-    "esModuleInterop": true,
-    "allowSyntheticDefaultImports": true,
-    "resolveJsonModule": true,
-    "allowImportingTsExtensions": true,
-    "verbatimModuleSyntax": false,
+## 工具 description
 
-    "skipLibCheck": true,
-    "noEmit": true,
+description 是模型是否调用工具的主入口。每个关键工具都写三段：
 
-    "forceConsistentCasingInFileNames": true
-  },
-  "include": [
-    "extension.ts",
-    "engine/**/*.ts",
-    "tools/**/*.ts",
-    "agents/**/*.ts"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "sessions"
-  ]
-}
+```txt
+功能：一句话。
+
+必须调用：
+- 具体场景
+- 具体场景
+
+严禁：
+- 凭记忆编造
+- 绕过工具写具体数值/事实
+
+职责：
+- 你不是结果创造者；你把工具结果翻译成叙事。
 ```
 
-要点：
+读取类工具尤其要强：地点、NPC、价格、任务、战斗判定。否则强叙事模型会自己编。
 
-- `moduleResolution: "bundler"` + `allowImportingTsExtensions: true` — 允许 import 带 `.ts` 后缀，jiti 兼容；**不要用 `NodeNext`**（会强求 `.js` 后缀，但 jiti 不认）。
-- `noEmit: true` — 不需要 `tsc` 输出，只做类型检查。
+## 机械层 / 叙事层
 
-### package.json
+GM prompt 可用这个框架：
 
-```json
-{
-  "name": "卡片名",
-  "version": "1.0.0",
-  "private": true,
-  "type": "module",
-  "dependencies": {
-    "@earendil-works/pi-coding-agent": "*",
-    "typebox": "*",
-    "rfc6902": "*"
-  },
-  "peerDependenciesMeta": {
-    "@earendil-works/pi-coding-agent": { "optional": true },
-    "typebox": { "optional": true }
-  },
-  "devDependencies": {
-    "@earendil-works/pi-coding-agent": "*",
-    "@types/node": "*",
-    "typebox": "*",
-    "typescript": "*"
-  }
-}
+```txt
+机械层：事实、数值、判定、状态变化，来自工具。
+叙事层：把机械层结果写成场景。
+未经工具确认的机械层内容不存在。
 ```
 
-要点：
+重点不是“多调工具”，而是“不调工具就没有这个事实”。
 
-- `typebox` 不是 `@sinclair/typebox`——pi 以别名 `typebox` 提供，安装到 devDependencies 后 `import { Type } from "typebox"` 才有类型。
-- `@earendil-works/pi-coding-agent` 在 devDependencies 中提供 `ExtensionAPI` 等类型。
-- `rfc6902` 用于 JSON Patch 状态更新。
-- deps 版本号用 `*`（让 npm 选最新），但 devDeps 也可以用 `*`——pi 运行时不读 `node_modules`，这些只服务 tsc。
+## 项目文件
 
-## 工具参数格式（必读）
-
-**`parameters` 必须用 TypeBox `Type.Object()` 定义**。TypeBox 是 pi 内置包（`import { Type } from "typebox"`），直接用它声明字段类型：
-
-```typescript
-import { Type } from "typebox";
-
-pi.registerTool({
-  name: "lookup_item",
-  parameters: Type.Object({
-    name: Type.String({ description: "物品名称" }),
-    category: Type.Optional(Type.String({ description: "可选：过滤类别" })),
-  }),
-  async execute(_toolCallId, params, _signal, _onUpdate, _ctx) {
-    // params.name 和 params.category 已通过 TypeBox 校验
-    return { content: [{ type: "text", text: `查询: ${params.name}` }], details: {} };
-  },
-});
+```txt
+.pi/settings.json       项目包声明
+.pi/agents/*.md         子代理定义
+agents/gm*.md           GM prompt 分层
+skills/start-game/      开局 skill
+tools/registry.ts       工具注册与实现入口
+extension.ts            pi 注册入口
+start.sh                启动入口
 ```
 
-`Type.String()`、`Type.Number()`、`Type.Boolean()`、`Type.Array()`、`Type.Union()` 等类型均可用。
+## 过时内容处理
 
-## 工具返回值格式（必读）
-
-**pi 工具 `execute` 函数必须返回 `{ content: [{ type: "text", text: "..." }] }` 格式**（OpenAI tool response 标准格式）。返回纯字符串或 plain object 会导致 pi 渲染层崩溃（`getTextOutput` 中 `result.content.filter` 作用在 `undefined` 上）。
-
-### 错误模式（会崩溃）
-
-```typescript
-// ❌ 返回 plain object —— pi 渲染层无法处理
-async function get_status() {
-  return { hp: 100, mp: 50, location: "病房" };
-}
-
-// ❌ 返回纯字符串 —— result.content 为 undefined，filter 崩溃
-async function get_status() {
-  return `HP: 100 | MP: 50 | 位置: 病房`;
-}
-```
-
-### 正确模式
-
-```typescript
-// ✅ 返回 { content: [{ type: "text", text: "..." }] }
-async function get_status() {
-  const state = loadState();
-  const text = `HP: ${state.hp}/100 | MP: ${state.mp}/50 | 位置: ${state.location}`;
-  return { content: [{ type: "text", text }] };
-}
-```
-
-### 兜底安全网（推荐在 registerAllTools 中统一包装）
-
-为避免每个工具手动写 `{ content: [...] }`，可以在注册层加统一 wrapper：
-
-```typescript
-export function registerAllTools(pi: Pi) {
-  for (const tool of TOOLS) {
-    const rawExecute = tool.execute;
-    pi.registerTool({
-      name: tool.name,
-      description: tool.description,
-      parameters: tool.parameters,
-      execute: async (toolCallId: string, params: any) => {
-        const result = await rawExecute(params);
-        const text = typeof result === "string" ? result : JSON.stringify(result, null, 2);
-        return { content: [{ type: "text", text }] };
-      },
-    });
-  }
-}
-```
-
-### 错误模式（会崩溃）
-
-```typescript
-// ❌ 返回 plain object —— pi 渲染层无法处理
-async function get_status() {
-  return { hp: 100, mp: 50, location: "病房" };
-}
-
-async function lookup_npc(params: { name: string }) {
-  return { found: true, name: params.name, detail: { ... } };
-}
-```
-
-### 正确模式
-
-**每条工具的 execute 函数应自行将结果格式化为可读文本，包裹在 `{ content: [{ type: "text", text: "..." }] }` 中返回**。不要依赖外部 wrapper 做 `JSON.stringify`——裸 JSON 在游戏过程中可读性差，且破坏叙事沉浸感。
-
-```typescript
-// ✅ 返回 { content: [{ type: "text", text: "..." }] }
-async function get_status() {
-  const state = loadState();
-  const text = `HP: ${state.hp}/100 | MP: ${state.mp}/50 | 位置: ${state.location}`;
-  return { content: [{ type: "text", text }] };
-}
-
-async function lookup_npc(params: { name: string }) {
-  const char = characters[params.name];
-  if (!char) return { content: [{ type: "text", text: `未找到角色 "${params.name}"。` }] };
-  const text = `## ${params.name}\n年龄：${char.age} | 性格：${char.personality}\n外貌：${char.appearance}`;
-  return { content: [{ type: "text", text }] };
-}
-
-async function roll_dice(params: { sides?: number }) {
-  const sides = params.sides || 6;
-  const roll = Math.floor(Math.random() * sides) + 1;
-  return { content: [{ type: "text", text: `🎲 d${sides} = ${roll}` }] };
-}
-```
-
-}
-```
-
-
-## 工具 description 工程（必读）
-
-> 这是从 DeepSeek V4 适配中验证出来的关键发现：**function calling 模式下，模型决定是否调用工具，主要读工具的 `description` 字段，不是 system prompt。** 对所有模型通用，只是措辞强度需微调。
-
-### 问题
-
-强叙事模型（DeepSeek V4、Claude Opus 等）叙事能力越强，越倾向于「自己编」而不是「调工具查」。实测中：
-- 写入类工具（`patch_state`）模型会主动调——叙事中发生了 X，所以要写入 X
-- 读取类工具（`lookup_location`、`get_price`、`combat_attack`）完全不用——模型觉得自己「记得」设定、能「推断」价格、能「编」战斗数值
-
-根因：模型的内部权衡是「继续写 vs 停下来查」，叙事流畅度的梯度更强。它默认"打断叙事 = 大代价，编一个 = 小代价"。
-
-### 核心方案：把工具 description 当作执行手册而不是元数据
-
-不要假设模型会从 system prompt 的泛泛要求里自行推导调用时机。必须在**每一个工具的 description 字段**里写清楚三件事：
-
-```
-description: "功能简述。\n\n【必须调用的场景】\n- 具体场景 1\n- 具体场景 2\n\n【严禁的行为】\n- 禁则\n\n【你的职责】（可选，用于框架重定位）\n- 你不是创造者，你是翻译者"
-```
-
-### 模板
-
-**查询类工具**（地点/NPC/价格/任务）：
-
-```typescript
-pi.registerTool({
-  name: "lookup_location",
-  description: "检索世界书中关于地点的权威设定。这是地点信息的唯一权威来源。\n\n" +
-    "【必须调用的场景】\n" +
-    "- 玩家进入或提及任何城镇/区域/地标\n" +
-    "- 需要描述某个地点的环境氛围、设施时\n\n" +
-    "【严禁的行为】\n" +
-    "- 凭记忆描述地点——你的内部记忆对预设地点的细节不可靠，编造的细节会与后续设定冲突\n" +
-    "- 即兴编造地点名——先查索引确认是否存在",
-  // ...
-});
-```
-
-**战斗类工具**（攻击检定/NPC 生成）：
-
-```typescript
-pi.registerTool({
-  name: "combat_attack",
-  description: "执行一次完整攻击检定（掷骰→评级→伤害计算），这是战斗结果的唯一权威来源。\n\n" +
-    "【必须调用的场景】\n" +
-    "- 任何攻击命中/未命中的判定\n" +
-    "- 任何伤害数值的产生\n" +
-    "- 任何技能效果的触发\n\n" +
-    "【严禁的行为】\n" +
-    "- 自行叙述「造成 15 点伤害」这类带具体数值的内容\n" +
-    "- 跳过检定直接描述战斗结果\n\n" +
-    "【你的职责】\n" +
-    "你不是战斗结果的创造者，你是战斗结果的翻译者。此工具返回机械数据，你将数据转为生动的叙事描写。",
-  // ...
-});
-```
-
-### system prompt 配合："机械层 vs 叙事层" 双层框架
-
-除了工具 description，system prompt 也需要配合——不是写触发表，而是重新定义"不调工具"的代价：
-
-```
-你的输出由两层构成：
-① 机械层 — 由工具调用确定。所有具体数据、设定、判定结果必须来自工具返回值。
-② 叙事层 — 由你生成。将机械层结果翻译为生动的描写。
-
-机械层的任何内容**未经工具调用确认前不存在**。
-如果你在没有调用相应工具的情况下叙述了这些内容，你就是在污染游戏状态。
-这比「叙事节奏稍慢」严重得多。
-```
-
-关键：把"不调就编"重新框定为**污染游戏状态**，而不是"偷懒"或"拖慢节奏"。这对强叙事模型的内部决策权重影响最大。
-
-### few-shot 示例（system prompt 末尾）
-
-DS V4 等模型对示例的模仿倾向远强于对指令的遵循。放一个完整示例：
-
-```
-# 示例
-
-用户：「我走进公会装备店，想买一把短剑和一瓶治疗药剂。」
-
-【正确行为】
-1. 先调 lookup_location("公会装备店") 确认店铺设定
-2. 调 get_price(category="武器", quality="普通") 获取短剑价格
-3. 调 get_price(category="药剂", quality="普通") 获取治疗药剂价格
-4. 调 get_status 确认玩家当前金钱
-5. 基于以上信息进行叙事
-
-【错误行为 — 严禁】
-直接叙述：「店主从墙上取下一把短剑，『300G，不二价。』你又拿了瓶治疗药剂，80G。」
-（错误原因：价格全部未经工具确认，是在污染游戏经济状态。）
-```
-
+- 不复制大段 pi API 模板；以当前 pi 类型/文档为准。
+- 不固定 package/tsconfig 版本；只保留“需要类型检查、严格模式、ESM”原则。
+- 不保留多套工具返回示例；统一成 content/details 契约。
+- 不把模型特化写在这里；放 `references/models/<model>.md`。
