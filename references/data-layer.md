@@ -73,16 +73,8 @@ return {
 
 ## 校验
 
-建议生成：
-
-```txt
-scripts/build-index.js
-scripts/test-lookup.js
-```
-
-至少测：
-
 - 每个 index path 能 resolve。
+
 - 常见别名能命中。
 - DLC 关闭时专属条目不可见。
 - 无结果时给候选，而不是空字符串。
