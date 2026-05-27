@@ -86,6 +86,7 @@ subagent 只给建议或文本；状态写入仍由 GM 走主 engine。详见 `r
 | 多 agent | `references/multi-agent-architecture.md` |
 | 下场测试 | `references/validation.md` |
 | 目标模型特化 | `references/models/<model>.md` |
+| 工程纪律 | `references/engineering-discipline.md` |
 
 ## 产出
 
@@ -124,11 +125,13 @@ engine/codeact-sandbox.d.ts
 - schema 变更要 bump version + deterministic migration。
 - 工具 description 写调用场景和禁区；结构化数据不能只放 `details`。
 - `start.sh` 从本仓库 `scripts/start.sh` 复制，保留项目级 `PI_CODING_AGENT_DIR` 隔离。
+- TS 产物必须启用严格工程基线；typecheck/lint/format 不过不算完成。
 
 ## 完工
 
 1. 跑残留扫描：见 `references/validation.md`。
 2. 下场玩至少 5 轮。
 3. 标准方案确认 `code_act` 被调用，且脚本使用组合/场景 API，不只裸 patch。
-4. 所有 alternate greetings、disabled entries、世界书条目都有去向。
-5. 报告只说已完成项和文件路径；未完成就继续做。
+4. TS 项目通过 typecheck/lint/format。
+5. 所有 alternate greetings、disabled entries、世界书条目都有去向。
+6. 报告只说已完成项和文件路径；未完成就继续做。
