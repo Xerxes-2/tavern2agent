@@ -1,16 +1,16 @@
-# 数据层设计：让 LLM 查得到，数据才算存在
+# 数据层
 
-SillyTavern 世界书依赖关键词触发；agent 项目不能指望模型每轮用 `bash`/`read` 翻文件，也不能把所有设定塞进 prompt。数据层的目标是：**结构化保存 + 可被工具快速检索 + 返回模型可直接使用的权威摘要。**
+目标：结构化保存设定，用工具查，用 `content` 返回给模型。不要让 GM 运行时靠 `bash/read` 翻文件，也不要把大 JSON 塞进 prompt。
 
-## 核心原则
+## 原则
 
-1. **数据文件是权威来源**：世界观、NPC、地点、怪物、DLC、物价表等进 `data/*.json`。
-2. **查询工具是唯一入口**：GM 需要设定时调用 `lookup` / `lookup_location` / `get_dlc_info` 等；不要让运行时依赖 `bash`/`read`。
-3. **索引与正文分离**：大数据集先查索引，按需返回正文，避免每轮塞大 JSON。
-4. **返回内容面向模型**：`content` 里放权威 JSON/Markdown 摘要；`details` 只给 TUI、日志、hooks 使用。
-5. **查询工具 description 必须强**：写清“必须调用场景”和“严禁凭记忆编造”。
+1. `data/*.json` 是世界观、NPC、地点、物价、规则的权威源。
+2. GM 只通过 `lookup`/领域工具读取预设事实。
+3. 大数据集用索引查，再按需返回正文。
+4. 结果放 `content`；`details` 只给 TUI/日志。
+5. 工具 description 写清必须调用场景和禁编规则。
 
-## 推荐目录
+## 目录
 
 ```txt
 data/
@@ -20,115 +20,79 @@ data/
 ├── monsters.json
 ├── items.json
 ├── game_rules.json
-├── dlc_content.json
-└── index.json              # 名称/关键词 → 文件 + key + 摘要
+└── index.json              # 名称/别名/关键词 → 文件 + key + 摘要
 ```
 
-数据量很大时按领域拆索引：
+大卡可拆：`location_index.json`、`npc_index.json`、`dlc_index.json`。索引用脚本生成，不手写。
 
-```txt
-data/location_index.json
-data/npc_index.json
-data/dlc_index.json
-```
-
-索引用脚本从正文生成，不要手写。索引条目至少包含：
+索引条目：
 
 ```json
 {
   "name": "瓦伦蒂亚",
   "aliases": ["炼金术师之城"],
   "type": "location",
-  "source": "基干",
   "path": "locations.json#/瓦伦蒂亚",
   "summary": "以炼金术师公会闻名的城市……"
 }
 ```
 
-## 查询工具设计
+## 工具
 
-### 统一 lookup（推荐）
+中小型卡优先一个统一工具：
 
-对于中小型卡，优先做一个统一 `lookup`：
-
-```typescript
+```ts
 lookup({ query: string, type?: "location" | "npc" | "faction" | "monster" | "rule" | "dlc" })
 ```
 
-优点：GM 不用在多个查询工具中犹豫；工具 description 可统一强调“预设设定唯一入口”。
+大型卡才拆领域工具：
 
-### 领域工具（大型卡）
-
-大型卡可拆：
-
-| 工具 | 负责 |
+| 工具 | 查 |
 |---|---|
-| `lookup_location` | 城市/区域/建筑/路线 |
+| `lookup_location` | 地点/建筑/路线 |
 | `lookup_npc` | NPC/组织成员 |
-| `lookup_rule` | 规则术语、层级、货币、战斗说明 |
-| `get_dlc_info` | DLC 状态、启用模块、专属条目 |
-| `lookup_item` | 装备、材料、药剂、技能模板 |
+| `lookup_rule` | 术语/货币/战斗规则 |
+| `get_dlc_info` | DLC/启用模块 |
+| `lookup_item` | 装备/材料/技能模板 |
 
-拆工具的前提是：每个工具都有清晰触发场景。否则统一 lookup 更好。
+拆分前提：每个工具有清晰触发场景。否则统一 `lookup`。
 
 ## 返回格式
 
-模型面对的 `content` 必须完整承载机械/设定结果：
-
-```typescript
+```ts
 return {
   content: [{
     type: "text",
     text: JSON.stringify({ found: true, entries, guidance }, null, 2),
   }],
-  details: { entries }, // TUI 可用，但不要只把权威数据放这里
+  details: { entries },
 };
 ```
 
-不要只在 `details` 放结构化数据；有些 provider/序列化路径只把 `content` 给模型。`details` 是展示层，不是模型事实层。
+不要只把事实放 `details`。模型主要看 `content`。
 
-## 不要依赖 bash/read
+## 校验
 
-开发阶段可以用脚本和 grep 审计原卡；运行时不应要求 GM：
-
-```txt
-用 bash 搜 data/locations.json
-用 read 打开 characters.json
-```
-
-原因：
-
-- 玩家运行时工具集可能没有 bash/read。
-- bash/read 返回太长，模型很难稳定抽取。
-- 文件路径是实现细节，不该进入叙事决策。
-- 查询工具可以做 DLC 过滤、别名归一化、摘要裁剪和错误提示。
-
-一句话：**给 LLM 的数据入口必须是领域工具，不是文件系统。**
-
-## 数据生成与校验
-
-推荐为数据层配脚本：
+建议生成：
 
 ```txt
-scripts/build-index.js       # 从 data/*.json 生成索引
-scripts/test-lookup.js       # 覆盖关键词命中、DLC 过滤、空结果提示
+scripts/build-index.js
+scripts/test-lookup.js
 ```
 
-`test-lookup` 至少检查：
+至少测：
 
-- 每个索引 path 都能 resolve 到正文。
+- 每个 index path 能 resolve。
 - 常见别名能命中。
 - DLC 关闭时专属条目不可见。
-- 查询无结果时返回候选建议，而不是空字符串。
+- 无结果时给候选，而不是空字符串。
 
-## Prompt 中该放什么
-
-GM prompt 只放查询纪律和工具速查，不放大段数据：
+## Prompt 只放纪律
 
 ```md
-- 进入/提及预设地点时先调用 lookup(type="location")。
-- 需要 NPC 背景、组织设定、怪物能力时先调用 lookup。
-- 未经 lookup 确认的预设设定不存在；可以即兴创作路人细节，但不能改写预设事实。
+- 提及预设地点/NPC/规则时先 lookup。
+- 未经 lookup 的预设事实不存在。
+- 可以即兴路人细节；不能改写预设事实。
 ```
 
-世界观正文放数据层，动态事实放 state，叙事表达交给模型。
+正文放 data，动态事实放 state，表达交给 GM。
