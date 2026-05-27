@@ -31,7 +31,7 @@ lint
 format:check
 ```
 
-具体工具可用 `tsc`、oxlint、eslint、oxfmt、prettier 等；不要把版本和包管理器写死进 skill。
+工具可替换；以等价检查能力为准，不以某个具体工具名为准。
 
 完工前必须三项全过。lint 至少应覆盖 correctness/suspicious，并启用类型感知规则；必须拦截 unsafe assertion。
 
