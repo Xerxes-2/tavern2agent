@@ -1,29 +1,28 @@
-# 方案档位决策辅助
+# 方案判定
 
-SKILL.md §三的决策表给出主轴判定；本文档收录两类辅助材料：**辅助判定信号**（用于临界场景）和**归档样例**（用于校准落档粒度）。
+主表见 `SKILL.md`。这里处理临界场景。
 
-## 辅助判定信号
+## 信号
 
-综合考量，非硬性流程；矛盾时偏向上一档：
+- 有 `[mvu_update]` / `[mvu_plot]` / Zod schema：至少 light。
+- 有骰子、战斗、伤害公式、经济流通、多字段联动：standard。
+- 状态键 ≤10 且只有简单加减：light。
+- 只有 1-2 个偶发 roll：light 或 prompt，别过度工程。
+- 卡反复强调“严格公式/禁止自由发挥”：偏 standard。
+- 死亡回溯/读档/撤销：不升档；用 session tree/fork。
+- 周目继承记忆：加 `meta/persistent.json` 或 permanent custom entry。
+- 非 MVU 自定义变量：按语义映射，不单开方案。
 
-- `[mvu_update]`/`[mvu_plot]` 条目或 `tavern_helper.scripts` 里的 Zod 模型——存在则走带 state 方案。
-- 骰子（`d20`/`roll`/`掷骰`）、战斗判定、伤害公式、好感度阈值、经济流通——任一明显存在即倾向标准。
-- 死亡回溯/读档/章节存档/撤销上一回合（搜 `revert`/`undo`/`restore`/`存档`/`回档`/`重来`）——**不影响档位**。状态真相源仍是 pi session custom entry；读档按 session tree/fork 的分支恢复对应状态快照（见 SKILL.md §六）。仅当卡片要求“周目继承记忆”等跨分支持久状态时，加一个 `meta/persistent.json` 或独立 permanent custom entry，但不升档。
-- 临界：状态键值 ≤10 且只有 1-2 处简单加减，偏轻一档；prompt 反复强调"严格按公式""不许 LLM 自由发挥"，偏重一档。
-- 非 MVU 状态系统（极少数卡在 `tavern_helper.scripts` 里自定义变量）：按语义手工映射到等价档位，不单开方案。
+## 样例
 
-## 归档样例
-
-拿到具体卡时按这种粒度落档，不要纠结临界条款的字面：
-
-| 卡片特征 | 落档 | 理由 |
-|---------|------|------|
-| 纯地理/势力设定 + 几个 NPC 模板，无变量、无骰子 | 纯 prompt | 没有状态需要维护，data/ 够用 |
-| `first_mes` 末尾有"选难度/选阵营"问句，但游戏本身无系统 | 纯 prompt + 开局 skill 收 setup | 选项落到开局 skill 而非 engine |
-| 30+ 键值状态（好感度、日期、地点），但变化全是 ±1/±5 这类直接加减 | 轻量 | `patchState` 够用 |
-| 有 `{{roll:1d6}}` 偶尔用于占卜，其余推进靠 prompt | 轻量 | 1-2 次偶发掷骰直接写进 GM 规则，不值得开 `dice.ts` |
-| 有伤害公式 + 装备护甲 + 命中检定 | 标准 | 战斗逻辑进 engine |
-| 死亡循环叙事性出现（"你回想起上次失败时…"），但不真回退 state | 视计算模块判档 | 是叙事手法，不是回退机制；档位按是否有骰子/战斗判 |
-| 真死亡回溯：死后回到存档点 + 全图重玩 | 视计算模块判档 + session-backed state | 读档是 session 分支语义，不升档；切到目标节点后从该分支状态快照恢复 |
-| 周目继承"记忆"标记（死后保留某些字段） | 同上 + `meta/persistent.json` | 持久层走 gitignored 路径绕过整体回退，见 `ts-engine.md` §跨回退持久 |
-| 多结局章节存档，玩家可读档到任一章节起点 | 视计算模块判档 + session-backed state | 同上 |
+| 特征 | 档位 |
+|---|---|
+| 纯地理/势力/NPC，无变量 | prompt |
+| 只有开局选阵营/难度 | prompt + start skill |
+| 30+ 键值状态，简单 ± | light |
+| 偶发 `{{roll:1d6}}` 占卜 | light |
+| 伤害公式 + 装备护甲 + 命中 | standard |
+| 死亡循环只是叙事 | 按计算复杂度判 |
+| 真回档到存档点 | 按计算复杂度判 + session-backed state |
+| 周目保留记忆字段 | 上者 + persistent meta |
+| 多结局章节读档 | session-backed state |

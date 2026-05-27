@@ -1,91 +1,80 @@
 # 设计原则
 
-## 0. 引擎用 TS，探索脚本用 Python
+## 1. TS 跑时，Python 探索
 
-引擎模块用 TypeScript——pi extension 通过 jiti 加载 `.ts`，引擎需要被它直接 `import` 才能在工具 execute 里零开销调用。换语言要走子进程/IPC，延迟翻几个量级。
-探索脚本（解包 PNG、浏览世界书条目）是一次性 CLI 工具，用 Python 写更轻便。
-
-```
-engine/*.ts  →  TS（运行时，被 import）
-scripts/*.py →  Python（一次性，CLI 调用）
+```txt
+engine/*.ts  → pi extension 直接 import
+scripts/*.py → 解包、审计、一次性 CLI
 ```
 
-## 1. agent 是程序本身
+不要用 Python 做运行时 engine；子进程/IPC 太重。
 
-不要在 prompt 里写「你必须检查变量」「你必须输出更新指令」。agent 会自己调用工具、自己推理。你只需提供**工具**和**最小规则**。
+## 2. Agent 是程序
 
-agent 的核心能力是 **loop + meta**：查询状态 → 判断 → 掷骰 → 计算 → 更新 → 再判断 → 叙事。每一步都是真实工具调用，不是 LLM 脑补。不满意可以自我纠正、重新来。不要把逻辑写入 prompt——写成工具让 agent 自己调度。
+不要把「检查变量」「输出更新指令」写进 prompt。给工具，让 agent 自己 loop：查状态 → 判断 → 掷骰/计算 → 写状态 → 叙事。
 
-## 2. 所有计算与调度进引擎模块
+LLM 负责表达；代码负责规则。
 
-骰子、伤害公式、属性修正、好感度区间——这些进 `engine/*.ts`。LLM 不应该做算术。
+## 3. 计算进 engine
 
-同样，LLM 不擅长计数（第几轮了？该调同伴了吗？）、不擅长定时触发（每 3-5 轮做某事）、不擅长跨多轮"记住要做什么"。这些也进引擎——用 `engine/attention.ts` 每轮比较状态值、统计快照数量、注入系统提醒。
+骰子、伤害、价格、好感阈值、轮次计数、定时触发都进 engine。LLM 是叙事者，不是会计。
 
-**原则：LLM 是优秀的叙事者，糟糕的会计。叙事交给它，计数交给代码。**
+标准方案优先 CodeAct；轻量方案才用多个专用工具。
 
-## 3. 状态写入必须原子化、可追溯
+## 4. 状态可追溯
 
-LLM 不能直接 mutate state。所有写入走工具调用，引擎层保证原子性：JSON Patch (RFC 6902) 原地修改；patch ops 在工具调用日志里天然可追溯，必要时再加一份 `patches.jsonl` 审计日志（见 `ts-engine.md`）。
+LLM 不直接 mutate state。所有写入走工具/engine，保留 patch 或结构化结果。
 
-**状态持久化从一开始 session-backed**——轻量/标准方案用 pi session custom entry 做真相源，`state/` 只做 debug export / legacy fallback。死亡回溯、章节存档、撤销上一轮不进 engine 事件溯源，而是按 pi session tree/fork 的分支恢复对应状态快照；默认玩家包不安装文件回退扩展。
+状态真相源是 pi session custom entry。`state/` 只做 debug export / legacy fallback，不发布。读档靠 session tree/fork 分支恢复。
 
-## 4. prompt 极简
+## 5. Prompt 极简
 
+GM prompt 只放：
+
+```md
+# 世界名
+
+你是此世界的 GM。
+
+规则：
+- 视角/文风 2-3 条
+- 硬规则 ≤5 条
+- 工具调用纪律
 ```
-# 世界名 — 角色设定
 
-你是 xxx 世界的叙事者。核心原则：
-- 视角/文风约束（2-3条）
-- 关键规则（不超过5条）
-- 可用工具提示
-```
+不要把世界书、公式、COT、JSON Patch 指令塞进去。
 
-## 5. 砍掉一切「因为你无法自己判断所以我要告诉你」的东西
+## 6. 删 ST 补丁
 
-包括但不限于：强化思考链、MVU 更新规则、JSON Patch 格式、变量修改格式、`__结束__` 标记、角色强制输出格式、合理性审查独立模块。agent 不需要这些。
+默认剥离：强化思考链、MVU 输出格式、JSON Patch 文本、`__结束__`、角色强制格式、HTML 状态栏、前端模板。
 
-## 6. 叙事即对话
+这些是 ST 运行时补丁，不是 agent 需求。
 
-agent 的对话输出本身就是叙事。不需要额外分离到独立日志文件——用户直接看 agent 对话即可。GM 自己决定叙事节奏：简单状态更新一句带过，重大剧情推进展开详细场景。
+## 7. Data 按需查
 
-## 7. 数据文件按类型拆分，按需注入
+- 世界/规则：`data/world.json`
+- 角色：`data/characters.json` + lookup
+- 章节：`data/chapters.json` + lookup
+- 开场：`skills/start-game/SKILL.md`
 
-不要把所有世界信息塞进 GM prompt。组织原则：
-- `data/world.json` — 世界设定（地理、势力、种族、**系统规则**），每轮注入（注入位置/方式因目标模型而异，详见 `references/models/<model>.md`）。纯地理/势力卡 ≤5KB；大量常驻系统条目的卡自然膨胀到 20-30KB——规模由条目审计结果决定，不硬压体积
-- `data/characters.json` — 角色数据（性格、背景、说话特点），通过角色详情查询工具（如 `get_character_detail`）按需读取，不预注入 prompt
-- GM prompt 中的角色列表 — 只列角色名 + 一句话摘要（≤20 字/角色）
-- 章节剧情模板 — 提取到 `data/chapters.json`，注册章节查询工具让 GM 按需加载当前章节；不要预注入 prompt
-- `first_mes` 为前端 HTML 说明书时 — 合成文学性开场叙事，内联到开局 skill
-- 开场白：生成开局 skill（`skills/<name>/SKILL.md`，如 `skills/start-game/SKILL.md`），agent 首轮 call 它。详见 `references/setup.md`。
+大数据不进 prompt。地点 ≥20、NPC ≥5、DLC/物价表存在时，必须配查询工具。
 
-## 8. 数据没有查询工具 = 死数据
+## 8. 工具 description 是决策入口
 
-世界书条目、预设 NPC、DLC 模块——这些数据不在训练集里，prompt 塞不下。唯一的访问路径是工具调用。
+模型是否调工具，主要看工具 description。读取类工具要写：
 
-**工具 description 是模型决策的第一入口**——光配工具不够，模型默认凭记忆/即兴回答而非调工具。
+- 必须调用场景
+- 严禁凭记忆编造
+- 战斗/检定类的职责边界
 
-- 凡是有结构化数据集合（地点 ≥20、NPC ≥5、DLC 模块、物价表），必须配查询工具
-- 查询工具的核心价值是**阻止 LLM 虚构成具体细节**：「一座工业城市」vs「铁炉堡：84% 人类 + 4% 矮人工匠，巨型山体要塞，帝国军事工业双重心」
-- 查询工具也应覆盖数据发现：「我该去哪个城市」→ 返回匹配列表，GM 再选一个查详情
-- 反模式：把几百个 NPC 塞进 system prompt 让 GM 自己找——结果永远是 GM 读不完、找不到、干脆自己编
+## 9. 工具粒度按玩家动作
 
-**关键：工具能查数据 ≠ 模型会调用工具。** function calling 模式下，模型决定是否调用工具，主要读工具的 `description` 字段，不是 system prompt。每一个读取类工具的 description 必须包含：
-- **【必须调用的场景】**——用具体列表，不用「在需要时」这类模糊表述
-- **【严禁的行为】**——显式否定模型的内部记忆权威性（「你的记忆不是权威来源」）
-- **【你的职责】（战斗/检定类工具）**——重新定义角色（「你不是创造者，你是翻译者」）
+| 玩家动作 | 工具 |
+|---|---|
+| 到新地点 | `lookup_location` |
+| 见 NPC | `lookup_npc` |
+| 找任务 | `generate_quest` |
+| 社交结束 | `update_affection` |
+| 战斗结算 | `calculate_xp` / `try_level_up` |
 
-详见 `references/pi-integration.md` §「工具 description 工程」。
-
-## 9. 工具粒度：一个玩家动作，一个工具
-
-过粗（万能 `query_world` 工具）→ LLM 不知道该传什么参数，每次调用猜字段。过细（每个 NPC 一个工具）→ 工具数量爆炸。
-
-正确粒度：以「玩家动作的自然边界」为界——
-- 玩家到新地点 → `lookup_location`
-- 玩家见 NPC → `lookup_npc`
-- 玩家找任务 → `generate_quest`
-- NPC 互动结束 → `update_affection`
-- 战斗结束 → `calculate_xp` → `try_level_up`（两个工具但在同一轮调用，用 `promptGuidelines` 写死顺序）
-
-如果一个玩家动作需要 GM 记住「先调 A 再调 B」，考虑合并工具或用 attention 注入提示。
+过粗会参数乱猜，过细会工具爆炸。若总要记调用顺序，合并工具或改成 CodeAct 组合 API。
