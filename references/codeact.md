@@ -31,6 +31,8 @@ scene(...)       高层活动：战斗、演出、探索、休息
 
 ## 沙箱契约
 
+沙箱用 `node:vm`（`vm.createContext` + `vm.Script.runInContext`），不是 `child_process`、`eval` 或 Docker。
+
 - 写函数返回结构化结果，如 `{ before, after }`、`{ settlement, events, hooks }`。
 - 写函数自动 log 人类可读摘要。
 - 查询未命中 throw，供脚本 try/catch。
