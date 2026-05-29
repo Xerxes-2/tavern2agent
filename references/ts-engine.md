@@ -82,9 +82,7 @@ patches.jsonl = debug log, not source of truth
 
 ## 轻量 attention
 
-标准 CodeAct 不写 `attention.ts`；GM 可在沙箱里 `status()` 后自行 log 张力点。
-
-light 方案若需要“每 N 轮提醒同伴 / XP 溢出提醒”，可以写 `buildReminders(state)`，在每轮 prompt 注入。
+若需要“每 N 轮提醒同伴 / XP 溢出提醒”，可以写 `buildReminders(state)`，在每轮 prompt 注入。
 
 规则：
 
