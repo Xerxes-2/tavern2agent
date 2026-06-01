@@ -1,72 +1,56 @@
 # 工具抽象设计
 
-RP 项目的工具设计目标不是「让模型能改 state」，而是让 GM 以自然叙事决策单位安全提交世界变化。不要按数据库字段切工具，也不要把复杂工作流写进 prompt 让模型背；把工作流做成可执行的高层 API。
+RP 工具的目标不是「让模型能改 state」，而是让 GM 以自然叙事决策单位安全提交世界变化。不要按数据库字段切工具，也不要把复杂工作流写进 prompt 让模型背；把工作流做成可执行的高层 API。
 
-核心抽象是：**入口宽、核心严**。工具入口要接受模型自然表达世界变化的方式；engine 内部仍严格维护 canonical state、protected paths、hidden/public 边界和领域不变量。不要让模型精确填写数据库表单，而要把「这一幕发生了什么」收编成严格、可验证的状态事务。
+核心原则：**入口宽，核心严**。
 
-CodeAct 是实现这种工具抽象的一种载体，不是唯一答案。稳定、可枚举的场景动作可以做成 typed pi tools；计算、循环、批量结算和时间压缩更适合 CodeAct 沙箱。
+- 入口宽：接受模型自然表达，例如 flat payload、自然语言 handle、`current` / `all` 上下文引用、事务摘要默认 reason。
+- 核心严：engine 仍严格维护 canonical state、protected paths、hidden/public 边界和领域不变量。
+
+CodeAct 是实现这套抽象的一种载体，不是唯一答案。稳定、可枚举的场景动作可以做成 typed pi tools；计算、循环、批量结算和时间压缩更适合 CodeAct 沙箱。
 
 ## 选择取舍
 
-CodeAct 和一组 typed pi tools 都可以承载同一套四层架构。区别是执行载体：
+CodeAct 和 typed pi tools 都可以承载同一套 API 架构。区别是执行载体：
 
 ```txt
 CodeAct       GM 写受限 JS，调用沙箱 API 完成一段状态命令
 Typed tools   GM 调 pi tools；工作流由每个工具 interface 固化
 ```
 
-### 优先用 CodeAct
-
-满足任一强信号时倾向 CodeAct：
+优先用 CodeAct：
 
 - 战斗、经济、任务、日程、经营、好感、伤害等规则需要多字段联动。
 - 一轮经常要计算、循环、筛选、批量处理 NPC / 物品 / 日程。
 - 时间压缩需要连续推进多个时段，并在中途触发事件。
 - 公式、随机、条件分支比「调用几个固定工具」更自然。
-- 如果生成一堆 `dice/combat/economy/task` 独立工具，工具面会爆炸。
-- playtest 中模型反复需要连续调用 3 个以上状态工具完成同一种动作。
+- 若生成一堆 `dice/combat/economy/task` 独立工具，工具面会爆炸。
 
-### 优先用 typed deep tools
+优先用 typed deep tools：
 
-满足这些信号时，不要为了 standard 方案机械上 CodeAct，可以用深 typed tools：
-
-- 项目规则稳定，核心动作能枚举成少数深 interface。
+- 规则稳定，核心动作能枚举成少数深 interface。
 - hidden/public、权限、锁定事实、审计边界很强，不希望 GM 写临时脚本靠近 raw state。
 - 需要 TypeScript 编译期约束、细粒度单元测试和明确工具审计。
 - 场景动作比公式计算更重要，例如 `scene_beat`、`commit_turn`、`set_scene_presence`。
-- 高层 typed tools 已经覆盖模型的自然决策单位。
-
-### 混合方案
 
 可以混合：typed tools 管核心 state seam，CodeAct 只管局部高复杂结算。
-
-例：
 
 ```txt
 主状态写入：scene_beat / commit_turn / record_memory / reveal_secret
 局部 CodeAct：combat_exchange / rest_period / investigation_pass / downtime_sim
 ```
 
-无论选哪种，原则相同：不要让模型背工作流；把工作流变成可执行的高层 API。
+无论选哪种，不要让模型背工作流；把工作流变成可执行 API。
 
 ## 高层设计准则
 
 ### 按叙事决策单位建模
 
-工具不该对应数据库字段，而应对应 GM 的叙事动作：进入调查、完成撤退、休息一晚、采购整备、战斗交换、记录长期后果。若模型经常需要连续调用 3 个以上工具完成同一类叙事动作，说明缺少更深的 scene/action API 或 turn commit API。
-
-### 宽入口，严核心
-
-输入层可以宽松：接受 flat payload、自然语言 handle、`current` / `all` 这类上下文引用、从事务摘要继承默认 reason。核心层必须严格：actor 必须存在，资金不能透支，secret 不能写进 public，beat id 必须匹配，protected paths 不能绕过。
-
-```txt
-宽入口：ownerActorId=protagonist、resolveAllObjectives=true、objective summary 片段
-严核心：唯一 held purse 才能自动选择；多候选必须报错；hidden/public 仍隔离
-```
+工具对应 GM 的叙事动作，而不是 state 字段：进入调查、完成撤退、休息一晚、采购整备、战斗交换、记录长期后果。若模型经常连续调用 3 个以上工具完成同一类动作，说明缺少更深的 scene/action API 或 turn commit API。
 
 ### 子事件像原工具调用
 
-组合工具里的子事件应尽量接受和原工具相同的参数形状。`commitTurn` 应像批量执行领域工具，而不是要求模型学习一套额外 DSL。
+组合工具应像「批量调用领域工具」，不要要求模型学习一套额外 DSL。
 
 好：
 
@@ -88,11 +72,11 @@ commitTurn({
 });
 ```
 
-如果必须有内部嵌套，也要兼容 flat 形状。
+如果内部实现需要嵌套，也要兼容 flat payload。
 
 ### 事务字段向下继承
 
-事务层的全局字段应能为子事件提供同语义默认值。典型规则：
+事务层全局字段应能为子事件提供同语义默认值：
 
 ```txt
 commit.summary → event.reason
@@ -100,29 +84,17 @@ turn.actorId   → child event actorId
 turn.source    → child event source
 ```
 
-不要要求模型重复写同一段 reason；重复字段越多，失败点越多。但默认值只能填同语义字段，不能凭空猜业务事实。
+不要让模型重复写同一段 reason；重复字段越多，失败点越多。默认值只能填同语义字段，不能凭空猜业务事实。
 
 ### 当前上下文优先于内部 ID
 
-RP 模型最自然的引用顺序是：
+RP 模型最自然的引用顺序：
 
 ```txt
 当前上下文 > 领域主体 / 自然语言 handle > 内部 ID
 ```
 
-优先提供：
-
-```txt
-current beat
-resolveAllObjectives
-ownerActorId
-actor display name / alias
-objective summary
-item label
-claim + evidence
-```
-
-内部 ID 可以返回给日志和精确操作，但不要成为继续工作流的唯一入口。
+优先提供：`current beat`、`resolveAllObjectives`、`ownerActorId`、角色别名、objective summary、item label、claim + evidence。内部 ID 可以返回给日志和精确操作，但不要成为唯一入口。
 
 ### 复杂 beat 成对设计入口和出口
 
@@ -140,7 +112,7 @@ claim + evidence
 
 ### Runtime optional 必须真的 optional
 
-tool schema 里 optional 的字段，在 engine 里必须有默认值或领域错误。不要让模型看到 JS 内部错误。
+tool schema 里 optional 的字段，在 engine 里必须有默认值或领域错误。
 
 ```txt
 optional array  → default []
@@ -159,17 +131,14 @@ domain composition 层  常用领域联动：交易、推进时间、结算任�
 primitive/debug 层     status、lookup、log、assert、受保护低层事件；patch 只 debug/兜底
 ```
 
-turn commit / transaction 不是 scene/action 的子项，而是横跨 scene、memory、economy、condition 等领域的事务收口层。它解决的是「一轮回复中多个状态变化如何按顺序安全落地」，不是某个具体场景动作。
-
 规则：
 
 - GM 优先用最高层；覆盖不到再降层。
-- primitive/debug 层 + domain composition 层必须有。
 - 有「持续活动 + 结算 + 事件」就建 scene/action 层。
-- 一轮内多个状态变化要有 turn commit / transaction 概念。
-- `patch` 只能 debug 或兜底，不能绕过有规则的组合函数；有 protected path 时必须 throw。
+- 一轮内多个状态变化要有 turn commit / transaction。
+- `patch` 只能 debug 或兜底，不能绕过有规则的组合函数。
 
-### scene/action 层
+### Scene / Action
 
 scene 层不是题材分类，而是 GM 的一次叙事承诺。API 名称尽量贴近玩家行动句子：
 
@@ -200,9 +169,9 @@ patch([{ path: "/scene/location", value: "柳洞寺" }]);
 patch([{ path: "/scene/objectives/0", value: "确认结界" }]);
 ```
 
-### turn commit / transaction 层
+### Turn Commit / Transaction
 
-RP agent 最容易漏的是「收口」：撤退、推进时间、完成目标、记录长期后果、扣资源可能发生在同一回复。要提供事务式 API：
+turn commit 横跨 scene、memory、economy、condition 等领域，解决「一轮回复中多个状态变化如何按顺序安全落地」。它不是 scene/action 的子项。
 
 ```ts
 declare function commitTurn(input: {
@@ -218,7 +187,7 @@ declare function commitTurn(input: {
 - 需要统一验证 completion / protected path / hidden-public 边界。
 - 需要在叙事前返回 warnings、before/after、narrative hooks。
 
-脚本例：
+例：
 
 ```ts
 commitTurn({
@@ -231,11 +200,9 @@ commitTurn({
 });
 ```
 
-事务层应自动把 `summary` 下传为子事件默认 `reason`。子事件如果有更具体的 reason，可以覆盖默认值。
-
 ## Natural handles
 
-RP 模型更容易记玩家可见文本、当前上下文和领域主体，不容易记内部 id。工具 API 应尽量接受 natural handles，并在内部匹配。
+工具 API 应尽量接受玩家可见文本、当前上下文和领域主体，并在内部匹配。
 
 优先支持：
 
@@ -243,22 +210,11 @@ RP 模型更容易记玩家可见文本、当前上下文和领域主体，不�
 - `resolveAllObjectives` / `clearCurrentThreats` 这类 current-context 操作
 - actor display name / alias / `ownerActorId`
 - objective summary 或 summary 片段
-- item label
-- location label
+- item label / location label
 - claim + evidence
 - memory title
 
-例：
-
-```ts
-completeObjective("安全撤回不触发戒备");
-transferItem({ item: "宝石项链", to: "士郎" });
-revealSecret({ actor: "Assassin", claim: "佐佐木小次郎", evidence });
-```
-
-内部 id 可以返回，但不要成为继续工作流的唯一入口。多重匹配时 throw ambiguity error，并列出候选；未命中时 throw，并提示可用 handles。
-
-自然语言 handle 至少要支持精确匹配和包含匹配。模型很少稳定逐字复述 objective summary；`"检查地面、墙角和排水沟"` 应能匹配 `"沿魔力波动外围用構造把握检查地面、墙角和排水沟"`。多候选时再报 ambiguity。
+自然语言 handle 至少支持精确匹配和包含匹配。模型很少稳定逐字复述 objective summary；`"检查地面、墙角和排水沟"` 应能匹配 `"沿魔力波动外围用構造把握检查地面、墙角和排水沟"`。多候选时报 ambiguity，并列出候选。
 
 ## Protected paths
 
@@ -276,13 +232,11 @@ revealSecret({ actor: "Assassin", claim: "佐佐木小次郎", evidence });
 
 ## 错误设计
 
-错误信息是给模型恢复用的 prompt。不要只说 failed；要说明正确路径。
-
-例：
+错误信息是给模型恢复用的 prompt。不要只说 failed；要返回下一次调用所需参数。
 
 ```txt
 unknown actor: caster。请先 materialize actor：upsert_actor / addActor。
-unresolved beat: 仍有未解决目标 objective-2「安全撤回」。
+unresolved beat: 仍有未解决目标，可用 resolveAllObjectives=true。候选：...
 ambiguous item label: 宝石。候选：宝石项链、红宝石吊坠。
 protected path /economy/funds: 请使用 adjustMoney / purchase。
 ```
@@ -296,8 +250,6 @@ protected path /economy/funds: 请使用 adjustMoney / purchase。
 - 用 patch 改受保护字段。
 - 多状态收口却绕过 turn commit。
 
-错误信息要返回下一次调用所需参数。
-
 ## Prompt 要点
 
 写进 GM 规则：
@@ -308,7 +260,7 @@ protected path /economy/funds: 请使用 adjustMoney / purchase。
 - 脚本或工具调用只做机械层；叙事在工具返回后写。
 - 不调用工具就不能声称状态已改变。
 
-工具 description 应写：
+工具 description 写四件事：
 
 1. 必须调用场景。
 2. 严禁行为。
@@ -331,7 +283,7 @@ protected path /economy/funds: 请使用 adjustMoney / purchase。
 - 是否把 hidden truth 写进 public。
 - 工具失败后是否能恢复。
 
-如果同一种误用在 playtest 中重复出现：
+如果同一种误用重复出现，按顺序处理：
 
 1. 加深 scene/action API。
 2. 接受模型自然参数形状，例如 flat payload。
@@ -345,11 +297,11 @@ protected path /economy/funds: 请使用 adjustMoney / purchase。
 
 ## CodeAct 章节
 
-CodeAct 是上面四层 API 的一种执行方式：用单个 `code_act` 工具承载 typed command layer。GM 写受限 JS，沙箱执行计算、随机、状态写入、查询，再把结构化结果交给 GM 叙事。
+CodeAct 是四层 API 的一种执行方式：单个 `code_act` 工具承载 typed command layer。GM 写受限 JS，沙箱执行计算、随机、状态写入、查询，再把结构化结果交给 GM 叙事。
 
 纯 prompt / light 不要套 CodeAct。CodeAct 不是让 LLM 在沙箱里写小说，也不是自由脚本入口；沙箱只产机械结果、结算摘要和叙事钩子。
 
-### CodeAct 解决的问题
+### CodeAct 适用点
 
 - 多步结算要跨很多 tool call。
 - LLM 容易忘顺序或心算错误。
@@ -377,8 +329,6 @@ CodeAct 是上面四层 API 的一种执行方式：用单个 `code_act` 工具�
 - GM 每轮看到的函数签名。
 - 沙箱实现的类型检查。
 - 工具 description 的权威 API 段。
-
-不要用长自然语言逐个解释函数。类型签名 + 少量 JSDoc 足够。
 
 示意：
 
