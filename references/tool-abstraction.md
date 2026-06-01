@@ -2,6 +2,8 @@
 
 RP 项目的工具设计目标不是「让模型能改 state」，而是让 GM 以自然叙事决策单位安全提交世界变化。不要按数据库字段切工具，也不要把复杂工作流写进 prompt 让模型背；把工作流做成可执行的高层 API。
 
+核心抽象是：**入口宽、核心严**。工具入口要接受模型自然表达世界变化的方式；engine 内部仍严格维护 canonical state、protected paths、hidden/public 边界和领域不变量。不要让模型精确填写数据库表单，而要把「这一幕发生了什么」收编成严格、可验证的状态事务。
+
 CodeAct 是实现这种工具抽象的一种载体，不是唯一答案。稳定、可枚举的场景动作可以做成 typed pi tools；计算、循环、批量结算和时间压缩更适合 CodeAct 沙箱。
 
 ## 选择取舍
@@ -46,6 +48,107 @@ Typed tools   GM 调 pi tools；工作流由每个工具 interface 固化
 ```
 
 无论选哪种，原则相同：不要让模型背工作流；把工作流变成可执行的高层 API。
+
+## 高层设计准则
+
+### 按叙事决策单位建模
+
+工具不该对应数据库字段，而应对应 GM 的叙事动作：进入调查、完成撤退、休息一晚、采购整备、战斗交换、记录长期后果。若模型经常需要连续调用 3 个以上工具完成同一类叙事动作，说明缺少更深的 scene/action API 或 turn commit API。
+
+### 宽入口，严核心
+
+输入层可以宽松：接受 flat payload、自然语言 handle、`current` / `all` 这类上下文引用、从事务摘要继承默认 reason。核心层必须严格：actor 必须存在，资金不能透支，secret 不能写进 public，beat id 必须匹配，protected paths 不能绕过。
+
+```txt
+宽入口：ownerActorId=protagonist、resolveAllObjectives=true、objective summary 片段
+严核心：唯一 held purse 才能自动选择；多候选必须报错；hidden/public 仍隔离
+```
+
+### 子事件像原工具调用
+
+组合工具里的子事件应尽量接受和原工具相同的参数形状。`commitTurn` 应像批量执行领域工具，而不是要求模型学习一套额外 DSL。
+
+好：
+
+```ts
+commitTurn({
+  summary: "进入新都调查并采购",
+  events: [
+    { kind: "scene-beat", event: { kind: "move-location", location, storyWindow, objectives } },
+    { kind: "economy", event: { kind: "spend-money", ownerActorId: "protagonist", amount: 3500 } },
+  ],
+});
+```
+
+差：
+
+```ts
+commitTurn({
+  events: [{ kind: "scene-beat", event: { kind: "move-location", input: { location } } }],
+});
+```
+
+如果必须有内部嵌套，也要兼容 flat 形状。
+
+### 事务字段向下继承
+
+事务层的全局字段应能为子事件提供同语义默认值。典型规则：
+
+```txt
+commit.summary → event.reason
+turn.actorId   → child event actorId
+turn.source    → child event source
+```
+
+不要要求模型重复写同一段 reason；重复字段越多，失败点越多。但默认值只能填同语义字段，不能凭空猜业务事实。
+
+### 当前上下文优先于内部 ID
+
+RP 模型最自然的引用顺序是：
+
+```txt
+当前上下文 > 领域主体 / 自然语言 handle > 内部 ID
+```
+
+优先提供：
+
+```txt
+current beat
+resolveAllObjectives
+ownerActorId
+actor display name / alias
+objective summary
+item label
+claim + evidence
+```
+
+内部 ID 可以返回给日志和精确操作，但不要成为继续工作流的唯一入口。
+
+### 复杂 beat 成对设计入口和出口
+
+复杂场景不只需要进入接口，也需要收口接口。
+
+```txt
+入口：moveToBeat / beginBeat
+  移动 + 时间 + storyWindow + objectives + threats + presence
+
+出口：completeBeat / commitTurn
+  完成目标 + 关闭窗口 + 撤回/切换地点 + memory + 资源/伤势后果
+```
+
+只做入口不做出口，会留下悬挂 storyWindow、未清 objective、漏写 memory 等问题。
+
+### Runtime optional 必须真的 optional
+
+tool schema 里 optional 的字段，在 engine 里必须有默认值或领域错误。不要让模型看到 JS 内部错误。
+
+```txt
+optional array  → default []
+optional object → default null 或明确报缺字段
+optional next   → default no next beat
+```
+
+禁止出现 `ids is not iterable` 这类实现泄漏；应改成「仍有未解决目标，可用 resolveAllObjectives=true」。
 
 ## 四层 API
 
@@ -121,21 +224,25 @@ declare function commitTurn(input: {
 commitTurn({
   summary: "撤回卫宫宅并记录柳洞寺侦察发现",
   events: [
-    scene.moveLocation({ location: "卫宫宅", elapsedMinutes: 35, reason: "安全撤回" }),
-    scene.completeBeat({ resolvedObjectiveSummaries: ["确认结界", "安全撤回"] }),
+    scene.completeBeat({ resolveAllObjectives: true }),
+    scene.moveLocation({ location: "卫宫宅", elapsedMinutes: 35 }),
     memory.recordMajorEvent({ title: "柳洞寺外围侦察", summary: "山门是唯一入口" }),
   ],
 });
 ```
 
+事务层应自动把 `summary` 下传为子事件默认 `reason`。子事件如果有更具体的 reason，可以覆盖默认值。
+
 ## Natural handles
 
-RP 模型更容易记玩家可见文本，不容易记内部 id。工具 API 应尽量接受 natural handles，并在内部匹配。
+RP 模型更容易记玩家可见文本、当前上下文和领域主体，不容易记内部 id。工具 API 应尽量接受 natural handles，并在内部匹配。
 
 优先支持：
 
-- objective summary
-- actor display name / alias
+- current beat / current scene
+- `resolveAllObjectives` / `clearCurrentThreats` 这类 current-context 操作
+- actor display name / alias / `ownerActorId`
+- objective summary 或 summary 片段
 - item label
 - location label
 - claim + evidence
@@ -150,6 +257,8 @@ revealSecret({ actor: "Assassin", claim: "佐佐木小次郎", evidence });
 ```
 
 内部 id 可以返回，但不要成为继续工作流的唯一入口。多重匹配时 throw ambiguity error，并列出候选；未命中时 throw，并提示可用 handles。
+
+自然语言 handle 至少要支持精确匹配和包含匹配。模型很少稳定逐字复述 objective summary；`"检查地面、墙角和排水沟"` 应能匹配 `"沿魔力波动外围用構造把握检查地面、墙角和排水沟"`。多候选时再报 ambiguity。
 
 ## Protected paths
 
@@ -180,12 +289,14 @@ protected path /economy/funds: 请使用 adjustMoney / purchase。
 
 工具应主动拒绝常见错法：
 
-- 漏 reason。
+- 漏 reason，且无法从事务 summary 派生。
 - 未解决 objective 就 transition。
 - 写入不存在 actor。
 - secret 写进 public memory。
 - 用 patch 改受保护字段。
 - 多状态收口却绕过 turn commit。
+
+错误信息要返回下一次调用所需参数。
 
 ## Prompt 要点
 
@@ -211,8 +322,10 @@ protected path /economy/funds: 请使用 adjustMoney / purchase。
 记录这些信号：
 
 - 模型是否频繁降层。
-- 是否漏 reason。
-- 是否记不住内部 id。
+- 是否漏 reason，或重复写相同 reason。
+- 是否记不住内部 id / purse id / objective id。
+- 是否自然写 flat payload，而 API 只接受 nested payload。
+- 是否想表达「当前 beat 全部完成」，但 API 要求逐条列 objective。
 - 是否把多个状态变化拆散。
 - 是否先叙事后工具。
 - 是否把 hidden truth 写进 public。
@@ -221,10 +334,12 @@ protected path /economy/funds: 请使用 adjustMoney / purchase。
 如果同一种误用在 playtest 中重复出现：
 
 1. 加深 scene/action API。
-2. 增加 natural handle。
-3. 加 validator / protected path。
-4. 改错误信息提示正确路径。
-5. 最后才改 prompt 文案。
+2. 接受模型自然参数形状，例如 flat payload。
+3. 增加 natural handle / current-context 操作。
+4. 给事务字段增加安全默认值，例如 `summary → reason`。
+5. 加 validator / protected path。
+6. 改错误信息提示正确路径和候选。
+7. 最后才改 prompt 文案。
 
 不要用 prompt 长期弥补坏 interface。
 
@@ -274,8 +389,9 @@ declare function lookup(type: string, query: string): LookupEntry[];
 
 declare function commitTurn(input: TurnCommitInput): TurnCommitResult;
 declare function moveToBeat(input: MoveToBeatInput): SceneBeatResult;
+declare function completeCurrentBeat(input: { resolveAllObjectives?: boolean }): SceneBeatResult;
 declare function completeObjective(summaryOrId: string): ObjectiveResult;
-declare function adjustMoney(delta: number, reason: string): Change<number>;
+declare function adjustMoney(input: { ownerActorId: string; amount: number; reason?: string }): Change<number>;
 
 /** debug-only；protected paths 会拒绝非法写入 */
 declare function patch(ops: PatchOp[], reason: string): void;
@@ -308,7 +424,10 @@ subagent 不拿 `code_act`。子代理只给文本/结构化建议；状态写�
 - [ ] primitive/debug 层 + domain composition 层存在。
 - [ ] 有活动单元时 scene/action 层存在。
 - [ ] 多状态变化有 turn commit / transaction。
+- [ ] 组合工具子事件接受原工具的 flat payload，或至少兼容 flat payload。
+- [ ] 事务 summary 能为子事件 reason 提供默认值。
 - [ ] API 接受 natural handles，或错误能列出候选。
+- [ ] 当前上下文操作存在，例如 current beat / resolveAllObjectives / ownerActorId 自动账户选择。
 - [ ] protected paths 覆盖关键字段。
 - [ ] patch 不碰受保护路径；最好 debug-only。
 - [ ] GM 规则写清四层优先级和禁区。
