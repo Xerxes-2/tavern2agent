@@ -13,6 +13,11 @@
 - 周目继承记忆：加 `meta/persistent.json` 或 permanent custom entry。
 - 非 MVU 自定义变量：按语义映射，不单开方案。
 
+- 伤害公式 + 装备护甲 + 命中：standard，通常用 CodeAct。
+- 稳定 RP 场景流程（进入 beat、完成 beat、撤退记录）：standard 可用少数深 typed tools，不必强上 CodeAct。
+- 若 prompt 里出现「先 A，再 B，再 C」且 playtest 反复漏步骤：把工作流升成 scene/action API 或 turn commit，不要只加提示词。
+- 模型需要循环/批量/条件计算：CodeAct 优先；模型只需要提交少数叙事动作：typed deep tools 优先。
+
 ## 样例
 
 | 特征 | 档位 |

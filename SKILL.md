@@ -51,9 +51,9 @@ python3 scripts/get_entry.py card.json <index>
 |---|---|---|
 | 纯设定，无运行状态 | prompt | `agents/` + `data/` + start skill |
 | 少量键值状态，无复杂公式 | light | 加 `engine/state.ts`、`get_status`、`patch_state` |
-| 骰子/战斗/经济/多字段联动/时间压缩/级联 | standard | CodeAct：`code_act` + session-backed state |
+| 骰子/战斗/经济/多字段联动/时间压缩/级联 | standard | CodeAct：`code_act` + session-backed state，或少数深 typed tools + 局部 CodeAct |
 
-标准方案默认 CodeAct。不要默认生成一堆 `dice/combat/economy/attention` 工具；把规则收进沙箱 API。详见 `references/codeact.md`。
+标准方案默认优先考虑 CodeAct，但不是机械套沙箱。若规则稳定且能收敛成少数 GM 叙事动作（如 `scene_beat`、`commit_turn`、`set_scene_presence`），可以用深 typed tools；若每轮需要计算、循环、批量结算或时间压缩，才用 CodeAct 承载 typed command layer。不要默认生成一堆 `dice/combat/economy/attention` 工具；把规则收进沙箱 API 或深工具 API。详见 `references/tool-abstraction.md`。
 
 ## 多 agent 判定
 
@@ -77,7 +77,7 @@ subagent 只给建议或文本；状态写入仍由 GM 走主 engine。详见 `r
 | TH/regex 脚本 | `references/script-analysis.md` |
 | 世界书/MVU/initvar | `references/mvu-mapping.md` |
 | 开局 setup | `references/setup.md` |
-| CodeAct 标准方案 | `references/codeact.md` |
+| 工具抽象 / CodeAct 取舍 | `references/tool-abstraction.md` |
 | 数据查询层 | `references/data-layer.md` |
 | session state / 轻量引擎 | `references/ts-engine.md` |
 | schema/migration | `references/state-schema-migrations.md` |
