@@ -16,7 +16,8 @@ grep -rnE '\{\{(user|char|random|roll|pick|getvar|setvar)' \
 
 ## 人工清单
 
-- [ ] `agents/gm.md` 核心规则 ≤5 条。
+- [ ] `agents/preset.json` 存在，slot 顺序清楚，source 只指向 `agents/*.md` 或已知 runtime source。
+- [ ] `agents/gm-*.md` 按职责拆分；没有把世界书、工具说明、硬规则、输出合同塞成一坨。
 - [ ] 开局 skill 存在，setup 字段齐，默认值齐。
 - [ ] `first_mes` 已剥离 HTML/状态栏/ST 宏。
 - [ ] `alternate_greetings` / `group_only_greetings` 有去向。
@@ -24,7 +25,7 @@ grep -rnE '\{\{(user|char|random|roll|pick|getvar|setvar)' \
 - [ ] `[initvar]` 转成 `INITIAL_STATE`。
 - [ ] TH scripts / regex scripts 已审计。
 - [ ] 章节/大型设定未全量塞 prompt。
-- [ ] 需要用户卡时有 `data/user.json` 或 setup 字段。
+- [ ] 主角设定若存在，已进入世界书 / start skill / actor state / memory / 可选 prompt module；不默认生成 `data/user.json`。
 - [ ] 多 agent 场景有独立 subagent，且不拿 `code_act`。
 - [ ] 标准方案有 CodeAct API、protected paths、session-backed state。
 

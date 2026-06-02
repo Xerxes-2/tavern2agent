@@ -67,7 +67,7 @@ final-contract：短输出闸门
 - 世界正文进 data + lookup，不进 prompt。
 - 动态提醒按轮注入，不写回历史。
 - 不要把最后一条 user 单独拆出来；完整 conversation history 应保持连续。
-- role/位置按目标模型调；模型特化见 `references/models/`。
+- role/位置按目标模型在下场测试中调整；不要预设某个模型专用规则。
 
 ## 工具参数
 

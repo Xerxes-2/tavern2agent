@@ -86,7 +86,6 @@ subagent 只给建议或文本；状态写入仍由 GM 走主 engine。详见 `r
 | toolset 切换 | `references/toolsets.md` |
 | 多 agent | `references/multi-agent-architecture.md` |
 | 下场测试 | `references/validation.md` |
-| 目标模型特化 | `references/models/<model>.md` |
 | 工程纪律 | `references/engineering-discipline.md` |
 
 ## 产出
@@ -94,7 +93,8 @@ subagent 只给建议或文本；状态写入仍由 GM 走主 engine。详见 `r
 最小：
 
 ```txt
-agents/gm.md
+agents/preset.json
+agents/gm-*.md
 data/world.json
 skills/start-game/SKILL.md
 start.sh

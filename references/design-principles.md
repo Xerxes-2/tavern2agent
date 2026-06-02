@@ -27,22 +27,19 @@ LLM 不直接 mutate state。所有写入走工具/engine，保留 patch 或结�
 
 状态真相源是 pi session custom entry。`state/` 只做 debug export / legacy fallback，不发布。读档靠 session tree/fork 分支恢复。
 
-## 5. Prompt 极简
+## 5. Prompt 按职责拆分
 
-GM prompt 只放：
+GM prompt 不要塞成一坨，也不要把组织顺序写死在 TS。复杂 RP 项目使用 `agents/preset.json` 管理模块开关、slot 和 priority；具体文本拆到 `agents/gm-*.md`。
 
-```md
-# 世界名
+推荐职责：
 
-你是此世界的 GM。
-
-规则：
-- 视角/文风 2-3 条
-- 硬规则 ≤5 条
-- 工具调用纪律
+```txt
+pre-history：创作宪法、世界索引、输入协议、社交/文风/渲染滤镜
+pre-response：状态简报、工具策略、硬规则、本轮 driver
+final-contract：短输出闸门
 ```
 
-不要把世界书、公式、COT、JSON Patch 指令塞进去。
+不要把世界书、公式、COT、JSON Patch 指令塞进去。大数据进 data + lookup；状态进 engine；prompt 只做阅读滤镜、工具纪律、叙事渲染和输出合同。
 
 ## 6. 不加戏
 

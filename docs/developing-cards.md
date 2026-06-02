@@ -8,7 +8,8 @@
 my-card/
 ├── .git/                 # 建议启用
 ├── .pi/settings.json     # 项目包
-├── agents/gm.md          # 最常改
+├── agents/preset.json   # prompt 组织开关/顺序
+├── agents/gm-*.md       # prompt 模块
 ├── data/*.json
 ├── engine/*.ts
 ├── tools/registry.ts
@@ -62,7 +63,7 @@ meta/     # 仅死亡循环/跨周目永久记忆需要
 
 ### 改 GM prompt
 
-改 `agents/gm.md`，重启或继续下一轮即可。不需要迁移 state。
+优先改 `agents/preset.json` 调整模块开关、slot 和顺序；改具体文本时编辑 `agents/gm-*.md`。重启或继续下一轮即可。不需要迁移 state。
 
 ### 改 engine
 

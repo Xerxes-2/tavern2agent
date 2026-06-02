@@ -12,7 +12,7 @@
 - 骰子、战斗、好感度、经济等系统卡
 - 隐藏信息、多 NPC、多 agent 场景
 
-不迁移：HTML 状态栏、前端面板、文生图提示词、ST 预设模板。那些多是运行时补丁；迁移后可另接。
+不迁移：HTML 状态栏、前端面板、文生图提示词、ST 宏运行时补丁。ST 预设不逐字复制；可迁移其 prompt composition 思路。
 
 ## 安装
 
@@ -44,7 +44,8 @@ agent 会解包、审计世界书、选方案、生成项目、下场校验。�
 
 ```txt
 project/
-├── agents/gm.md
+├── agents/preset.json
+├── agents/gm-*.md
 ├── data/world.json
 ├── skills/start-game/SKILL.md
 └── start.sh
@@ -56,7 +57,8 @@ project/
 project/
 ├── .pi/settings.json
 ├── .pi/agents/*.md
-├── agents/gm.md
+├── agents/preset.json
+├── agents/gm-*.md
 ├── data/*.json
 ├── engine/codeact.ts
 ├── engine/codeact-sandbox.d.ts
