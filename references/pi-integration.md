@@ -65,7 +65,7 @@ final-contract：短输出闸门
 - 硬规则靠近生成；最终输出合同必须短而硬。
 - 参考信息低优先级，别抢玩家输入注意力。
 - 世界正文进 data + lookup，不进 prompt。
-- 动态提醒按轮注入，不写回历史。
+- prompt manifest 和 `.md` 模块应按轮读取，方便调参；稳定 system 身份层可启动时固定。
 - 不要把最后一条 user 单独拆出来；完整 conversation history 应保持连续。
 - role/位置按目标模型在下场测试中调整；不要预设某个模型专用规则。
 
@@ -127,7 +127,8 @@ GM prompt 可用这个框架：
 ```txt
 .pi/settings.json       项目包声明
 .pi/agents/*.md         子代理定义
-agents/gm*.md           GM prompt 分层
+agents/preset.json       prompt composition manifest
+agents/gm-*.md           GM prompt 模块
 skills/start-game/      开局 skill
 tools/registry.ts       工具注册与实现入口
 extension.ts            pi 注册入口

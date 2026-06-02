@@ -6,6 +6,7 @@ SillyTavern 预设最值得迁移的不是某段神奇 prompt，而是它的 **p
 
 - prompt 不是一坨 system；它是按职责编排的模块图。
 - TypeScript 只做 preset 解释器：读 manifest、校验 schema、解析 source、按 slot 注入。
+- preset manifest 和 `.md` 模块默认每轮重新读取，避免调参时重启 session；只有稳定 system 身份层可以启动时固定。
 - prompt 作者只改 manifest 和 `.md` 模块，不改 TS 代码。
 - 世界事实、大数据和状态仍在 data / lookup / engine；prompt 只管阅读滤镜、工具纪律、叙事渲染和输出合同。
 - ST 变量 / prompt_order 的思想可以迁移；ST 宏语法、HTML 状态栏、强制 COT 标签默认不迁移。
@@ -56,6 +57,14 @@ final-contract  给模型最终输出的短硬门禁，必须简短。
       "source": "agents/gm-context.md"
     },
     {
+      "id": "style-blacklist",
+      "enabled": true,
+      "slot": "pre-history",
+      "priority": 45,
+      "header": "style_blacklist",
+      "source": "agents/gm-style-blacklist.md"
+    },
+    {
       "id": "tool-policy",
       "enabled": true,
       "slot": "pre-response",
@@ -96,7 +105,8 @@ agents/gm-creative-constitution.md  创作强调、禁止 meta、信息边界、
 agents/gm-context.md                世界索引、可查询资料、世界书入口；不要塞工具速查
 agents/gm-input-guide.md            用户输入可见性：台词、内心、OOC、自然语言动作
 agents/gm-social-guide.md           本音与建前、NPC 行为、关系微动作
-agents/gm-style.md                  文风黑名单、题材味、段落形态
+agents/gm-style-blacklist.md        坏味 linter：禁交付语、否定反转、作者总结、空泛氛围等
+agents/gm-style.md                  文风基调、题材味、段落形态
 agents/gm-render.md                 状态/工具结果如何压成身体、队形、关系负担
 agents/gm-tool-policy.md            工具调用策略和禁区
 agents/gm-story-driver.md           本轮内部 driver：玩家做了什么、NPC 想要什么、状态压到哪里
@@ -112,6 +122,24 @@ agents/gm-output-contract.md        最终短合同：只输出正文、禁交�
 5. 可选 `agents/protagonist-lore.md` 普通 prompt module。
 
 只有用户明确要求结构化主角档案时，才生成静态 profile 文件。
+
+## 风格黑名单独立成模块
+
+不要把坏味禁令散落在 `gm-style.md`、`gm-render.md` 和最终合同里反复讲。模仿 ST 的 `<style_blacklist>`，单独拆成短模块：
+
+```txt
+<style_blacklist>
+- 禁用否定反转：先否定普通解释，再给高级解释。
+- 禁用对照式排比：连续用“并非 / 而是 / 与其说”抬高语气。
+- 禁用抽象名词定义：用哲学判断解释恐惧、邪恶、黑暗、命运、存在、希望。
+- 禁用作者总结：替角色处境下定义，或把主题直接讲给玩家。
+- 禁用交付语：好、好的、状态已经、现在为你写、以下是、那么。
+- 禁用外部排版：Markdown 分割线、章节标题、括号旁白标注、评价式吐槽。
+- 禁用空泛氛围和伪高潮句。
+</style_blacklist>
+```
+
+原则：坏句式名称只出现一次，少举坏例，避免 prompt 自己反复激活坏味。替代方向写成可执行动作：感官写外界如何进入身体，情绪写身体/动作/停顿/视线，主题降级成身体/物件/视线三类现场痕迹。
 
 ## 输出合同要短而硬
 
@@ -145,7 +173,7 @@ NPC 传感器：NPC 只播报情报，没有位置、动作和代价。
 ```txt
 交付语       → final-contract 禁开头。
 报告句       → render protocol 要求工具结果变成可感知后果。
-否定反转     → 默认不用；改写成物理过程或角色动作。
+否定反转     → style-blacklist 禁坏味；render/story-driver 提供物理过程或角色动作替代。
 作者总结     → story-driver 要求降级成身体 / 物件 / 视线三类现场痕迹。
 NPC 传感器   → social/render 要求重要 NPC 有位置、动作、上一事件代价。
 ```
@@ -156,11 +184,12 @@ prompt composition 也要有 smoke tests：
 
 - manifest schema valid。
 - source 文件存在，且只能读 `agents/*.md` 或已知 runtime source。
+- 每轮重新读取 manifest / `.md` 模块，prompt 调参不需要重启 session。
 - module id 唯一。
 - 注入顺序符合 slot + priority。
 - conversation history 保持连续，不拆最后一条 user。
 - output contract 在最后。
-- 禁用的坏味词没有被 prompt 本身反复示范。
+- style blacklist 独立插入，且 prompt 本身没有反复示范禁用坏味。
 - output contract 包含交付语 / 分割线禁令。
 
 这类测试不能证明文笔好，但能防止 prompt 组织退化成不可控大坨。
