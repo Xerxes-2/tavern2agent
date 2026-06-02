@@ -73,8 +73,11 @@ final-contract：短输出闸门
 
 工具参数用 pi 支持的 schema 方式声明。原则：
 
+- 面向 LLM 的高频工具：schema 只挡基本形状，避免复杂 `Type.Union` / enum literal 展开成不可恢复的 `anyOf` 错误；允许值写进 description，并在工具入口 assert/normalize。
+- 工具入口显式做 `unknown → typed input` 窄化；错误用领域语言，列出允许值和下一步。
+- engine/state schema 继续严格，canonical state 不为 LLM payload 放宽。
 - 字段少而明确。
-- enum 优先于自由字符串。
+- enum 可用于低频 debug、内部 schema 或 state schema；不要把它当成 LLM-facing serde。
 - description 写业务含义，不写废话。
 - 不为旧参数长期保兼容；旧 state 交给 migration。
 

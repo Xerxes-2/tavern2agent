@@ -125,6 +125,7 @@ engine/codeact-sandbox.d.ts
 - state 真相源是 pi session custom entry；`state/` 只做 debug export，不发布。
 - schema 变更要 bump version + deterministic migration。
 - 工具 description 写调用场景和禁区；结构化数据不能只放 `details`。
+- LLM-facing tool schema 不要用复杂 union/enum 当 serde；schema 挡基本形状，工具入口 `unknown → typed input`，错误用领域语言，engine/state 继续严格。
 - `start.sh` 从本仓库 `scripts/start.sh` 复制，保留项目级 `PI_CODING_AGENT_DIR` 隔离。
 - TS 产物必须启用严格工程基线；typecheck/lint/format 不过不算完成。
 

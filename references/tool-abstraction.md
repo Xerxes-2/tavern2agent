@@ -164,6 +164,67 @@ optional next   → default no next beat
 
 禁止出现 `ids is not iterable` 这类实现泄漏；应改成「仍有未解决目标，可用 resolveAllObjectives=true」。
 
+### LLM-facing schema 不等于 serde
+
+不要把 pi tool schema / JSON Schema 当成 Rust `serde`。模型调用工具时没有 LSP、补全和编译器定位；复杂 `Type.Union([Type.Literal(...)])`、多分支 object union、深层 enum 很容易在 pi validation 层展开成一串 `must be equal to constant` / `must match anyOf`，这类错误对模型不可恢复。
+
+推荐边界：
+
+```txt
+LLM-facing tool schema  只挡基本形状：object / string / number / array，description 写允许值
+tool normalizer/assert  unknown → typed domain input，抛一个中文领域错误
+engine/state schema     继续严格验证 canonical state 和领域不变量
+```
+
+也就是在 TypeScript 里显式做一层 serde boundary：
+
+```ts
+function tool(params: unknown) {
+  const input = assertDomainInput(params); // unknown → typed input
+  return engine(input);                    // core remains strict
+}
+
+function assertContractStatus(value: unknown): ContractStatus {
+  if (value === "stable" || value === "weak" || value === "cut" || value === "masterless") {
+    return value;
+  }
+  throw new Error(`非法 contractStatus: ${String(value)}。允许值: stable, weak, cut, masterless。`);
+}
+```
+
+高频 LLM 工具尤其不要在注册 schema 里暴露复杂 union：
+
+```ts
+// 好：schema 宽，description 给模型提示；工具入口负责窄化
+parameters: Type.Object({
+  kind: Type.String({ description: "允许: ensure-public-npc, upsert-public-npc, upsert-servant" }),
+  npc: Type.Optional(Type.Object({
+    actorId: Type.Optional(Type.String()),
+    displayName: Type.String(),
+    relationshipToProtagonist: Type.Optional(Type.Object({
+      stance: Type.String({ description: "self / ally / friendly / neutral / wary / hostile / unknown" }),
+      summary: Type.String(),
+    })),
+  })),
+})
+
+// 差：模型填错时爆出多条 constant/anyOf，无从恢复
+parameters: Type.Object({
+  kind: Type.Union([Type.Literal("ensure-public-npc"), Type.Literal("upsert-public-npc")]),
+  npc: Type.Union([FullNpcSchema, SkeletonNpcSchema]),
+})
+```
+
+仍然要保留严格性，但严格性放在工具 normalizer 和 engine：
+
+- 每个 enum 写 `assertOneOf`，错误列出允许值。
+- 每个 union object 由 `kind` 或当前工具语义选择一个 parser，不让 JSON Schema 同时尝试所有分支。
+- 必填业务字段在 parser 报「缺少 npc.actorId」，不要让 validator 报多个分支缺字段。
+- parser 返回 typed input；不要让 `any` 扩散进 engine。
+- 为常见错误写工具层测试，断言错误消息，而不只断言 throw。
+
+低频 debug 工具、非 LLM 内部 schema、state schema 可以继续精确 union；问题只在 LLM-facing 参数面。
+
 ## 四层 API
 
 ```txt
