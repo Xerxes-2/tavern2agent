@@ -31,12 +31,12 @@ Typed tools   GM 调 pi tools；工作流由每个工具 interface 固化
 - 规则稳定，核心动作能枚举成少数深 interface。
 - hidden/public、权限、锁定事实、审计边界很强，不希望 GM 写临时脚本靠近 raw state。
 - 需要 TypeScript 编译期约束、细粒度单元测试和明确工具审计。
-- 场景动作比公式计算更重要，例如 `scene_beat`、`commit_turn`、`set_scene_presence`。
+- 场景动作比公式计算更重要，例如 `start_scene_beat`、`finish_current_beat`、`commit_turn`、`set_scene_presence`。
 
 可以混合：typed tools 管核心 state seam，CodeAct 只管局部高复杂结算。
 
 ```txt
-主状态写入：scene_beat / commit_turn / record_memory / reveal_secret
+主状态写入：start_scene_beat / finish_current_beat / commit_turn / record_memory / reveal_secret
 局部 CodeAct：combat_exchange / rest_period / investigation_pass / downtime_sim
 ```
 
@@ -44,9 +44,51 @@ Typed tools   GM 调 pi tools；工作流由每个工具 interface 固化
 
 ## 高层设计准则
 
+### LLM 没有 LSP
+
+人类写代码时有类型提示、字段补全、必填红线、hover 文档和编译器定位；模型调用工具时往往是在盲写 JSON。复杂 nested payload 会逼模型手写无 LSP 的 transaction AST，因此“低级错误”通常是 interface 错，不是 prompt 不够严。
+
+工具应像命令面板，而不是像函数签名大全：
+
+```txt
+好：finish_current_beat(outcome, memory?, nextBeat?)
+差：commit_turn(events: [{ kind: "scene-beat", event: { kind: "transition-beat", input: { completedBeatId, nextBeat: { storyWindow... } } } }])
+```
+
+设计目标：让模型选择叙事命令，并填写少量玩家可见字段；内部 ID、当前 beat、arc、objective id、默认 reason、storyWindow 账本字段由工具补齐。
+
+### Macro 覆盖后要隐藏半底层工具
+
+高频叙事动作一旦有 macro tool，就不要继续把它覆盖的半底层工具暴露给 GM，否则模型会在多个近似入口之间摇摆。
+
+```txt
+保留可见：start_scene_beat, finish_current_beat, commit_turn
+隐藏/降级：scene_beat begin/transition 的直接工具入口
+保留内部：beginSceneBeat, transitionSceneBeat, moveToSceneBeat engine functions
+```
+
+原则：
+
+- scene/action macro 是日常入口。
+- turn commit 是非常规组合 / fallback。
+- domain primitives 可以继续存在于 engine 和测试中，但不一定注册成 LLM 可见工具。
+- debug/toolset 开关若不能真正控制工具可见性，就是假 affordance，应删除。
+
 ### 按叙事决策单位建模
 
 工具对应 GM 的叙事动作，而不是 state 字段：进入调查、完成撤退、休息一晚、采购整备、战斗交换、记录长期后果。若模型经常连续调用 3 个以上工具完成同一类动作，说明缺少更深的 scene/action API 或 turn commit API。
+
+高频动作应有 macro：
+
+```txt
+start_scene_beat     开启复杂 beat，自动补 arc/beat/storyWindow 默认字段
+finish_current_beat  收口当前 beat，自动读取 currentBeatId、解决当前目标、可选记录 memory/nextBeat
+settle_purchase      购买：资金扣减 + 可选 tracked item + 交易 memory
+record_reveal        secret reveal + public memory claim
+settle_rest          时间推进 + 恢复/代价 + offscreen hooks
+```
+
+不要让模型手写内部账本字段：`currentArcId`、`currentBeatId`、`completedBeatId`、`objectiveId`、`storyWindow.allowedActions` 这类字段应尽量由工具从当前上下文推导或自动生成。
 
 ### 子事件像原工具调用
 
@@ -101,11 +143,11 @@ RP 模型最自然的引用顺序：
 复杂场景不只需要进入接口，也需要收口接口。
 
 ```txt
-入口：moveToBeat / beginBeat
-  移动 + 时间 + storyWindow + objectives + threats + presence
+入口：start_scene_beat / moveToBeat
+  移动 + 时间 + title + objectives + threats + presence；内部补 storyWindow/beatId
 
-出口：completeBeat / commitTurn
-  完成目标 + 关闭窗口 + 撤回/切换地点 + memory + 资源/伤势后果
+出口：finish_current_beat / completeBeat
+  当前 beat 完成 + 关闭窗口 + 可选 nextBeat + memory + presence
 ```
 
 只做入口不做出口，会留下悬挂 storyWindow、未清 objective、漏写 memory 等问题。
@@ -143,8 +185,8 @@ primitive/debug 层     status、lookup、log、assert、受保护低层事件�
 scene 层不是题材分类，而是 GM 的一次叙事承诺。API 名称尽量贴近玩家行动句子：
 
 ```ts
-declare function moveToBeat(input: MoveToBeatInput): SceneBeatResult;
-declare function completeBeat(input: CompleteBeatInput): SceneBeatTransitionResult;
+declare function startSceneBeat(input: StartSceneBeatInput): SceneBeatResult;
+declare function finishCurrentBeat(input: FinishCurrentBeatInput): SceneBeatTransitionResult;
 declare function combatExchange(input: CombatExchangeInput): CombatResult;
 declare function restPeriod(input: RestInput): RestResult;
 declare function shoppingTrip(input: ShoppingInput): ShoppingResult;
@@ -154,11 +196,17 @@ declare function investigationPass(input: InvestigationInput): InvestigationResu
 好 API：
 
 ```ts
-moveToBeat({
+startSceneBeat({
+  title: "柳洞寺外围侦察",
+  objectives: ["确认结界", "安全撤回"],
+  purpose: "前往柳洞寺外围确认结界边界",
   location: "柳洞寺外围",
   elapsedMinutes: 35,
-  beat: "柳洞寺外围侦察",
-  objectives: ["确认结界", "安全撤回"],
+});
+
+finishCurrentBeat({
+  outcome: "结界边界确认完成，队伍安全撤回",
+  nextBeat: { title: "撤回后的情报整理", objectives: ["决定是否夜探山门"] },
 });
 ```
 
@@ -255,7 +303,7 @@ protected path /economy/funds: 请使用 adjustMoney / purchase。
 写进 GM 规则：
 
 - 状态变化、掷骰、时间推进、经济/战斗/任务结算必须走工具或 CodeAct。
-- 一轮多个状态变化必须用 `commitTurn` / transaction 收口。
+- 一轮多个状态变化优先用最贴近叙事意图的 macro；非常规组合才用 `commitTurn` / transaction。
 - 时间跳跃用一段 scene/advance 序列，不拆成多轮。
 - 脚本或工具调用只做机械层；叙事在工具返回后写。
 - 不调用工具就不能声称状态已改变。
@@ -285,13 +333,14 @@ protected path /economy/funds: 请使用 adjustMoney / purchase。
 
 如果同一种误用重复出现，按顺序处理：
 
-1. 加深 scene/action API。
+1. 加深 scene/action macro API。
 2. 接受模型自然参数形状，例如 flat payload。
 3. 增加 natural handle / current-context 操作。
 4. 给事务字段增加安全默认值，例如 `summary → reason`。
 5. 加 validator / protected path。
 6. 改错误信息提示正确路径和候选。
-7. 最后才改 prompt 文案。
+7. 若 macro 已覆盖半底层工具，隐藏或删除半底层可见入口，减少选择分叉。
+8. 最后才改 prompt 文案。
 
 不要用 prompt 长期弥补坏 interface。
 
@@ -338,8 +387,8 @@ declare function log(message: string): void;
 declare function lookup(type: string, query: string): LookupEntry[];
 
 declare function commitTurn(input: TurnCommitInput): TurnCommitResult;
-declare function moveToBeat(input: MoveToBeatInput): SceneBeatResult;
-declare function completeCurrentBeat(input: { resolveAllObjectives?: boolean }): SceneBeatResult;
+declare function startSceneBeat(input: StartSceneBeatInput): SceneBeatResult;
+declare function finishCurrentBeat(input: FinishCurrentBeatInput): SceneBeatResult;
 declare function completeObjective(summaryOrId: string): ObjectiveResult;
 declare function adjustMoney(input: { ownerActorId: string; amount: number; reason?: string }): Change<number>;
 
@@ -372,12 +421,13 @@ subagent 不拿 `code_act`。子代理只给文本/结构化建议；状态写�
 ## 总校验
 
 - [ ] primitive/debug 层 + domain composition 层存在。
-- [ ] 有活动单元时 scene/action 层存在。
+- [ ] 有活动单元时 scene/action macro 层存在，覆盖高频进入/收口动作。
+- [ ] macro 覆盖半底层入口后，半底层工具不再暴露给 GM。
 - [ ] 多状态变化有 turn commit / transaction。
 - [ ] 组合工具子事件接受原工具的 flat payload，或至少兼容 flat payload。
 - [ ] 事务 summary 能为子事件 reason 提供默认值。
 - [ ] API 接受 natural handles，或错误能列出候选。
-- [ ] 当前上下文操作存在，例如 current beat / resolveAllObjectives / ownerActorId 自动账户选择。
+- [ ] 当前上下文操作存在，例如 current beat / finishCurrentBeat / ownerActorId 自动账户选择。
 - [ ] protected paths 覆盖关键字段。
 - [ ] patch 不碰受保护路径；最好 debug-only。
 - [ ] GM 规则写清四层优先级和禁区。
