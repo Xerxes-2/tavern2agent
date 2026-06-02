@@ -82,6 +82,7 @@ subagent 只给建议或文本；状态写入仍由 GM 走主 engine。详见 `r
 | session state / 轻量引擎 | `references/ts-engine.md` |
 | schema/migration | `references/state-schema-migrations.md` |
 | pi extension/tools/prompt | `references/pi-integration.md` |
+| prompt 预设组织 / ST prompt_order 迁移 | `references/prompt-composition.md` |
 | toolset 切换 | `references/toolsets.md` |
 | 多 agent | `references/multi-agent-architecture.md` |
 | 下场测试 | `references/validation.md` |

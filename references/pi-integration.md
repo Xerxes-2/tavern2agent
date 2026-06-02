@@ -49,23 +49,24 @@ tavern2agent 是 pi-native。不要承诺跨平台。换 host 不是换胶水，
 
 ## Prompt 分层
 
-不要把身份、世界书、工具说明、硬规则全塞 system。
+不要把身份、世界书、工具说明、硬规则全塞 system。复杂 RP 项目应使用 preset manifest 管理 prompt composition；详见 `references/prompt-composition.md`。
 
-推荐分层：
+推荐基础顺序：
 
 ```txt
-稳定身份/契约
-参考上下文：世界摘要、数据入口、工具速查
-玩家本轮输入
-硬规则/本轮提醒：机械纪律、禁令、attention
+pre-history：世界索引、输入协议、社交/文风/渲染滤镜
+conversation history：原始对话历史，保持连续
+pre-response：状态简报、工具策略、硬规则、本轮 driver
+final-contract：短输出闸门
 ```
 
 原则：
 
-- 硬规则靠近生成。
+- 硬规则靠近生成；最终输出合同必须短而硬。
 - 参考信息低优先级，别抢玩家输入注意力。
 - 世界正文进 data + lookup，不进 prompt。
 - 动态提醒按轮注入，不写回历史。
+- 不要把最后一条 user 单独拆出来；完整 conversation history 应保持连续。
 - role/位置按目标模型调；模型特化见 `references/models/`。
 
 ## 工具参数
