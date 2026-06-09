@@ -2,13 +2,16 @@
 
 SillyTavern 预设最值得迁移的不是某段神奇 prompt，而是它的 **prompt composition model**：模块可开关、顺序可调、位置明确、最终输出合同靠近生成。pi 项目不要把这些组织关系写死进 TypeScript；应把它们做成可编辑 preset manifest。
 
+在 v2 中，这一层叫 prompt orchestrator：它是 Runtime Plan 的 view/compiler backend。它吃结构化 IR、Runtime Plan、event pack prompt fragment 和 state projection，输出 prompt bundle；它不维护领域正确性，不读写 canonical state，也不兼容旧字段。
+
 ## 核心原则
 
 - prompt 不是一坨 system；它是按职责编排的模块图。
-- TypeScript 只做 preset 解释器：读 manifest、校验 schema、解析 source、按 slot 注入。
+- TypeScript 只做 preset/orchestrator 解释器：读 Runtime Plan 和 manifest、校验 schema、解析 source、按 slot 注入。
 - preset manifest 和 `.md` 模块默认每轮重新读取，避免调参时重启 session；只有稳定 system 身份层可以启动时固定。
-- prompt 作者只改 manifest 和 `.md` 模块，不改 TS 代码。
+- prompt 作者只改 manifest 和 `.md` 模块，不改 engine / reducer。
 - 世界事实、大数据和状态仍在 data / lookup / engine；prompt 只管阅读滤镜、工具纪律、叙事渲染和输出合同。
+- event pack 可以贡献 tool-policy / render 片段，但不能把领域不变量只写在 prompt 里。
 - ST 变量 / prompt_order 的思想可以迁移；ST 宏语法、HTML 状态栏、强制 COT 标签默认不迁移。
 
 ## 推荐 slot
@@ -91,8 +94,10 @@ enabled: boolean
 slot: pre-history | pre-response | final-contract
 priority: integer
 header: XML-ish tag name
-source: agents/*.md | runtime:state-brief
+source: agents/*.md | runtime:state-brief | runtime:event-pack:<id>
 ```
+
+`runtime:event-pack:<id>` 只渲染该 pack 的工具纪律和叙事渲染提示；pack 的正确性仍由 tool normalizer、engine invariant 和 reducer 维护。
 
 可选扩展留到后面：groups、conditions、assistant-prefill、ST preset import、module notes、preview UI。
 
@@ -183,6 +188,7 @@ NPC 传感器   → social/render 要求重要 NPC 有位置、动作、上一�
 prompt composition 也要有 smoke tests：
 
 - manifest schema valid。
+- Runtime Plan 中引用的 event pack prompt fragment 都存在。
 - source 文件存在，且只能读 `agents/*.md` 或已知 runtime source。
 - 每轮重新读取 manifest / `.md` 模块，prompt 调参不需要重启 session。
 - module id 唯一。

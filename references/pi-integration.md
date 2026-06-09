@@ -34,7 +34,7 @@ tavern2agent 是 pi-native。不要承诺跨平台。换 host 不是换胶水，
 `extension.ts` 只做注册：
 
 1. 注册项目 `skills/` 路径。
-2. 注入 GM prompt / 动态上下文。
+2. 通过 prompt orchestrator 注入 GM prompt / 动态上下文。
 3. 调 `registerAllTools(pi)`。
 4. 注册必要 session/state hooks。
 
@@ -49,7 +49,7 @@ tavern2agent 是 pi-native。不要承诺跨平台。换 host 不是换胶水，
 
 ## Prompt 分层
 
-不要把身份、世界书、工具说明、硬规则全塞 system。复杂 RP 项目应使用 preset manifest 管理 prompt composition；详见 `references/prompt-composition.md`。
+不要把身份、世界书、工具说明、硬规则全塞 system。复杂 RP 项目应使用 prompt orchestrator + preset manifest 管理 prompt composition；详见 `references/prompt-composition.md`。编排器只渲染 Runtime Plan 和 state projection，不维护领域正确性。
 
 推荐基础顺序：
 
@@ -80,6 +80,7 @@ final-contract：短输出闸门
 - enum 可用于低频 debug、内部 schema 或 state schema；不要把它当成 LLM-facing serde。
 - description 写业务含义，不写废话。
 - 不为旧参数长期保兼容；旧 state 交给 migration。
+- 常规玩法工具提交 domain event，不暴露万能 `update_state`。
 
 ## 工具返回
 
@@ -120,7 +121,7 @@ GM prompt 可用这个框架：
 ```txt
 机械层：事实、数值、判定、状态变化，来自工具。
 叙事层：把机械层结果写成场景。
-未经工具确认的机械层内容不存在。
+未经工具确认的机械层内容不存在。工具确认的是 domain event / reducer 结果，不是 narrator 自称已更新状态。
 ```
 
 重点不是“多调工具”，而是“不调工具就没有这个事实”。

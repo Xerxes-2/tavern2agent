@@ -1,6 +1,6 @@
 # 工具集
 
-主要给轻量方案用。标准 CodeAct 常驻通常只有 `code_act`、`get_status`、`lookup`、`switch_toolset`；多步操作在沙箱里组合。
+主要给 evented light 方案用。标准 CodeAct 常驻通常只有 `code_act`、`get_status`、`lookup`、`switch_toolset`；多步操作在沙箱里组合为领域事件。
 
 subagent 也适用：子代理不拿 `code_act`，只拿只读/轻量工具。
 
@@ -50,7 +50,7 @@ description 写：何时切入、何时切回、`debug` 仅修档/迁移。
 
 ## 专用工具优先
 
-有规则的变化不要裸 patch：
+有规则的变化不要裸 patch，也不要暴露万能 `update_state`：
 
 | 状态变化 | 工具 |
 |---|---|
@@ -62,7 +62,7 @@ description 写：何时切入、何时切回、`debug` 仅修档/迁移。
 | 场景/时间 | `change_scene` |
 | 升级 | `try_level_up` / `allocate_attribute_points` |
 
-`patch_state` 保留，但 protected paths 禁止绕过专用工具。
+`patch_state` 只在 debug/setup/migration toolset 保留；protected paths 禁止绕过专用工具和领域事件。
 
 ## 子代理
 

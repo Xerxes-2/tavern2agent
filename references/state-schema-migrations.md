@@ -4,11 +4,11 @@ State schema 是宪法。运行时只支持当前结构；旧存档只能通过�
 
 ## 原则
 
-- `INITIAL_STATE`、schema、工具、派生逻辑描述同一套结构。
+- `INITIAL_STATE`、schema、event catalog、reducer、工具、派生逻辑描述同一套结构。
 - 运行时只读当前字段。
 - 旧字段只出现在 migration。
 - patch 拒绝未知顶层 root。
-- 有专用工具/组合函数负责的字段，禁止裸 patch。
+- 有领域事件/专用工具/组合函数负责的字段，禁止裸 patch。
 - 派生值不写 state。
 - 状态排序只服务 diff/readability，不参与逻辑。
 
@@ -44,7 +44,7 @@ State schema 是宪法。运行时只支持当前结构；旧存档只能通过�
 - 地点/时间
 - 好感/关系
 
-light 方案用专用工具；standard 方案用 CodeAct 组合函数/scene。
+evented light 方案用专用领域工具；evented standard 方案用 CodeAct domain API 或 scene/action API。
 
 ## Schema version
 
@@ -90,7 +90,7 @@ state.核心系统 ?? state.旧同伴 ?? state.companion
 state.核心系统
 ```
 
-自然语言输入归一化可以保留，例如“饰品”映射到 `饰品1/2/3`；这不是旧 state 兼容。
+自然语言输入归一化可以保留，例如“饰品”映射到 `饰品1/2/3`；这不是旧 state 兼容。领域事件输入也可以接受自然 handle，但 reducer 只吃 canonical id。
 
 ## 测试
 
@@ -98,6 +98,7 @@ state.核心系统
 
 - `INITIAL_STATE` 符合 schema。
 - 非法 root 被拒绝。
+- reducer 覆盖关键 domain event。
 - protected path 被拒绝。
 - 旧版本触发 migration required。
 - migration 能把旧 fixture 升到当前 schema。

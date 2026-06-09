@@ -1,13 +1,15 @@
 # 工具抽象设计
 
-RP 工具的目标不是「让模型能改 state」，而是让 GM 以自然叙事决策单位安全提交世界变化。不要按数据库字段切工具，也不要把复杂工作流写进 prompt 让模型背；把工作流做成可执行的高层 API。
+RP 工具的目标不是「让模型能改 state」，而是让 GM 以自然叙事决策单位安全提交领域事件。不要按数据库字段切工具，也不要把复杂工作流写进 prompt 让模型背；把工作流做成可执行的高层 API。
+
+v2 中，工具/CodeAct API 的权威输出是 domain event，state 是 reducer 结果。工具名和参数应表达世界里发生了什么：关系转变、资金流动、伤势施加、秘密揭示、后台行动、turn 提交，而不是表达“把某字段改成某值”。
 
 核心原则：**入口宽，核心严**。
 
 - 入口宽：接受模型自然表达，例如 flat payload、自然语言 handle、`current` / `all` 上下文引用、事务摘要默认 reason。
 - 核心严：engine 仍严格维护 canonical state、protected paths、hidden/public 边界和领域不变量。
 
-CodeAct 是实现这套抽象的一种载体，不是唯一答案。稳定、可枚举的场景动作可以做成 typed pi tools；计算、循环、批量结算和时间压缩更适合 CodeAct 沙箱。
+CodeAct 是实现这套抽象的一种载体，不是唯一答案。稳定、可枚举的场景动作可以做成 typed pi tools；计算、循环、批量结算和时间压缩更适合 CodeAct 沙箱。无论载体如何，最终都应进入同一套 event catalog、reducer 和 protected path 规则。
 
 ## 选择取舍
 
@@ -231,7 +233,7 @@ parameters: Type.Object({
 scene/action 层        GM 的叙事动作：进入场景、完成 beat、战斗交换、休息、购物、调查
 turn commit 层         一轮内多个状态变化的事务收口：按顺序提交、验证、返回 warnings
 domain composition 层  常用领域联动：交易、推进时间、结算任务、转移物品、记录后果
-primitive/debug 层     status、lookup、log、assert、受保护低层事件；patch 只 debug/兜底
+primitive/debug 层     status、lookup、log、assert、受保护低层事件；patch 只 debug/迁移兜底
 ```
 
 规则：
@@ -239,7 +241,7 @@ primitive/debug 层     status、lookup、log、assert、受保护低层事件�
 - GM 优先用最高层；覆盖不到再降层。
 - 有「持续活动 + 结算 + 事件」就建 scene/action 层。
 - 一轮内多个状态变化要有 turn commit / transaction。
-- `patch` 只能 debug 或兜底，不能绕过有规则的组合函数。
+- `patch` 只能 debug 或一次性迁移兜底，不能绕过有规则的组合函数；常规玩法不暴露万能 `update_state`。
 
 ### Scene / Action
 
@@ -337,7 +339,7 @@ commitTurn({
 - 场景/时间
 - hidden/public 可见性边界
 
-这些必须走组合函数或 scene/action API。`patch` 命中受保护路径时 throw，并提示正确函数。standard 方案中 `patch` 应逐步降级为 debug-only；若保留兜底，每次必须有 reason，且只能改无规则、无联动的 cosmetic 字段。
+这些必须走领域事件、组合函数或 scene/action API。`patch` 命中受保护路径时 throw，并提示正确事件/函数。standard 方案中 `patch` 应逐步降级为 debug-only；若保留兜底，每次必须有 reason，且只能改无规则、无联动的 cosmetic 字段。常规玩法不得暴露 `update_state` 这类万能 setter。
 
 ## 错误设计
 
