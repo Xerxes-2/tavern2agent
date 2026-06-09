@@ -1,14 +1,24 @@
 # 数据层
 
-目标：结构化保存设定，用工具查，用 `content` 返回给模型。不要让 GM 运行时靠 `bash/read` 翻文件，也不要把大 JSON 塞进 prompt。
+目标：给 GM 一个权威事实读取层，用工具查，用 `content` 返回给模型。不要让 GM 运行时靠 `bash/read` 翻文件，也不要把大 JSON 塞进 prompt。
+
+数据层不一定全是本地 JSON。v2 可以把“知识库”拆成两类事实源：
+
+```txt
+curated local data   卡片作者给定的世界事实、规则、NPC、地点、秘密
+external research    现实题材、开放网络资料、GitHub/论文/新闻等可查事实
+```
+
+本地 data 管 canonical game facts；网络搜索工具管外部现实事实。不要把两者混成一坨 prompt 知识库。
 
 ## 原则
 
-1. `data/*.json` 是世界观、NPC、地点、物价、规则的权威源。
+1. `data/*.json` 是卡片内世界观、NPC、地点、物价、规则的权威源。
 2. GM 只通过 `lookup`/领域工具读取预设事实。
-3. 大数据集用索引查，再按需返回正文。
-4. 结果放 `content`；`details` 只给 TUI/日志。
-5. 工具 description 写清必须调用场景和禁编规则。
+3. 现实世界 / 开源项目 / 活资料优先走 web/search/fetch/code-search 工具，不手工复制成静态知识库。
+4. 大数据集用索引查，再按需返回正文。
+5. 结果放 `content`；`details` 只给 TUI/日志。
+6. 工具 description 写清必须调用场景和禁编规则。
 
 ## 目录
 
@@ -37,7 +47,7 @@ data/
 }
 ```
 
-## 工具
+## 本地 lookup 工具
 
 中小型卡优先一个统一工具：
 
@@ -56,6 +66,26 @@ lookup({ query: string, type?: "location" | "npc" | "faction" | "monster" | "rul
 | `lookup_item` | 装备/材料/技能模板 |
 
 拆分前提：每个工具有清晰触发场景。否则统一 `lookup`。
+
+## 外部 research 工具
+
+当卡片题材依赖现实世界、近期资料或开源项目时，不要把外部知识复制成 `data/world.json`。给 GM 一个只读 research seam：
+
+| 工具 | 用途 |
+|---|---|
+| `web_search` | 现实题材、新闻、地理、历史、行业背景，返回带来源摘要 |
+| `fetch_content` | 指定 URL / 文档 / PDF / YouTube 内容抽取 |
+| `code_search` | 开源库 API、实现细节、GitHub/StackOverflow 示例 |
+| `lookup` | 卡片作者给定的 canonical game facts |
+
+使用规则：
+
+- 现实题材：允许 research；查到的事实要标来源，不能自动写入 canonical state。
+- 虚构原作 / 卡片自设：默认禁止 web，避免污染作者设定；只查本地 data。
+- 混合题材：外部资料只补现实背景，不覆盖卡片 canonical facts。
+- 任何 research 结果都是只读证据；若要进入世界状态，必须由 GM 通过领域事件记录为 rumor、memory、clue 或 setting update。
+
+不要把 web search 当作“更大的世界书”。它是按需取证工具，不是每轮注入的知识库。
 
 ## 返回格式
 
@@ -84,7 +114,9 @@ return {
 ```md
 - 提及预设地点/NPC/规则时先 lookup。
 - 未经 lookup 的预设事实不存在。
+- 现实题材需要外部事实时先 research，并在叙事中只使用已确认事实。
+- 虚构世界默认不用 web；卡片 data 的 canonical fact 优先于外部资料。
 - 可以即兴路人细节；不能改写预设事实。
 ```
 
-正文放 data，动态事实放 state，表达交给 GM。
+正文放 data，动态事实放 state，外部资料按需 research，表达交给 GM。

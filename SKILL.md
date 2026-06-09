@@ -14,8 +14,8 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 2. 先读 `references/evented-runtime.md`、`references/card-ir.md`、`references/event-packs.md`、`references/design-principles.md`。
 3. 全量审计 `data` 字段、世界书、TH scripts、regex scripts、开场白。
 4. 先输出或草拟 `data/card-ir.json`；不要直接从原卡文本生成代码。
-5. 从 IR 形成 Runtime Plan：archetype、event packs、state roots、visibility policy、tool surface、prompt modules、validation plan。
-6. 写代码前先给用户看 Runtime Plan；复杂卡还要给 state schema、event catalog、reducer/API 清单。
+5. 从 IR 形成 Runtime Plan：archetype、event packs、state roots、visibility policy、fact sources、tool surface、subagent roles、prompt modules、validation plan。
+6. 写代码前先给用户看 Runtime Plan；复杂卡还要给 state schema、event catalog、reducer/API 清单、事实源边界和子代理边界。
 
 增量更新：先看 `git log -20` + `git diff`。只改本次需求相关文件；不碰 `sessions/`、`state/`、`.pi/agent/`。
 
@@ -54,6 +54,7 @@ python3 scripts/get_entry.py card.json <index>
 | 少量可变概念，无复杂公式 | evented light | `engine/events.ts`、`engine/reducers.ts`、少数 typed domain tools |
 | 骰子/战斗/经济/多字段联动/时间压缩/级联 | evented standard | event packs + reducer + typed tools / CodeAct API |
 | 隐藏信息/秘密视角/多阵营 | pack 叠加 | secret / faction / offscreen + project subagent |
+| 现实题材/开放资料/API 文档 | research 叠加 | web/fetch/code-search 只读事实源 + local canonical data |
 
 CodeAct 只是执行载体。若规则稳定且能收敛成少数 GM 叙事动作，用 typed deep tools；若每轮需要计算、循环、批量结算或时间压缩，用 CodeAct 承载同一套领域 API。无论载体如何，状态变化都落成 domain event 并经 reducer。
 
@@ -68,7 +69,7 @@ CodeAct 只是执行载体。若规则稳定且能收敛成少数 GM 叙事动�
 | 悬疑答案不该进 GM context | 真相/凶手视角隔离 |
 | 只为“更聪明” | 不拆 |
 
-subagent 只给建议、候选事件或文本；状态写入仍由 GM 走主 engine。详见 `references/multi-agent-architecture.md`。
+subagent 只给建议、候选事件或文本；状态写入仍由 GM 走主 engine。生成的 subagent 必须 project-scope、显式 tools、显式 extensions、不继承完整项目上下文/技能目录；候选类输出 bare JSON。详见 `references/multi-agent-architecture.md`。
 
 ## Reference 路由
 
@@ -83,7 +84,7 @@ subagent 只给建议、候选事件或文本；状态写入仍由 GM 走主 eng
 | 世界书/MVU/initvar | `references/mvu-mapping.md` |
 | 开局 setup | `references/setup.md` |
 | 工具抽象 / CodeAct 取舍 | `references/tool-abstraction.md` |
-| 数据查询层 | `references/data-layer.md` |
+| 数据查询层 / external research | `references/data-layer.md` |
 | session state / 轻量引擎 | `references/ts-engine.md` |
 | schema/migration | `references/state-schema-migrations.md` |
 | pi extension/tools/prompt | `references/pi-integration.md` |
@@ -139,13 +140,15 @@ engine/migrations.ts
 - 工具 description 写调用场景和禁区；结构化数据不能只放 `details`。
 - LLM-facing tool schema 不要用复杂 union/enum 当 serde；schema 挡基本形状，工具入口 `unknown → typed input`，错误用领域语言，engine/state 继续严格。
 - prompt orchestrator 只渲染 Runtime Plan + state projection；不读写 canonical state，不兜底领域规则，不泄露 hidden-canonical。
+- 现实题材可用 web/fetch/code-search 取代手工知识库；虚构 canonical facts 默认只走本地 data/lookup。
+- subagent 不写 state、不拿 CodeAct、不当陪聊 NPC；后台候选必须能转成领域事件。
 - `start.sh` 从本仓库 `scripts/start.sh` 复制，保留项目级 `PI_CODING_AGENT_DIR` 隔离。
 - TS 产物必须启用严格工程基线；typecheck/lint/format 不过不算完成。
 
 ## 完工
 
 1. 跑残留扫描：见 `references/validation.md`。
-2. 确认 `data/card-ir.json` 和 `data/runtime-plan.json` 存在，且所有 mutable concept 有 event pack 或丢弃理由。
+2. 确认 `data/card-ir.json` 和 `data/runtime-plan.json` 存在，且所有 mutable concept 有 event pack 或丢弃理由，fact sources 和 subagent roles 边界明确。
 3. 你作为测试玩家 Agent 下场玩至少 20-30 轮，覆盖主要系统；你可以明说自己在测试，请 GM 配合触发场景。
 4. evented 方案确认 GM 调用领域事件 / CodeAct domain API，且不是裸 patch。
 5. TS 项目通过 typecheck/lint/format。

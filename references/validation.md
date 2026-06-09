@@ -20,7 +20,7 @@ grep -rnE 'update_state|patch_state|直接修改状态|JSON Patch' \
 ## 人工清单
 
 - [ ] `data/card-ir.json` 存在，所有 mutable concept、visibility fact、worldbook disposition 有去向。
-- [ ] `data/runtime-plan.json` 存在，event pack、state root、tool surface、prompt module、validation plan 清楚。
+- [ ] `data/runtime-plan.json` 存在，event pack、state root、fact source、tool surface、subagent role、prompt module、validation plan 清楚。
 - [ ] `agents/preset.json` 存在，slot 顺序清楚，source 只指向 `agents/*.md` 或已知 runtime source。
 - [ ] `agents/gm-*.md` 按职责拆分；没有把世界书、工具说明、硬规则、输出合同塞成一坨。
 - [ ] 开局 skill 存在，setup 字段齐，默认值齐。
@@ -31,10 +31,11 @@ grep -rnE 'update_state|patch_state|直接修改状态|JSON Patch' \
 - [ ] TH scripts / regex scripts 已审计。
 - [ ] 章节/大型设定未全量塞 prompt。
 - [ ] 主角设定若存在，已进入世界书 / start skill / actor state / memory / 可选 prompt module；不默认生成 `data/user.json`。
-- [ ] 多 agent 场景有独立 subagent，且不拿 `code_act`。
+- [ ] 多 agent 场景有 project-scope subagent，显式 tools/extensions，不拿 `code_act`，不继承完整项目上下文/技能目录。
 - [ ] evented 方案有 `engine/events.ts`、`engine/reducers.ts`、protected paths、session-backed state。
 - [ ] 标准方案若使用 CodeAct，其 API 提交领域事件，不暴露 raw state setter。
 - [ ] 常规玩法没有万能 `update_state` / 裸 `patch_state`。
+- [ ] 现实题材 external research 与本地 canonical data 边界清楚；虚构世界默认禁 web。
 
 ## 下场实测
 
@@ -61,6 +62,8 @@ cd 项目目录
 - 长跑后前后设定、价格、地点、NPC 记忆是否一致。
 - 多系统连续触发后 state 是否仍符合 schema。
 - hidden-canonical 是否没有串进 public memory。
+- external research 是否只作为只读证据，没有覆盖卡片 canonical facts。
+- subagent 返回是否是候选/审计，且由 GM 转成领域事件。
 
 ## 查 state / 工具调用
 
@@ -91,6 +94,8 @@ grep -cE '"name":"(commit_turn|record_relationship_shift|reveal_secret|spend_mon
 | 预设事实前后不一 | lookup 未调用 |
 | 战斗有叙事无判定 | engine/code_act 未调用 |
 | hidden truth 进 public memory | visibility policy / secret pack 失败 |
+| web 资料改写原卡设定 | fact source policy 失败 |
+| subagent 直接写 state | subagent tool/extension 边界失败 |
 | 工具存在但模型不用 | description 缺“必须调用/严禁编造”，或 tool surface 太浅/太像字段 setter |
 
 报告问题时给 turn、GM 原话、预期行为。

@@ -49,7 +49,7 @@ pi
 # 对 agent 说：帮我转换这张角色卡
 ```
 
-agent 会解包、审计世界书和脚本、生成 `data/card-ir.json`、给出 Runtime Plan、选择 event packs，再生成 pi 项目并下场校验。复杂卡写代码前会先给你看 Runtime Plan、state schema、event catalog 和工具/API 清单。
+agent 会解包、审计世界书和脚本、生成 `data/card-ir.json`、给出 Runtime Plan、选择 event packs、事实源和 subagent roles，再生成 pi 项目并下场校验。复杂卡写代码前会先给你看 Runtime Plan、state schema、event catalog、工具/API 清单和子代理边界。
 
 ## 产物形态
 
@@ -97,8 +97,11 @@ project/
 | 少量可变概念 | evented light：typed domain tools + reducer |
 | 多字段联动、骰子、战斗、经济、时间压缩 | evented standard：event packs + reducer + typed tools / CodeAct API |
 | 隐藏信息、秘密视角、多阵营 | 叠加 secret / faction / offscreen pack 和 project subagent |
+| 现实题材、开源/API/活资料 | external research tools + local canonical data |
 
 CodeAct 是承载领域 API 的执行载体，不是新 runtime 核心。无论用 typed tools 还是 CodeAct，状态变化都必须落成领域事件并经过 reducer。
+
+网络搜索 / 抓取 / code search 可以取代手工知识库，但只能作为只读事实源；卡片 canonical facts 仍由本地 data/lookup 管。subagent 只输出视角反应、后台候选或审计意见，不直接写 state。
 
 ## 文档
 
@@ -107,6 +110,8 @@ SKILL.md                         agent 入口流程
 references/evented-runtime.md    v2 宪法
 references/card-ir.md            卡片语义 IR
 references/event-packs.md        领域事件包
+references/data-layer.md         本地 lookup 与外部 research 边界
+references/multi-agent-architecture.md 子代理设计
 references/                      迁移细节
 docs/developing-cards.md         迁移后维护
 docs/tooling.md                  可选工具

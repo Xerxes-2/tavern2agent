@@ -62,6 +62,17 @@ Event pack 是扩展单位。每个 pack 交付：
 
 详见 `references/event-packs.md`。
 
+### Fact Source Layer
+
+事实读取不是 prompt。Runtime Plan 应声明事实源：
+
+```txt
+local lookup      卡片 canonical facts：NPC、地点、规则、秘密索引
+external research 现实题材 / 开源项目 / 活资料：web_search、fetch_content、code_search
+```
+
+虚构世界默认 local lookup 优先并禁用 web；现实题材可以用 research 工具取代手工知识库。research 结果是只读证据，不能自动写 state。
+
 ### Prompt Orchestrator
 
 轻量提示词编排器位于最后一层。它吃 Runtime Plan 和 state projection，输出 prompt bundle。它不能维护领域正确性，也不能替代 reducer / tool invariant。
@@ -125,6 +136,18 @@ IR 和 Runtime Plan 必须区分：
 
 秘密身份、真名、凶手、幕后动机、未发现地图等，不得因为 ST 卡写在 prompt 里就进入 public memory。
 
+## Subagent roles
+
+subagent 是后台导演组/审计器，不是陪聊 NPC，也不是状态写入器。Runtime Plan 可以声明：
+
+```txt
+perspective/secret       NPC 或阵营秘密视角
+parallel-line/offscreen  后台事件候选
+timeline/showrunner      drift、beat closure、NPC autonomy 审计
+```
+
+所有 subagent 必须 project-scope、显式 tools、显式 extensions；不继承完整项目上下文和技能目录。候选输出由 GM 审核后转成 domain event。
+
 ## 生成物基线
 
 有任何 mutable concept 的项目，至少生成：
@@ -141,7 +164,7 @@ agents/gm-*.md
 skills/start-game/SKILL.md
 ```
 
-按需追加：`engine/migrations.ts`、`engine/codeact.ts`、`engine/codeact-sandbox.d.ts`、`extensions/subagents/*`、`.pi/agents/*`、pack-specific data。
+按需追加：`engine/migrations.ts`、`engine/codeact.ts`、`engine/codeact-sandbox.d.ts`、`extensions/subagents/*`、`.pi/agents/*`、pack-specific data、external research tool wiring。
 
 纯设定、无运行状态、无秘密边界的卡可以生成 prompt-only 项目；这是 v2 的退化形态，不是默认范式。
 
@@ -153,4 +176,6 @@ skills/start-game/SKILL.md
 - [ ] reducer 测试覆盖关键事件。
 - [ ] secret/public/player knowledge 分层有测试或 fixture。
 - [ ] prompt orchestrator 只渲染 Runtime Plan，不维护领域正确性。
+- [ ] external research 与 local canonical data 边界清楚。
+- [ ] subagent 不写 state，不拿 CodeAct，候选能转成领域事件。
 - [ ] 下场测试证明 GM 会调用领域事件，而不是叙事里口头改状态。
