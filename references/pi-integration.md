@@ -10,7 +10,7 @@ tavern2agent 是 pi-native。不要承诺跨平台。换 host 意味着重做 ho
 |---|---|
 | 启动 | 项目根必须有 `start.sh` |
 | prompt 注入 | extension 在 agent 启动前注入 GM prompt/动态提醒 |
-| 工具 | 通过 pi tool API 注册；实现放 `tools/registry.ts` |
+| 工具 | 通过 pi tool API 注册；契约与实现在各工具文件，`tools/registry.ts` 只是清单 |
 | skill 发现 | 项目 `skills/` 需要显式注册资源路径 |
 | 存档 | pi session custom entry 是 state 真相源 |
 | subagent | 走 pi-subagents；定义放项目 `.pi/agents/` |
@@ -77,6 +77,7 @@ final-contract：短输出闸门
 - 工具入口显式做 `unknown → typed input` 窄化；错误用领域语言，列出允许值和下一步。
 - engine/state schema 继续严格，canonical state 不为 LLM payload 放宽。
 - 字段少而明确。
+- 参数名只用 ASCII。部分 provider API 对非 ASCII 参数名直接报错；中文语义写进 description。
 - enum 可用于低频 debug、内部 schema 或 state schema；不要把它当成 LLM-facing serde。
 - description 写业务含义，不写废话。
 - 不为旧参数长期保兼容；旧 state 交给 migration。
@@ -134,7 +135,7 @@ GM prompt 可用这个框架：
 agents/preset.json       prompt composition manifest
 agents/gm-*.md           GM prompt 模块
 skills/start-game/      开局 skill
-tools/registry.ts       工具注册与实现入口
+tools/registry.ts       工具注册清单；契约与实现在各工具文件
 extension.ts            pi 注册入口
 start.sh                启动入口
 ```

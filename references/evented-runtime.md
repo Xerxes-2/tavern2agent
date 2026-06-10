@@ -119,7 +119,7 @@ LLM tool call / CodeAct command
 规则：
 
 - 受保护字段必须走领域事件、组合函数或 scene/action API；常规玩法不暴露 `update_state` / `patch_state` 这类万能 setter。
-- `patch` 只进 debug/setup/migration toolset；standard 方案应逐步降级为 debug-only。
+- `patch` 只用于 debug/setup/migration，description 标明 debug-only；不靠运行时 toolset 切换隔离（动态增删工具毁 prompt cache）。
 - `patch` 命中受保护路径时 throw，并提示正确事件/函数。
 - 若保留 patch 兜底，每次必须有 reason，且只能改无规则、无联动的 cosmetic 字段。
 

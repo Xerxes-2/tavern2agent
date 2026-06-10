@@ -84,7 +84,6 @@ subagent 只给建议、候选事件或文本；状态写入仍由 GM 走主 eng
 | schema/migration | `references/state-schema-migrations.md` |
 | pi extension/tools/prompt | `references/pi-integration.md` |
 | prompt orchestrator / ST prompt_order 迁移 | `references/prompt-composition.md` |
-| toolset 切换 | `references/toolsets.md` |
 | 多 agent | `references/multi-agent-architecture.md` |
 | 下场测试 | `references/validation.md` |
 | 工程纪律 | `references/engineering-discipline.md` |
@@ -133,7 +132,10 @@ engine/migrations.ts
 - state 真相源是 pi session custom entry；`state/` 只做 debug export，不发布。
 - schema 变更要 bump version + deterministic migration。
 - 工具 description 写调用场景和禁区；结构化数据不能只放 `details`。
-- LLM-facing tool schema 不要用复杂 union/enum 当 serde；schema 挡基本形状，工具入口 `unknown → typed input`，错误用领域语言，engine/state 继续严格。
+- LLM-facing tool schema 不要用复杂 union/enum 当 serde；schema 挡基本形状，工具入口 `unknown → typed input`，归一化用共享 schema 模块而非手写 assert 克隆，错误用领域语言，engine/state 继续严格。
+- state 写入收口到单一 runner：clone draft → 纯 `(draft, event)` 领域函数 → 校验 → commit；领域函数不碰 store，失败即不提交。
+- 工具契约与实现同文件；`tools/registry.ts` 只是注册清单。
+- 工具清单整局稳定：不做运行时 toolset 切换，动态增删工具会毁掉 prompt cache。
 - prompt orchestrator 只渲染 Runtime Plan + state projection；不读写 canonical state，不兜底领域规则，不泄露 hidden-canonical。
 - 现实题材可用 web/fetch/code-search 取代手工知识库；虚构 canonical facts 默认只走本地 data/lookup。
 - subagent 不写 state、不拿 CodeAct、不当陪聊 NPC；后台候选必须能转成领域事件。

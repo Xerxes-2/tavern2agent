@@ -52,7 +52,7 @@ tools/registry.ts                GM 调用入口
 - `inheritProjectContext: false`：不要继承整包项目上下文。
 - `inheritSkills: false`：不要加载玩家技能目录。
 - 显式配置 `tools`：通常只给 lookup / readonly 工具；不给 `code_act`。
-- 显式配置 `extensions`：只加载该 subagent 的 context injector；不要省略。
+- 显式配置 `extensions`：只加载该 subagent 的 context injector；不要省略。路径从 extension 文件所在目录推导，不靠 cwd 猜。
 - 输出格式稳定：候选类 subagent 用 bare JSON；审计类 subagent 用短结构化 report。
 - 发布包包含 `.pi/agents/` 和 `extensions/subagents/`；不要要求玩家装 user-scope subagent。
 
@@ -66,6 +66,8 @@ chat history        必要叙事脉络
 ```
 
 不要每次 task 里塞完整世界。动态事实由 extension 注入，task 只说近因。
+
+extension 注入必须带游戏内日期、时间和时区。subagent 拿不到主时钟就会自己猜，产出「凌晨发生在白天」这类错位候选。
 
 ## 典型 subagent
 
@@ -106,6 +108,8 @@ chat history        必要叙事脉络
 ```
 
 GM 选择后，通过 `record_offscreen_event` 或 `commit_turn` 写入。新闻、传闻、门响只是 trace，不是后台事件本体。
+
+写入侧拒绝晚于当前时钟的候选：offscreen 事件记录已经发生的事，未来计划留在候选池或 faction plan 里。
 
 ### timeline / showrunner auditor
 

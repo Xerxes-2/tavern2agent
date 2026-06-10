@@ -74,7 +74,7 @@ Typed tools   GM 调 pi tools；工作流由每个工具 interface 固化
 - scene/action macro 是日常入口。
 - turn commit 是非常规组合 / fallback。
 - domain primitives 可以继续存在于 engine 和测试中，但不一定注册成 LLM 可见工具。
-- debug/toolset 开关若不能真正控制工具可见性，就是假 affordance，应删除。
+- 不做运行时 toolset 切换。工具清单是 prompt cache 前缀的一部分，动态增删工具每次都作废缓存；可见性在注册期决定，条件限制写进 description 和工具错误。
 
 ### 按叙事决策单位建模
 
@@ -219,8 +219,8 @@ parameters: Type.Object({
 
 仍然要保留严格性，但严格性放在工具 normalizer 和 engine：
 
-- 每个 enum 写 `assertOneOf`，错误列出允许值。
-- 每个 union object 由 `kind` 或当前工具语义选择一个 parser，不让 JSON Schema 同时尝试所有分支。
+- 归一化用共享 schema 模块：内部 TypeBox tagged-union + 统一 parse 入口，错误翻译成领域语言。单个 enum 才值得手写 assert；手写 assert 会繁殖成几十个克隆（fsn 迁移时删了 70+）。
+- 每个 union object 由 `kind` 或当前工具语义选择一个 parser，不让 LLM-facing JSON Schema 同时尝试所有分支。
 - 必填业务字段在 parser 报「缺少 npc.actorId」，不要让 validator 报多个分支缺字段。
 - parser 返回 typed input；不要让 `any` 扩散进 engine。
 - 为常见错误写工具层测试，断言错误消息，而不只断言 throw。
@@ -416,4 +416,7 @@ CodeAct 载体的适用点、沙箱契约、`.d.ts` 权威和实现校验见 `re
 - [ ] Patch 纪律落实（清单与例外见 `references/evented-runtime.md`）。
 - [ ] GM 规则写清四层优先级和禁区。
 - [ ] 状态写入走 session-backed state。
+- [ ] 工具契约与实现同文件；registry 只是清单，并有 loose-schema 守卫测试。
+- [ ] 归一化走共享 schema 模块，无手写 assert 克隆。
+- [ ] 工具清单整局稳定，无运行时 toolset 切换。
 - [ ] 根据下场误用至少检查一次是否需要加深 API。

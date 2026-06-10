@@ -64,8 +64,9 @@ migrate(raw) -> current state
 - tested：fixture 输入输出固定。
 - no LLM：迁移是代码，不是推理。
 - cleans old fields：迁完旧字段消失。
+- stepwise：大改拆成多个小 migration 串行，每步可单独测；不写巨型一步迁移。
 
-`migrate_state` 放 `debug` 或 `setup` toolset，不进 `always`。可提供 dry-run diff。
+`migrate_state` 做成 CLI/脚本或 description 标明 debug-only 的工具，不进常规玩法工具面。可提供 dry-run diff。
 
 ## Runtime 禁区
 

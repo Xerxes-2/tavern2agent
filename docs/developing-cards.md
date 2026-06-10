@@ -78,7 +78,7 @@ meta/     # 仅死亡循环/跨周目永久记忆需要
 1. bump schemaVersion
 2. 写 deterministic migration
 3. 加 fixture/test
-4. 用 debug/setup toolset 执行迁移
+4. 用 debug 工具或一次性脚本执行迁移
 
 不要让 runtime 同时猜新旧字段。
 
