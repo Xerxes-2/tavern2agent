@@ -91,6 +91,8 @@ project/
 
 ## 方案
 
+面向读者的速览；权威判定见 `references/decision-tree.md`。
+
 | 卡片特征 | v2 方案 |
 |---|---|
 | 无可变世界、无秘密边界 | prompt-only 退化形态 |
@@ -99,7 +101,7 @@ project/
 | 隐藏信息、秘密视角、多阵营 | 叠加 secret / faction / offscreen pack 和 project subagent |
 | 现实题材、开源/API/活资料 | external research tools + local canonical data |
 
-CodeAct 是承载领域 API 的执行载体，不是新 runtime 核心。无论用 typed tools 还是 CodeAct，状态变化都必须落成领域事件并经过 reducer。
+CodeAct 只是承载领域 API 的执行载体。无论用 typed tools 还是 CodeAct，状态变化都必须落成领域事件并经过 reducer。
 
 网络搜索 / 抓取 / code search 可以取代手工知识库，但只能作为只读事实源；卡片 canonical facts 仍由本地 data/lookup 管。subagent 只输出视角反应、后台候选或审计意见，不直接写 state。
 

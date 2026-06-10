@@ -9,7 +9,7 @@
 | 世界书有 `{{user}}设定` / 用户人设 | 需要用户角色字段 |
 | 主字段含 `{{user}}` | 需要用户身份 |
 | `first_mes` 末尾是问句/选项 | 需要开局选择 |
-| 世界书有“开局设置”条目 | 需要配置 |
+| 世界书有「开局设置」条目 | 需要配置 |
 | 纯叙事无占位 | 直接开场 |
 
 `alternate_greetings` / `group_only_greetings` 按路线选项处理，不能丢。
@@ -64,7 +64,7 @@ description: 开始/重新开始《卡片名》游戏。收集用户角色信息
 
 ## 开场
 
-信息齐全后，基于参考展开开场。不要复述原文，不要自报“设定已加载”。直接进场。
+信息齐全后，基于参考展开开场。不要复述原文，不要自报「设定已加载」。直接进场。
 ```
 
 ## checklist 生成
@@ -79,7 +79,7 @@ description: 开始/重新开始《卡片名》游戏。收集用户角色信息
 
 ## 平台集成
 
-extension 注入 prompt preset + 注册工具。首轮或用户说“开始/开局”时，agent 读 `skills/start-game/SKILL.md`。
+extension 注入 prompt preset + 注册工具。首轮或用户说「开始/开局」时，agent 读 `skills/start-game/SKILL.md`。
 
 流程：
 

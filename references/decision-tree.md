@@ -1,6 +1,18 @@
 # 方案判定
 
-主表见 `SKILL.md`。这里处理临界场景。
+本文是方案分档的唯一权威；其他文档只引用，不另立表。
+
+## 主表
+
+| 条件 | 方案 | 形态 |
+|---|---|---|
+| 纯设定，无可变世界、无秘密边界 | prompt-only | `agents/` + `data/` + start skill；v2 退化形态 |
+| 少量可变概念，无复杂公式 | evented light | `engine/events.ts`、`engine/reducers.ts`、少数 typed domain tools |
+| 骰子/战斗/经济/多字段联动/时间压缩/级联 | evented standard | event packs + reducer + typed tools / CodeAct API |
+| 隐藏信息/秘密视角/多阵营 | pack 叠加 | secret / faction / offscreen + project subagent |
+| 现实题材/开放资料/API 文档 | research 叠加 | web/fetch/code-search 只读事实源 + local canonical data |
+
+临界场景按下文判定。
 
 ## 第一问：有没有 mutable concept？
 
@@ -30,7 +42,7 @@
 - 有骰子、战斗、伤害公式、经济流通、多字段联动：evented standard。
 - 状态键 ≤10 且只有简单加减：evented light，不是裸 patch。
 - 只有 1-2 个偶发 roll：可 light；若 roll 改变状态，仍要事件。
-- 卡反复强调“严格公式/禁止自由发挥”：偏 standard。
+- 卡反复强调「严格公式/禁止自由发挥」：偏 standard。
 - 死亡回溯/读档/撤销：不升档；用 session tree/fork。
 - 周目继承记忆：加 `meta/persistent.json` 或 permanent custom entry。
 - 非 MVU 自定义变量：按语义映射到 mutable concept，不单开方案。

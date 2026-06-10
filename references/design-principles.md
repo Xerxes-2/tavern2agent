@@ -22,7 +22,7 @@ reveal_secret
 commit_turn
 ```
 
-状态字段是 reducer 的结果，不是模型直接编辑的表格。凡有规则的可变概念，都必须走 event pack、组合 API 或 CodeAct domain API。
+状态字段由 reducer 产出，模型无权直接编辑。凡有规则的可变概念，都必须走 event pack、组合 API 或 CodeAct domain API。
 
 ## 3. TS 跑时，Python 探索
 
@@ -43,9 +43,9 @@ agent 的 loop 应该是：查状态 / lookup → 判断 → 调领域事件或 
 
 ## 5. 计算进 engine
 
-骰子、伤害、价格、好感阈值、轮次计数、定时触发都进 engine。LLM 是叙事者，不是会计。
+骰子、伤害、价格、好感阈值、轮次计数、定时触发都进 engine。LLM 只管叙事，账目归 engine。
 
-CodeAct 是承载领域 API 的一种执行载体，不是自由脚本入口。稳定、可枚举的场景动作优先做 typed deep tools；计算、循环、批量结算和时间压缩更适合 CodeAct。
+CodeAct 只是承载领域 API 的一种执行载体，禁止当自由脚本入口。稳定、可枚举的场景动作优先做 typed deep tools；计算、循环、批量结算和时间压缩更适合 CodeAct。
 
 ## 6. 状态可追溯
 
@@ -68,7 +68,7 @@ CodeAct 是承载领域 API 的一种执行载体，不是自由脚本入口。�
 
 ## 8. Prompt 按职责拆分，由编排器渲染
 
-Prompt orchestrator 是 Runtime Plan 的 view/compiler backend，不是规则中心。复杂 RP 项目使用 `agents/preset.json` 管理模块开关、slot 和 priority；具体文本拆到 `agents/gm-*.md`。
+Prompt orchestrator 是 Runtime Plan 的 view/compiler backend；领域规则不归它管。复杂 RP 项目使用 `agents/preset.json` 管理模块开关、slot 和 priority；具体文本拆到 `agents/gm-*.md`。
 
 推荐职责：
 
@@ -90,7 +90,7 @@ final-contract：短输出闸门
 
 默认剥离：强化思考链、MVU 输出格式、JSON Patch 文本、`__结束__`、角色强制格式、HTML 状态栏、前端模板。
 
-这些是 ST 运行时补丁，不是 agent 需求。字段、公式、触发条件可以进入 IR；补丁语法不进入 runtime。
+这些都是 ST 运行时补丁。字段、公式、触发条件可以进入 IR；补丁语法不进入 runtime。
 
 ## 11. Data 按需查
 

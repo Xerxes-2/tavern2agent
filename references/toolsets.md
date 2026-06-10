@@ -62,7 +62,7 @@ description 写：何时切入、何时切回、`debug` 仅修档/迁移。
 | 场景/时间 | `change_scene` |
 | 升级 | `try_level_up` / `allocate_attribute_points` |
 
-`patch_state` 只在 debug/setup/migration toolset 保留；protected paths 禁止绕过专用工具和领域事件。
+`patch_state` 只在 debug/setup/migration toolset 保留；受保护路径清单见 `references/evented-runtime.md` 的 Patch 纪律。
 
 ## 子代理
 

@@ -2,7 +2,7 @@
 
 目标：给 GM 一个权威事实读取层，用工具查，用 `content` 返回给模型。不要让 GM 运行时靠 `bash/read` 翻文件，也不要把大 JSON 塞进 prompt。
 
-数据层不一定全是本地 JSON。v2 可以把“知识库”拆成两类事实源：
+数据层不一定全是本地 JSON。v2 可以把「知识库」拆成两类事实源：
 
 ```txt
 curated local data   卡片作者给定的世界事实、规则、NPC、地点、秘密
@@ -85,7 +85,7 @@ lookup({ query: string, type?: "location" | "npc" | "faction" | "monster" | "rul
 - 混合题材：外部资料只补现实背景，不覆盖卡片 canonical facts。
 - 任何 research 结果都是只读证据；若要进入世界状态，必须由 GM 通过领域事件记录为 rumor、memory、clue 或 setting update。
 
-不要把 web search 当作“更大的世界书”。它是按需取证工具，不是每轮注入的知识库。
+web search 是按需取证工具：用时再查，查完即止。不要把它当作每轮注入的「更大的世界书」。
 
 ## 返回格式
 

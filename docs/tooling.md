@@ -23,7 +23,7 @@ viddy -n 1 jq -C . state/state.json
 viddy -d jq -C .主角.生命值 state/state.json
 ```
 
-`-C` 保留颜色，`-d` 高亮变化。用于抓“嘴上扣血但 state 没动”。
+`-C` 保留颜色，`-d` 高亮变化。用于抓「嘴上扣血但 state 没动」。
 
 ## ask_user_question
 
@@ -48,7 +48,7 @@ pi install npm:pi-web-access
 
 给 GM web 搜索、URL 抓取、GitHub/PDF/YouTube、代码搜索能力。
 
-适合现实题材、开放资料、GitHub/API 文档。v2 里它可以取代“手工塞一大坨知识库”的做法：外部事实按需搜索/抓取，卡片 canonical facts 留在本地 data/lookup。
+适合现实题材、开放资料、GitHub/API 文档。v2 里它可以取代「手工塞一大坨知识库」的做法：外部事实按需搜索/抓取，卡片 canonical facts 留在本地 data/lookup。
 
 虚构世界要在 prompt 里默认禁用 web，避免污染设定；混合题材只能用 web 补现实背景，不能覆盖卡作者给定事实。
 

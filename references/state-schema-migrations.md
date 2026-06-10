@@ -35,16 +35,7 @@ State schema 是宪法。运行时只支持当前结构；旧存档只能通过�
 
 ## Protected paths
 
-凡有规则的字段不允许裸 patch，例如：
-
-- 金钱/资源
-- 经验/等级/属性点
-- 背包/装备/技能
-- 任务/章节
-- 地点/时间
-- 好感/关系
-
-evented light 方案用专用领域工具；evented standard 方案用 CodeAct domain API 或 scene/action API。
+受保护字段清单与 patch 例外条件见 `references/evented-runtime.md` 的 Patch 纪律。落地方式按档位：evented light 用专用领域工具；evented standard 用 CodeAct domain API 或 scene/action API。
 
 ## Schema version
 
@@ -90,7 +81,7 @@ state.核心系统 ?? state.旧同伴 ?? state.companion
 state.核心系统
 ```
 
-自然语言输入归一化可以保留，例如“饰品”映射到 `饰品1/2/3`；这不是旧 state 兼容。领域事件输入也可以接受自然 handle，但 reducer 只吃 canonical id。
+自然语言输入归一化可以保留，例如「饰品」映射到 `饰品1/2/3`；这不是旧 state 兼容。领域事件输入也可以接受自然 handle，但 reducer 只吃 canonical id。
 
 ## 测试
 

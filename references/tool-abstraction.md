@@ -1,8 +1,8 @@
 # 工具抽象设计
 
-RP 工具的目标不是「让模型能改 state」，而是让 GM 以自然叙事决策单位安全提交领域事件。不要按数据库字段切工具，也不要把复杂工作流写进 prompt 让模型背；把工作流做成可执行的高层 API。
+RP 工具让 GM 以自然叙事决策单位安全提交领域事件。不要按数据库字段切工具，也不要把复杂工作流写进 prompt 让模型背；把工作流做成可执行的高层 API。
 
-v2 中，工具/CodeAct API 的权威输出是 domain event，state 是 reducer 结果。工具名和参数应表达世界里发生了什么：关系转变、资金流动、伤势施加、秘密揭示、后台行动、turn 提交，而不是表达“把某字段改成某值”。
+v2 中，工具/CodeAct API 的权威输出是 domain event，state 是 reducer 结果。工具名和参数应表达世界里发生了什么：关系转变、资金流动、伤势施加、秘密揭示、后台行动、turn 提交，而非「把某字段改成某值」。
 
 核心原则：**入口宽，核心严**。
 
@@ -48,9 +48,9 @@ Typed tools   GM 调 pi tools；工作流由每个工具 interface 固化
 
 ### LLM 没有 LSP
 
-人类写代码时有类型提示、字段补全、必填红线、hover 文档和编译器定位；模型调用工具时往往是在盲写 JSON。复杂 nested payload 会逼模型手写无 LSP 的 transaction AST，因此“低级错误”通常是 interface 错，不是 prompt 不够严。
+人类写代码时有类型提示、字段补全、必填红线、hover 文档和编译器定位；模型调用工具时往往是在盲写 JSON。复杂 nested payload 会逼模型手写无 LSP 的 transaction AST，因此「低级错误」通常是 interface 错，不是 prompt 不够严。
 
-工具应像命令面板，而不是像函数签名大全：
+把工具做成命令面板，别做成函数签名大全：
 
 ```txt
 好：finish_current_beat(outcome, memory?, nextBeat?)
@@ -245,7 +245,7 @@ primitive/debug 层     status、lookup、log、assert、受保护低层事件�
 
 ### Scene / Action
 
-scene 层不是题材分类，而是 GM 的一次叙事承诺。API 名称尽量贴近玩家行动句子：
+scene 层的划分单位是 GM 的一次叙事承诺，与题材分类无关。API 名称尽量贴近玩家行动句子：
 
 ```ts
 declare function startSceneBeat(input: StartSceneBeatInput): SceneBeatResult;
@@ -329,17 +329,7 @@ commitTurn({
 
 ## Protected paths
 
-凡有规则的字段，禁止裸 `patch`：
-
-- 金钱/资源
-- 装备/背包
-- 技能/属性点
-- 任务/章节/Scene Objective
-- 好感/关系
-- 场景/时间
-- hidden/public 可见性边界
-
-这些必须走领域事件、组合函数或 scene/action API。`patch` 命中受保护路径时 throw，并提示正确事件/函数。standard 方案中 `patch` 应逐步降级为 debug-only；若保留兜底，每次必须有 reason，且只能改无规则、无联动的 cosmetic 字段。常规玩法不得暴露 `update_state` 这类万能 setter。
+受保护字段清单与 patch 例外条件见 `references/evented-runtime.md` 的 Patch 纪律。工具层的落点：`patch` 命中受保护路径时 throw，错误信息提示正确事件/函数（见下文错误设计）。
 
 ## 错误设计
 
@@ -380,7 +370,7 @@ protected path /economy/funds: 请使用 adjustMoney / purchase。
 
 ## 交互测试驱动加深
 
-下场测试不是只确认工具被调用，而是观察模型实际怎么误用 API。
+下场测试要观察模型实际怎么误用 API；只确认工具被调用不够。
 
 记录这些信号：
 
@@ -411,7 +401,7 @@ protected path /economy/funds: 请使用 adjustMoney / purchase。
 
 CodeAct 是四层 API 的一种执行方式：单个 `code_act` 工具承载 typed command layer。GM 写受限 JS，沙箱执行计算、随机、状态写入、查询，再把结构化结果交给 GM 叙事。
 
-纯 prompt / light 不要套 CodeAct。CodeAct 不是让 LLM 在沙箱里写小说，也不是自由脚本入口；沙箱只产机械结果、结算摘要和叙事钩子。
+纯 prompt / light 不要套 CodeAct。沙箱只产机械结果、结算摘要和叙事钩子；禁止在沙箱里写小说正文，禁止当自由脚本入口。
 
 ### CodeAct 适用点
 

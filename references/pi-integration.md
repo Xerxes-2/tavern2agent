@@ -1,6 +1,6 @@
 # pi 集成契约
 
-tavern2agent 是 pi-native。不要承诺跨平台。换 host 不是换胶水，而是重做 hook、tool schema、session state、subagent。
+tavern2agent 是 pi-native。不要承诺跨平台。换 host 意味着重做 hook、tool schema、session state、subagent。
 
 本文只写稳定契约；具体 API 以当前 pi 文档/类型为准。
 
@@ -124,7 +124,7 @@ GM prompt 可用这个框架：
 未经工具确认的机械层内容不存在。工具确认的是 domain event / reducer 结果，不是 narrator 自称已更新状态。
 ```
 
-重点不是“多调工具”，而是“不调工具就没有这个事实”。
+纪律只有一条：不调工具，这个事实就不存在。
 
 ## 项目文件
 

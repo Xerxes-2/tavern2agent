@@ -1,6 +1,6 @@
 # 多 Agent
 
-多 agent 用来隔离认知、并行候选和题材审计，不是提升“智能”的默认手段。
+多 agent 用来隔离认知、并行候选和题材审计。想让 GM 「更聪明」不构成拆分理由。
 
 当前推荐设计来自 evented runtime：**subagent 不写 state，不拿 CodeAct，不当陪聊 NPC；它只输出候选、视角反应或审计意见，由 GM 转成领域事件。**
 
@@ -146,7 +146,7 @@ GM 选择后，通过 `record_offscreen_event` 或 `commit_turn` 写入。新闻
 只输出指定 JSON / 反应 / 审计。不要接管场景叙事，不要写 state。
 ```
 
-不要写“这是 extension 注入的 system prompt”这类实现词。
+不要写「这是 extension 注入的 system prompt」这类实现词。
 
 ## GM 调用
 

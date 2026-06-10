@@ -1,6 +1,6 @@
 # Event packs
 
-Event pack 是 tavern2agent v2 的扩展单位。它把一个可变领域从“prompt 规则”提升为可执行 runtime seam。
+Event pack 是 tavern2agent v2 的扩展单位。它把一个可变领域从「prompt 规则」提升为可执行 runtime seam。
 
 ## Pack 契约
 
@@ -176,7 +176,7 @@ typed tools：规则稳定、动作少、hidden/public 边界强。
 CodeAct API：公式多、循环多、批量结算多、时间压缩多。
 ```
 
-无论载体如何，pack 的领域事件和 reducer 不变。CodeAct 只是执行一段 command layer，不是让 LLM 自由 patch state。
+无论载体如何，pack 的领域事件和 reducer 不变。CodeAct 只承载 command layer，LLM 仍无权自由 patch state。
 
 ## Prompt fragment
 

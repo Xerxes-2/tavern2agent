@@ -6,7 +6,7 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 
 # Tavern → Agent
 
-把 SillyTavern 卡编译成 pi-native 互动叙事 runtime。目标不是复刻 ST 宏、COT、JSON Patch、HTML 状态栏，也不是把状态栏字段搬进 `patch_state`；目标是还原作者想做的游戏：prompt 描述世界，领域事件改变世界，engine/reducer 维护正确性，session 保存存档。
+把 SillyTavern 卡编译成 pi-native 互动叙事 runtime。还原作者想做的游戏：prompt 描述世界，领域事件改变世界，engine/reducer 维护正确性，session 保存存档。不复刻 ST 宏、COT、JSON Patch、HTML 状态栏，不把状态栏字段搬进 `patch_state`。
 
 ## 开工
 
@@ -48,26 +48,20 @@ python3 scripts/get_entry.py card.json <index>
 
 ## 方案
 
-| 条件 | 方案 | 形态 |
-|---|---|---|
-| 纯设定，无可变世界、无秘密边界 | prompt-only | `agents/` + `data/` + start skill；v2 退化形态 |
-| 少量可变概念，无复杂公式 | evented light | `engine/events.ts`、`engine/reducers.ts`、少数 typed domain tools |
-| 骰子/战斗/经济/多字段联动/时间压缩/级联 | evented standard | event packs + reducer + typed tools / CodeAct API |
-| 隐藏信息/秘密视角/多阵营 | pack 叠加 | secret / faction / offscreen + project subagent |
-| 现实题材/开放资料/API 文档 | research 叠加 | web/fetch/code-search 只读事实源 + local canonical data |
+三档：prompt-only（纯设定，无可变世界、无秘密边界）、evented light（少量可变概念，无复杂公式）、evented standard（骰子/战斗/经济/多字段联动/时间压缩）。秘密视角叠加 secret / faction / offscreen pack 与 project subagent；现实题材叠加 web/fetch/code-search 只读事实源。主表与临界场景见 `references/decision-tree.md`。
 
-CodeAct 只是执行载体。若规则稳定且能收敛成少数 GM 叙事动作，用 typed deep tools；若每轮需要计算、循环、批量结算或时间压缩，用 CodeAct 承载同一套领域 API。无论载体如何，状态变化都落成 domain event 并经 reducer。
+typed tools 与 CodeAct 只是执行载体之争，取舍见 decision-tree 第二问；无论载体如何，状态变化都落成 domain event 并经 reducer。
 
 ## 多 agent 判定
 
-多 agent 是认知隔离，不是复杂度奖励。
+多 agent 只解决认知隔离。卡复杂本身不构成拆分理由。
 
 | 信号 | 做法 |
 |---|---|
 | NPC 少、无秘密 | 单 GM |
 | NPC 有秘密/阵营/不同视角 | 拆 subagent |
 | 悬疑答案不该进 GM context | 真相/凶手视角隔离 |
-| 只为“更聪明” | 不拆 |
+| 只为「更聪明」 | 不拆 |
 
 subagent 只给建议、候选事件或文本；状态写入仍由 GM 走主 engine。生成的 subagent 必须 project-scope、显式 tools、显式 extensions、不继承完整项目上下文/技能目录；候选类输出 bare JSON。详见 `references/multi-agent-architecture.md`。
 
@@ -79,7 +73,7 @@ subagent 只给建议、候选事件或文本；状态写入仍由 GM 走主 eng
 | Card Semantic IR | `references/card-ir.md` |
 | event pack 选择 | `references/event-packs.md` |
 | 总原则 | `references/design-principles.md` |
-| 方案拿不准 | `references/decision-tree.md` |
+| 方案分档与临界判定 | `references/decision-tree.md` |
 | TH/regex 脚本 | `references/script-analysis.md` |
 | 世界书/MVU/initvar | `references/mvu-mapping.md` |
 | 开局 setup | `references/setup.md` |
@@ -133,7 +127,7 @@ engine/migrations.ts
 
 - prompt 极简；计算进 engine；大数据进 data + lookup；状态变化进 domain event。
 - 每个 mutable concept 必须有 event pack、变成 immutable data，或有明确丢弃理由。
-- 禁止常规玩法暴露万能 `update_state` / 裸 `patch_state`；debug patch 必须受 protected paths 限制。
+- patch 纪律唯一权威见 `references/evented-runtime.md`：常规玩法不暴露万能 setter，裸 patch 不碰受保护路径。
 - ST 宏、强化思考链、JSON Patch 输出格式、HTML 状态栏默认剥离，只迁移语义。
 - state 真相源是 pi session custom entry；`state/` 只做 debug export，不发布。
 - schema 变更要 bump version + deterministic migration。

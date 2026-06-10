@@ -60,7 +60,7 @@ extension 负责：
 
 - 只传变化，不传整棵 state。
 - JSON Pointer 路径必须受 schema/root 白名单保护。
-- 有专用工具/组合函数负责的路径禁止裸 patch。
+- 受保护路径清单见 `references/evented-runtime.md` 的 Patch 纪律。
 - RFC 6902 的 `replace` 只能改已存在路径；初始化时要先建全字段。
 
 standard 方案中，`patch` 若作为 CodeAct 原语存在，也必须 debug-only 或受相同保护；常规玩法脚本优先调用 domain API。
@@ -86,7 +86,7 @@ patches.jsonl = debug log, not source of truth
 
 ## 轻量 attention
 
-若需要“每 N 轮提醒同伴 / XP 溢出提醒”，可以写 `buildReminders(state)`，在每轮 prompt 注入。
+若需要「每 N 轮提醒同伴 / XP 溢出提醒」，可以写 `buildReminders(state)`，在每轮 prompt 注入。
 
 规则：
 

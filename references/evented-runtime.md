@@ -20,7 +20,7 @@ SillyTavern card
 - 不生成万能 `update_state` / `patch_state` 作为常规玩法入口。
 - 不把 ST 状态栏字段直接暴露成 LLM 可改字段。
 - 不把世界书整块塞进 prompt。
-- 不靠 prompt 要求模型“别泄密 / 别乱改钱 / 记得推进时间”。
+- 不靠 prompt 要求模型「别泄密 / 别乱改钱 / 记得推进时间」。
 - 不为了兼容 ST 宏保留运行时 alias、旧字段 fallback 或旧工具入口。
 
 唯一保留的兼容层是：持久化 state 的程序化 migration。卡片输入解析可以兼容 ST v1/v2/v3；生成后的 runtime 不兼容旧运行时概念。
@@ -64,7 +64,7 @@ Event pack 是扩展单位。每个 pack 交付：
 
 ### Fact Source Layer
 
-事实读取不是 prompt。Runtime Plan 应声明事实源：
+事实读取走独立的事实源层，不靠 prompt 塞料。Runtime Plan 应声明事实源：
 
 ```txt
 local lookup      卡片 canonical facts：NPC、地点、规则、秘密索引
@@ -100,7 +100,28 @@ LLM tool call / CodeAct command
   → prompt orchestrator
 ```
 
-状态字段是 reducer 的结果，不是模型直接写的表格。
+状态字段由 reducer 产出，模型无权直接编辑。
+
+## Patch 纪律
+
+本节是裸 patch 规则的唯一权威；其他文档只引用，不另立清单。
+
+受保护路径——凡有规则的字段，禁止裸 `patch`：
+
+- 金钱/资源
+- 背包/装备
+- 技能/经验/等级/属性点
+- 任务/章节/scene objective
+- 好感/关系
+- 场景/地点/时间
+- hidden/public 可见性边界
+
+规则：
+
+- 受保护字段必须走领域事件、组合函数或 scene/action API；常规玩法不暴露 `update_state` / `patch_state` 这类万能 setter。
+- `patch` 只进 debug/setup/migration toolset；standard 方案应逐步降级为 debug-only。
+- `patch` 命中受保护路径时 throw，并提示正确事件/函数。
+- 若保留 patch 兜底，每次必须有 reason，且只能改无规则、无联动的 cosmetic 字段。
 
 ## 事件日志
 
@@ -138,7 +159,7 @@ IR 和 Runtime Plan 必须区分：
 
 ## Subagent roles
 
-subagent 是后台导演组/审计器，不是陪聊 NPC，也不是状态写入器。Runtime Plan 可以声明：
+subagent 是后台导演组/审计器；禁止充当陪聊 NPC 或状态写入器。Runtime Plan 可以声明：
 
 ```txt
 perspective/secret       NPC 或阵营秘密视角
@@ -166,7 +187,7 @@ skills/start-game/SKILL.md
 
 按需追加：`engine/migrations.ts`、`engine/codeact.ts`、`engine/codeact-sandbox.d.ts`、`extensions/subagents/*`、`.pi/agents/*`、pack-specific data、external research tool wiring。
 
-纯设定、无运行状态、无秘密边界的卡可以生成 prompt-only 项目；这是 v2 的退化形态，不是默认范式。
+纯设定、无运行状态、无秘密边界的卡可以生成 prompt-only 项目；这是 v2 的退化形态，仅限满足上述条件的卡。
 
 ## 验收
 

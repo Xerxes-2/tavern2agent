@@ -33,7 +33,7 @@ type CardSemanticIr = {
 };
 ```
 
-实际生成可用 JSON，不要求完全照抄类型名；但这些语义块必须存在或有“不适用”说明。
+实际生成可用 JSON，不要求完全照抄类型名；但这些语义块必须存在或有「不适用」说明。
 
 ## 关键块
 
@@ -80,7 +80,7 @@ scene-public: 学校公告说今晚停电。
 
 ### worldbookEntries
 
-世界书条目不要只标“保留/丢弃”。每条给 disposition：
+世界书条目不要只标「保留/丢弃」。每条给 disposition：
 
 ```txt
 data            稳定事实或大表

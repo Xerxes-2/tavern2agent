@@ -1,6 +1,6 @@
 # MVU / worldbook 映射
 
-MVU 条目是卡作者写给 LLM 的系统设计文档。不要整块丢弃，也不要把输出格式原样搬到 pi。先区分“游戏语义”和“ST 补丁”，再把语义进入 Card Semantic IR。
+MVU 条目是卡作者写给 LLM 的系统设计文档。不要整块丢弃，也不要把输出格式原样搬到 pi。先区分「游戏语义」和「ST 补丁」，再把语义进入 Card Semantic IR。
 
 ## 审计流程
 
@@ -68,14 +68,10 @@ python3 scripts/get_entry.py card.json <index>
 
 ## 轻量 vs 标准
 
-| 信号 | 档位 |
-|---|---|
-| 无可变世界 | prompt-only 退化形态 |
-| 只有少量领域事件、无复杂公式 | evented light / typed tools |
-| 有骰子、伤害、经济公式、多字段联动、时间压缩 | evented standard / CodeAct API |
-| 只有 ST 输出格式 | 丢弃补丁，只保留语义 |
+方案分档主表见 `references/decision-tree.md`。本文只补两条：
 
-如果已经走 standard，相关状态规则也尽量统一进 event packs，不要一部分 prompt 规则、一部分 engine。
+- 条目只有 ST 输出格式：丢弃补丁，只保留语义。
+- 已走 standard 时，相关状态规则尽量统一进 event packs，不要一部分 prompt 规则、一部分 engine。
 
 ## Data 映射
 

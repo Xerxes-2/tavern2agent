@@ -1,12 +1,12 @@
 # Prompt 预设组织
 
-SillyTavern 预设最值得迁移的不是某段神奇 prompt，而是它的 **prompt composition model**：模块可开关、顺序可调、位置明确、最终输出合同靠近生成。pi 项目不要把这些组织关系写死进 TypeScript；应把它们做成可编辑 preset manifest。
+SillyTavern 预设最值得迁移的是它的 **prompt composition model**：模块可开关、顺序可调、位置明确、最终输出合同靠近生成。pi 项目不要把这些组织关系写死进 TypeScript；应把它们做成可编辑 preset manifest。
 
 在 v2 中，这一层叫 prompt orchestrator：它是 Runtime Plan 的 view/compiler backend。它吃结构化 IR、Runtime Plan、event pack prompt fragment 和 state projection，输出 prompt bundle；它不维护领域正确性，不读写 canonical state，也不兼容旧字段。
 
 ## 核心原则
 
-- prompt 不是一坨 system；它是按职责编排的模块图。
+- prompt 是按职责编排的模块图，不要堆成一坨 system。
 - TypeScript 只做 preset/orchestrator 解释器：读 Runtime Plan 和 manifest、校验 schema、解析 source、按 slot 注入。
 - preset manifest 和 `.md` 模块默认每轮重新读取，避免调参时重启 session；只有稳定 system 身份层可以启动时固定。
 - prompt 作者只改 manifest 和 `.md` 模块，不改 engine / reducer。
@@ -135,7 +135,7 @@ agents/gm-output-contract.md        最终短合同：只输出正文、禁交�
 ```txt
 <style_blacklist>
 - 禁用否定反转：先否定普通解释，再给高级解释。
-- 禁用对照式排比：连续用“并非 / 而是 / 与其说”抬高语气。
+- 禁用对照式排比：连续用「并非 / 而是 / 与其说」抬高语气。
 - 禁用抽象名词定义：用哲学判断解释恐惧、邪恶、黑暗、命运、存在、希望。
 - 禁用作者总结：替角色处境下定义，或把主题直接讲给玩家。
 - 禁用交付语：好、好的、状态已经、现在为你写、以下是、那么。
@@ -163,7 +163,7 @@ agents/gm-output-contract.md        最终短合同：只输出正文、禁交�
 
 ## 反坏味优先于追求美学
 
-不要写“更细腻”“更轻小说”这种不可验收要求。把失败样本拆成可命名坏味：
+不要写「更细腻」「更轻小说」这种不可验收要求。把失败样本拆成可命名坏味：
 
 ```txt
 交付语：好，状态已经建立，现在为你写……
