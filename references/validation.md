@@ -1,5 +1,7 @@
 # 校验
 
+本文是完工闸门的唯一权威：残留扫描、人工清单、下场实测全过才算完成。各 reference 的阶段闸门（IR 验收、工具设计校验、prompt smoke tests）在对应阶段跑，不替代本闸门。
+
 目标：确认产物完整、无 ST 残留、IR/Runtime Plan 完整，GM 真的会提交领域事件并写 state。
 
 ## 残留扫描
@@ -33,6 +35,9 @@ grep -rnE 'update_state|patch_state|直接修改状态|JSON Patch' \
 - [ ] 主角设定若存在，已进入世界书 / start skill / actor state / memory / 可选 prompt module；不默认生成 `data/user.json`。
 - [ ] 多 agent 场景有 project-scope subagent，显式 tools/extensions，不拿 `code_act`，不继承完整项目上下文/技能目录。
 - [ ] evented 方案有 `engine/events.ts`、`engine/reducers.ts`、protected paths、session-backed state。
+- [ ] reducer 测试覆盖关键事件；secret/public/player knowledge 分层有测试或 fixture。
+- [ ] prompt orchestrator 只渲染 Runtime Plan 和 state projection，不维护领域正确性。
+- [ ] TS 产物通过 typecheck/lint/format（基线见 `references/engineering-discipline.md`）。
 - [ ] 标准方案若使用 CodeAct，其 API 提交领域事件，不暴露 raw state setter。
 - [ ] 常规玩法没有万能 `update_state` / 裸 `patch_state`。
 - [ ] 现实题材 external research 与本地 canonical data 边界清楚；虚构世界默认禁 web。

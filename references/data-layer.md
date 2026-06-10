@@ -16,7 +16,7 @@ external research    现实题材、开放网络资料、GitHub/论文/新闻等
 1. `data/*.json` 是卡片内世界观、NPC、地点、物价、规则的权威源。
 2. GM 只通过 `lookup`/领域工具读取预设事实。
 3. 现实世界 / 开源项目 / 活资料优先走 web/search/fetch/code-search 工具，不手工复制成静态知识库。
-4. 大数据集用索引查，再按需返回正文。
+4. 大数据集用索引查，再按需返回正文。地点 ≥20、NPC ≥5、DLC/物价表存在时，必须配查询工具。
 5. 结果放 `content`；`details` 只给 TUI/日志。
 6. 工具 description 写清必须调用场景和禁编规则。
 

@@ -77,7 +77,8 @@ subagent 只给建议、候选事件或文本；状态写入仍由 GM 走主 eng
 | TH/regex 脚本 | `references/script-analysis.md` |
 | 世界书/MVU/initvar | `references/mvu-mapping.md` |
 | 开局 setup | `references/setup.md` |
-| 工具抽象 / CodeAct 取舍 | `references/tool-abstraction.md` |
+| 工具抽象 / typed tools vs CodeAct 取舍 | `references/tool-abstraction.md` |
+| CodeAct 沙箱契约 / `.d.ts` | `references/codeact.md` |
 | 数据查询层 / external research | `references/data-layer.md` |
 | session state / 轻量引擎 | `references/ts-engine.md` |
 | schema/migration | `references/state-schema-migrations.md` |
@@ -141,10 +142,4 @@ engine/migrations.ts
 
 ## 完工
 
-1. 跑残留扫描：见 `references/validation.md`。
-2. 确认 `data/card-ir.json` 和 `data/runtime-plan.json` 存在，且所有 mutable concept 有 event pack 或丢弃理由，fact sources 和 subagent roles 边界明确。
-3. 你作为测试玩家 Agent 下场玩至少 20-30 轮，覆盖主要系统；你可以明说自己在测试，请 GM 配合触发场景。
-4. evented 方案确认 GM 调用领域事件 / CodeAct domain API，且不是裸 patch。
-5. TS 项目通过 typecheck/lint/format。
-6. 所有 alternate greetings、disabled entries、世界书条目都有去向。
-7. 报告只说已完成项和文件路径；未完成就继续做。
+完工闸门唯一权威见 `references/validation.md`：残留扫描、人工清单、作为测试玩家 Agent 下场 20-30 轮实测，全过才算完成。报告只说已完成项和文件路径；未完成就继续做。

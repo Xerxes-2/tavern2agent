@@ -55,30 +55,15 @@ CodeAct 只是承载领域 API 的一种执行载体，禁止当自由脚本入�
 
 ## 7. Public / hidden / player knowledge 分层
 
-必须区分：
-
-| 层级 | 含义 | 落点 |
-|---|---|---|
-| player-only | 现实玩家知道，角色未必知道 | 不写 public state；最多用于 GM guard |
-| protagonist-known | 玩家角色知道 | protagonist memory / actor public facts |
-| scene-public | 场景中他人也知道 | public state / public memory |
-| hidden-canonical | 真实存在但未公开 | secrets / hidden state / subagent context |
+可见性分四层：player-only / protagonist-known / scene-public / hidden-canonical，秘密不串层。定义与落点表见 `references/evented-runtime.md` 的 Visibility policy。
 
 不要因为 ST 卡把秘密写在 prompt 里，就把它迁移到 public memory。
 
 ## 8. Prompt 按职责拆分，由编排器渲染
 
-Prompt orchestrator 是 Runtime Plan 的 view/compiler backend；领域规则不归它管。复杂 RP 项目使用 `agents/preset.json` 管理模块开关、slot 和 priority；具体文本拆到 `agents/gm-*.md`。
+Prompt orchestrator 是 Runtime Plan 的 view/compiler backend；领域规则不归它管。复杂 RP 项目用 `agents/preset.json` 管理模块开关、slot 和 priority，具体文本拆到 `agents/gm-*.md`；slot 设计与模块拆分见 `references/prompt-composition.md`。
 
-推荐职责：
-
-```txt
-pre-history：创作宪法、世界索引、输入协议、社交/文风/渲染滤镜
-pre-response：状态简报、工具策略、硬规则、本轮 driver
-final-contract：短输出闸门
-```
-
-不要把世界书、公式、COT、JSON Patch 指令塞进去。大数据进 data + lookup；状态进 engine；prompt 只做阅读滤镜、工具纪律、叙事渲染和输出合同。
+prompt 只做阅读滤镜、工具纪律、叙事渲染和输出合同；大数据进 data + lookup，状态进 engine。
 
 ## 9. 不加戏
 
@@ -94,34 +79,12 @@ final-contract：短输出闸门
 
 ## 11. Data 按需查
 
-- 世界/规则：`data/world.json`
-- 角色：`data/characters.json` + lookup
-- 地点：`data/locations.json` + lookup
-- 章节：`data/chapters.json` + lookup
-- 开场：`skills/start-game/SKILL.md`
-
-大数据不进 prompt。地点 ≥20、NPC ≥5、DLC/物价表存在时，必须配查询工具。
+大数据不进 prompt：世界事实进 `data/*.json`，GM 通过 lookup 读取。目录约定、查询工具阈值与外部 research 边界见 `references/data-layer.md`。
 
 ## 12. 工具 description 是决策入口
 
-模型是否调工具，主要看工具 description。关键工具要写：
-
-- 必须调用场景
-- 严禁凭记忆编造或叙事绕过
-- 工具职责边界
-- 常见错误后的正确下一步
+模型是否调工具，主要看工具 description：必须调用场景、严禁行为、职责边界、错误后的下一步。模板见 `references/pi-integration.md` 的工具 description 节。
 
 ## 13. 工具粒度按领域事件
 
-工具对应 GM 的叙事动作，而不是 state 字段：进入调查、完成撤退、休息一晚、采购整备、战斗交换、记录长期后果。
-
-| 可变概念 | 事件 / 工具 |
-|---|---|
-| 时间/地点 | `commit_turn` / `move_location` |
-| 好感/信任 | `record_relationship_shift` |
-| 金钱 | `earn_money` / `spend_money` / `transfer_money` |
-| 伤势/异常 | `apply_condition` / `relieve_condition` |
-| 秘密 | `configure_secret` / `reveal_secret` |
-| 后台行动 | `record_offscreen_event` |
-
-过粗会参数乱猜，过细会工具爆炸。若总要记调用顺序，合并成更深的 scene/action API 或 turn commit API。
+工具对应 GM 的叙事动作，不对应 state 字段。过粗会参数乱猜，过细会工具爆炸；若总要记调用顺序，合并成更深的 scene/action API 或 turn commit API。建模准则与事件对照表见 `references/tool-abstraction.md` 与 `references/event-packs.md`。

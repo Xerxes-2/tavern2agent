@@ -113,6 +113,8 @@ discarded       ST 补丁或重复内容
 
 ## IR 验收
 
+本清单是 IR 阶段闸门，在输出 `data/card-ir.json` 时跑；完工闸门见 `references/validation.md`。
+
 - [ ] 所有 alternate greetings / group greetings 有去向。
 - [ ] 所有世界书条目含 disabled 有 disposition。
 - [ ] 所有 initvar 字段映射到 mutable concept 或丢弃理由。

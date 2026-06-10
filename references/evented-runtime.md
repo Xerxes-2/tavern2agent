@@ -191,12 +191,4 @@ skills/start-game/SKILL.md
 
 ## 验收
 
-- [ ] 每个 mutable concept 都有 event pack 或明确丢弃理由。
-- [ ] 没有常规玩法用的万能 state setter。
-- [ ] protected paths 无法被裸 patch 改动。
-- [ ] reducer 测试覆盖关键事件。
-- [ ] secret/public/player knowledge 分层有测试或 fixture。
-- [ ] prompt orchestrator 只渲染 Runtime Plan，不维护领域正确性。
-- [ ] external research 与 local canonical data 边界清楚。
-- [ ] subagent 不写 state，不拿 CodeAct，候选能转成领域事件。
-- [ ] 下场测试证明 GM 会调用领域事件，而不是叙事里口头改状态。
+完工闸门唯一权威见 `references/validation.md`：残留扫描、人工清单、下场实测。本文所有约束都已进入该闸门。
