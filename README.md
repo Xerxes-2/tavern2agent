@@ -114,11 +114,16 @@ references/card-ir.md            卡片语义 IR
 references/event-packs.md        领域事件包
 references/data-layer.md         本地 lookup 与外部 research 边界
 references/multi-agent-architecture.md 子代理设计
+references/two-pass-rendering.md   两段式结算/渲染与 compaction
 references/                      迁移细节
 docs/developing-cards.md         迁移后维护
 docs/tooling.md                  可选工具
 scripts/                         卡片解包/审计脚本
 ```
+
+## 实战样本
+
+本技能的方法论在 [fate-sandbox](https://github.com/lolo-s-Cosmos/fate-sandbox) 上持续验证迭代——一个型月世界观沙盒，13 条世界线（FSN 冬木、strange Fake、月姬、空之境界等）。这里的两段式结算/渲染拆分、引擎台账、确定性 compaction、缓存友好渲染历史等经验均出自它的长跑实测。想看一个完整的 evented standard + 多 subagent + 两段式项目长什么样，读它的源码和 `docs/adr/`。
 
 ## 理念
 

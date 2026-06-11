@@ -127,6 +127,10 @@ GM prompt 可用这个框架：
 
 纪律只有一条：不调工具，这个事实就不存在。
 
+## Compaction 接管
+
+长跑叙事 runtime 不要依赖默认 LLM compaction：它会丢领域事实、不确定、有成本。用 `session_before_compact` hook 接管手动 `/compact` 和自动 compaction，不要另设自定义命令。领域模型付清后（事实在 state、prose 在渲染器自管窗口），compaction 可退化成确定性截断索引，零 LLM 成本，见 `references/two-pass-rendering.md`。
+
 ## 项目文件
 
 ```txt

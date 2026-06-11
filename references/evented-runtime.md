@@ -133,6 +133,16 @@ LLM tool call / CodeAct command
 
 日志不一定是回滚真相源；pi session custom entry 仍是存档真相源。但日志必须能解释 state 为什么变成现在这样。
 
+## 引擎台账：Prompt 不是防线
+
+GM 纪律凡是能落账的，从 prompt 搬进 state-backed ledger 由 engine 强制。prompt 级纪律在 compaction 时死亡、无法审计、随上下文增长静默退化；台账靠构造在 compaction 后存活，且给审计工具对账的科目而非要通读的转录。三类已实证的台账：
+
+- **回合义务账**（obligations ledger）：裁决类工具（如战斗交换）登记必须落地的状态变化，领域事件按 FIFO 销账；任何债务未清，`commit_turn` 整体硬拒。
+- **阵营时钟 / 排程事件**：BITD 式进度钟，到期/填满项在 canonical commit 返回值里催办（dunning）。
+- **悬念钩子账**：钩子生命周期入 state，同时施压钩子设硬上限（如 2 条），每次重现强制写 novelty。
+
+强制力度与可验证性匹配：漏掉一个 `add-wound` 事件是机器可查的 → 硬拒；时钟/钩子的叙事跟进不可机检 → 只催办 + 强制留痕（outcomeSummary、novelty、reason），对不可验证的主张上硬闸只会训练出空话填表。硬拒之所以可负担，前提是两段式拆分让结算侧幕后重试（见 `two-pass-rendering.md`）。
+
 ## 时间与 turn envelope
 
 只要 runtime 有连续叙事，canonical turn 必须带时间裁决：

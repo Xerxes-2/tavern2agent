@@ -42,6 +42,10 @@ grep -rnE 'update_state|patch_state|直接修改状态|JSON Patch' \
 - [ ] 常规玩法没有万能 `update_state` / 裸 `patch_state`。
 - [ ] 现实题材 external research 与本地 canonical data 边界清楚；虚构世界默认禁 web。
 
+## 会话 JSONL 审计
+
+重叙事项目建议附带一个读 session JSONL 的审计脚本：叙事 lint 规则（坏味句式、泄密、长度下限）与运行时 lint 共享同一模块，避免两套口径。两段式项目分别 lint 渲染面（prose custom message）与结算面（direction packet）。台账化的纪律（obligations、hooks）用对账方式审计，不要通读转录。
+
 ## 下场实测
 
 最小流程：

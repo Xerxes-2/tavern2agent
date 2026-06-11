@@ -85,6 +85,7 @@ subagent 只给建议、候选事件或文本；状态写入仍由 GM 走主 eng
 | pi extension/tools/prompt | `references/pi-integration.md` |
 | prompt orchestrator / ST prompt_order 迁移 | `references/prompt-composition.md` |
 | 多 agent | `references/multi-agent-architecture.md` |
+| 两段式结算/渲染、双模型、compaction 接管 | `references/two-pass-rendering.md` |
 | 下场测试 | `references/validation.md` |
 | 工程纪律 | `references/engineering-discipline.md` |
 
@@ -138,7 +139,9 @@ engine/migrations.ts
 - 工具清单整局稳定：不做运行时 toolset 切换，动态增删工具会毁掉 prompt cache。
 - prompt orchestrator 只渲染 Runtime Plan + state projection；不读写 canonical state，不兜底领域规则，不泄露 hidden-canonical。
 - 现实题材可用 web/fetch/code-search 取代手工知识库；虚构 canonical facts 默认只走本地 data/lookup。
-- subagent 不写 state、不拿 CodeAct、不当陪聊 NPC；后台候选必须能转成领域事件。
+- subagent 不写 state、不拿 CodeAct、不当陪聊 NPC；后台候选必须能转成领域事件；subagent 需要的 state 投影由主进程在 tool_call hook 里注入 task，不读 debug 快照文件。
+- Prompt 不是防线：能落账的 GM 纪律进 state-backed ledger 由 engine 强制；强制力度与可验证性匹配（机检项硬拒，叙事项催办+留痕）。见 `references/evented-runtime.md`。
+- 重叙事卡评估两段式结算/渲染拆分；是否采用及边界见 `references/two-pass-rendering.md`。
 - `start.sh` 从本仓库 `scripts/start.sh` 复制，保留项目级 `PI_CODING_AGENT_DIR` 隔离。
 - TS 产物必须启用严格工程基线；typecheck/lint/format 不过不算完成。
 

@@ -177,6 +177,14 @@ subagent 不拿 `code_act`，也不直接 patch state。需要状态变化时返
 
 GM 决定是否通过主 engine 写入。
 
+## 上下文注入通道
+
+subagent 需要的 state 投影，不要让它自己读 `state/state.json`——那是 debug 快照，可能过期、属于别的 session/分支、或被测试进程覆盖。正确通道：主 GM 进程在 `tool_call` hook 里拦截 subagent 调用（`event.input` 官方可变），从进程内 canonical store 即时计算 subagent-safe 投影（已过滤 secrets），追加进 task 参数。要点：
+
+- 覆盖 SINGLE / PARALLEL tasks[] / CHAIN 三种形态；幂等；注入失败不阻断调用。
+- agent 合同里写明上下文以追加形式到达，并定义缺块时的降级行为。
+- 投影的无密性要有测试。
+
 ## 反模式
 
 - 每个 NPC 都拆 agent。
@@ -186,3 +194,4 @@ GM 决定是否通过主 engine 写入。
 - 用 subagent 代替工具 description、strict path、migration。
 - 单线程场景硬拆并行。
 - 候选 subagent 输出 Markdown 长文，迫使 GM 再抽结构。
+- subagent 自己读 debug 快照文件当 state 真相源。
