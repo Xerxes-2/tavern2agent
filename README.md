@@ -29,6 +29,14 @@ SillyTavern card
 
 ## 安装
 
+用 [`npx skills`](https://github.com/vercel-labs/skills)（推荐）：
+
+```bash
+npx skills add Xerxes-2/tavern2agent
+```
+
+或 git clone：
+
 ```bash
 git clone --depth 1 https://github.com/Xerxes-2/tavern2agent \
   ~/.pi/agent/skills/tavern2agent
@@ -37,7 +45,8 @@ git clone --depth 1 https://github.com/Xerxes-2/tavern2agent \
 更新：
 
 ```bash
-cd ~/.pi/agent/skills/tavern2agent && git pull
+npx skills update            # npx skills 安装
+cd ~/.pi/agent/skills/tavern2agent && git pull   # git clone 安装
 ```
 
 ## 使用
