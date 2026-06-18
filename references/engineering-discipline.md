@@ -57,6 +57,20 @@ deadcode
 - 死代码、注释掉的代码、未注册工具直接删。
 - 注释解释为什么，不复述代码。
 
+## Prompt / 工具体量纪律
+
+非 GPT 模型在重结算回合普遍跑得慢、思维链异常冗长，根因常是 prompt 栈过重 + 工具 description 堆「【必须调用的场景】/【严禁的行为】」式长清单。
+
+- **checklist 体例是 reasoning-bait**。这种清单会诱导模型动手前先把整套规约逐条复述一遍。工具 description 收成「一行用途 + 使用边界 bullet + 严禁 bullet」的紧凑格式；prompt 模块只把规则讲清一次，不靠反复堆清单「加固」。
+- **纯静态瘦身，不引入动态前缀**。体量超重就禁掉无关模块、压缩文字（fsn：结算主干 42558→16768 字符 -60%，工具 description -33%，行为/schema 零改动）。绝不按当轮输入改 prompt 前缀：fsn 试过 meta-turn 动态裁剪（`isLikelyMetaTurn`/`chooseSettlementPromptProfile`）随后整体回退——任何按输入变前缀的逻辑都击穿 prefix cache，每回合重新计费整段系统提示。
+- **注入栈用测试钉死**。固定模块数（如 `injected.length === 11`）+ slot 顺序，让「删文字」类改动一旦越界立即被 gate 拦下。瘦身的安全边界靠 packet 契约、工具 schema 宽松性、注入栈结构这些机器可校验项兑现。
+- 这条与「Prompt 不是防线」一脉相承：真纪律落在 engine ledger（见 `evented-runtime.md`），prompt 只负责把规则说清楚一次。
+
+削减推理耗时有两个独立杠杆，可叠加：
+
+- **输入侧：瘦身 prompt / 避免 checklist reasoning-bait**（本节）——减少模型动手前要复述/消化的材料量。
+- **输出侧：卡掉原生思维链**（见 `two-pass-rendering.md` 「压制渲染侧原生思维链」）——在不需推理的环节（如 Pass B 纯 prose 渲染）用 prefill 闭合标签让模型跳过 CoT 直接出文。区分哪些环节该保留推理（结算/裁决）、哪些该关推理（渲染）。
+
 ## State 纪律
 
 - 当前 schema 是唯一运行时结构。

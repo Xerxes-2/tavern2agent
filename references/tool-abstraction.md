@@ -335,6 +335,8 @@ commitTurn({
 
 错误信息是给模型恢复用的 prompt。不要只说 failed；要返回下一次调用所需参数。
 
+union/多分支校验错误要折叠噪声：TypeBox/JSON Schema 对 `anyOf`/`oneOf` 会同一 path 吐三行（`分支1 类型不符`、`分支2 缺字段`、`必须匹配其中一种`），对模型不可恢复。把同一 instancePath 的相邻分支错误吐成一行：具体分支形状 + 从源值（RFC 6901 JSON Pointer）读出的实际 JSON 类型。根治仍是 schema 不对 LLM 面暴露复杂 union（见 「LLM-facing schema 不等于 serde」）。
+
 ```txt
 unknown actor: caster。请先 materialize actor：upsert_actor / addActor。
 unresolved beat: 仍有未解决目标，可用 resolveAllObjectives=true。候选：...
@@ -361,11 +363,11 @@ protected path /economy/funds: 请使用 adjustMoney / purchase。
 - 脚本或工具调用只做机械层；叙事在工具返回后写。
 - 不调用工具就不能声称状态已改变。
 
-工具 description 写四件事：
+工具 description 是紧凑的使用边界，不是操作手册。忌「【必须调用的场景】/【严禁的行为】」式长清单——那种清单是 reasoning-bait，诱导模型动手前逐条复述整套规约，拖慢非 GPT 模型（详见 `engineering-discipline.md` Prompt/工具体量纪律）。收成四件事，每件一行：
 
-1. 必须调用场景。
-2. 严禁行为。
-3. 四层优先级：scene/action > turn commit / transaction > domain composition > primitive/debug。
+1. 一行用途。
+2. 使用边界 bullet（何时用 / 该用哪个替代）。
+3. 严禁 bullet（只列真会误用的，不穷举）；四层优先级 scene/action > turn commit / transaction > domain composition > primitive/debug 一行带过。
 4. 若是 CodeAct，嵌入 `.d.ts`。
 
 ## 交互测试驱动加深

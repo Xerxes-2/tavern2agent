@@ -26,6 +26,8 @@ packet 是两段之间唯一通道，过防火墙（按 secrets 路径整包拒�
 
 packet 至少含：playerAction、resolvedChanges（所有落地的状态变化）、场景指示、eventWeight（节拍权重，映射到具体字数下限，见 `prompt-composition.md`）。
 
+packet 里面向玩家的建议字段（如 suggestedActions 的 submitText）要用**无主语动作短语**：它会变成真正的玩家消息，固定主语（我/你）会和玩家角色身份或视角错配。
+
 ## 渲染器历史：缓存友好分层
 
 渲染 prompt 不要做「单条 user 字符串 + 滑动窗口 + 相对回合编号」——每回合首字节都变，provider prefix cache 永不命中。正确形态是 append-only 对话：
@@ -48,6 +50,18 @@ packet 至少含：playerAction、resolvedChanges（所有落地的状态变化�
 - 渲染是裸 stream，可以做伪流式预览改善等待体验。
 - 审计脚本从 prose custom message 读渲染面，从 packet 读结算面，两面分开 lint。
 - 先做 spike 验证 packet 接缝不损 prose 质感，拿到 GO 再正式接线。
+
+## 压制渲染侧原生思维链（主要为削耗时）
+
+Pass B 是纯 prose 生成，不需要长推理；但 thinking 模型在渲染回合会花大量时间生成原生思维链，拖慢首字节、括高成本。可直接借 SillyTavern「咩咩预设 ver 3.3.6」的「卡掉原生思维链」手法，让渲染跳过思考直接出正文：
+
+- **prefill 闭合标签**：在模型回复槽前注入一个 assistant prefill（闭合的 `</think>` 类标签），模型以为思考已结束、直接跳进正文，省掉整段 CoT 生成时间。注入点放在渲染调用的唯一咽喉（覆盖首写 / lint 重试 / reroll），不动 base messages 构造，避免 reroll 的尾部 user 消息埋掉 prefill。
+
+顺带收一个副作用：**防思维链泄漏**。OpenRouter / 第三方 Gemini relay / OpenAI-兼容代理会把思维摘要拍平进文本流，绕过 pi-ai 的 `isThinkingPart()` 路由，未被压住的链会泄进 Pass B prose；prefill 同时压住了这种泄漏。再加一道后处理 strip 兑付残留：
+
+- **后处理 strip**：删掉任意位置的闭合 `<think>/<thinking>/<thought>` 块，以及代理回显 prefill 时的首部残留。未闭合的开标签不抖——strip 它会把悬空的链内容暴露成 prose；交由 underlength/坏味 lint 拦下空稿触发重写。
+
+范围只限 Pass B（渲染 + lint 重试 + reroll）；Pass A 结算需要推理纪律，原生思维链是资产不动。这与「瘦身 prompt / 避免 checklist reasoning-bait」同一主题：都是在该快的环节刪减不必要的推理耗时。
 
 ## compaction 顺带解决
 

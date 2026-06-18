@@ -132,11 +132,13 @@ engine/migrations.ts
 - ST 宏、强化思考链、JSON Patch 输出格式、HTML 状态栏默认剥离，只迁移语义。
 - state 真相源是 pi session custom entry；`state/` 只做 debug export，不发布。
 - schema 变更要 bump version + deterministic migration。
-- 工具 description 写调用场景和禁区；结构化数据不能只放 `details`。
+- 工具 description 写调用场景和禁区，但忌「【必须】/【严禁】」长清单——清单体例是 reasoning-bait，会诱导模型动手前逐条复述，拖慢非 GPT 模型并撑长思维链；收成「一行用途 + 边界 bullet + 严禁 bullet」。结构化数据不能只放 `details`。
 - LLM-facing tool schema 不要用复杂 union/enum 当 serde；schema 挡基本形状，工具入口 `unknown → typed input`，归一化用共享 schema 模块而非手写 assert 克隆，错误用领域语言，engine/state 继续严格。
 - state 写入收口到单一 runner：clone draft → 纯 `(draft, event)` 领域函数 → 校验 → commit；领域函数不碰 store，失败即不提交。
 - 工具契约与实现同文件；`tools/registry.ts` 只是注册清单。
 - 工具清单整局稳定：不做运行时 toolset 切换，动态增删工具会毁掉 prompt cache。
+- prompt 注入栈整局静态：模块开关是配置期决定，绝不按当轮输入裁剪 prompt 前缀（meta-turn 动态裁剪 fsn 试过即回退——任何按输入改前缀都击穿 prefix cache，每轮重算整段系统提示）。用测试钉死注入模块数。规则讲清一次即可，不靠堆清单「加固」；体量该减就静态减，行为/schema 由测试锁住不变。
+- 模型可见文本（身份声明、tool label、玩家面板、suggestedActions）不出现工程脚手架措辞（sandbox/framework/「本模块负责…」自报家门），换成世界内/叙事措辞；内部包名、目录、tool id 不动。结构化建议字段去主语用无主语动作短语，避免和玩家角色身份/视角人称错配。
 - prompt orchestrator 只渲染 Runtime Plan + state projection；不读写 canonical state，不兜底领域规则，不泄露 hidden-canonical。
 - 现实题材可用 web/fetch/code-search 取代手工知识库；虚构 canonical facts 默认只走本地 data/lookup。
 - subagent 不写 state、不拿 CodeAct、不当陪聊 NPC；后台候选必须能转成领域事件；subagent 需要的 state 投影由主进程在 tool_call hook 里注入 task，不读 debug 快照文件。

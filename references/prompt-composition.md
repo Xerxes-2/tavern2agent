@@ -196,6 +196,14 @@ NPC 传感器   → social/render 要求重要 NPC 有位置、动作、上一�
 - 机械教学：在叙事里教玩家怎么操作系统。
 - 报时器：直接报钟表数值；时间压力要叙述出来（光线、疏密、NPC 动作）。
 
+## 模块写作本身也要 stop-slop
+
+stop-slop 不只管输出 prose，也管 prompt 模块本身的文字：
+
+- 删自报家门开场白（「This module defines/explains…」「本模块负责…」）——H1 标题已经命名了模块，开场白是纯噪声，还会被模型当口吻模仿。
+- 删「Actively/主动地」这类拐杖副词。
+- 模型可见文本（身份声明、tool label、玩家面板）不出现工程脚手架措辞：sandbox/framework/沙盒这类词换成世界内/叙事措辞（fsn：sandbox → directed-narrative engine，并点明「paced, GM-driven story system, not a free-roam world simulation」）。内部包名/目录/tool id/开发文档不动。
+
 ## 死模块要删
 
 从未被 manifest 注入的 prompt 模块是负资产：独有检查项并入存活模块后删除文件。定期用 manifest 对账 `agents/*.md`。
