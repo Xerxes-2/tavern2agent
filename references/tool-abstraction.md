@@ -329,6 +329,8 @@ commitTurn({
 
 自然语言 handle 至少支持精确匹配和包含匹配。模型很少稳定逐字复述 objective summary；`"检查地面、墙角和排水沟"` 应能匹配 `"沿魔力波动外围用構造把握检查地面、墙角和排水沟"`。多候选时报 ambiguity，并列出候选。
 
+所有会被后续清除/解决/更新的 runtime 条目都要可寻址：内部 id + 玩家/模型可读 summary 至少保留一项稳定入口。威胁、objective、condition、debt、memory、hook 等不要只存在为一段 prose；创建时返回 id，错误时列可用 id/summary，常用操作接受 summary 片段。
+
 ## Protected paths
 
 受保护字段清单与 patch 例外条件见 `references/evented-runtime.md` 的 Patch 纪律。工具层的落点：`patch` 命中受保护路径时 throw，错误信息提示正确事件/函数（见下文错误设计）。

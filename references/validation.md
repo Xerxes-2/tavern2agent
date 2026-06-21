@@ -46,7 +46,7 @@ grep -rnE 'update_state|patch_state|直接修改状态|JSON Patch' \
 
 ## 会话 JSONL 审计
 
-重叙事项目建议附带一个读 session JSONL 的审计脚本：叙事 lint 规则（坏味句式、泄密、长度下限）与运行时 lint 共享同一模块，避免两套口径。两段式项目分别 lint 渲染面（prose custom message）与结算面（direction packet）。台账化的纪律（obligations、hooks）用对账方式审计，不要通读转录。
+重叙事项目建议附带一个读 session JSONL 的审计脚本：叙事 lint 规则（坏味句式、泄密、长度下限）与运行时 lint 共享同一模块，避免两套口径。两段式项目分别 lint 渲染面（prose custom message）与结算面（direction packet）。允许项目/玩家追加本地 prose lint regex，作为口味层覆盖；内置规则管硬禁区，本地规则管个人文风厌恶。台账化的纪律（obligations、hooks）用对账方式审计，不要通读转录。
 
 ## 下场实测
 
@@ -73,6 +73,9 @@ cd 项目目录
 - 长跑后前后设定、价格、地点、NPC 记忆是否一致。
 - 多系统连续触发后 state 是否仍符合 schema。
 - hidden-canonical 是否没有串进 public memory。
+- 两段式项目是否没有 Pass A assistant text 泄进玩家正文或后续 prompt；玩家可见 prose 只来自渲染 custom message。
+- suggestedActions / choice widget 是否在 turn_start 清空旧项、reroll 后重建，显示文本与提交文本一致。
+- 后续要清除/解决/更新的条目是否可用 id 或 summary 片段再次寻址，错误能列候选。
 - external research 是否只作为只读证据，没有覆盖卡片 canonical facts。
 - subagent 返回是否是候选/审计，且由 GM 转成领域事件。
 

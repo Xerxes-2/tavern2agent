@@ -28,6 +28,24 @@ packet 至少含：playerAction、resolvedChanges（所有落地的状态变化�
 
 packet 里面向玩家的建议字段（如 suggestedActions 的 submitText）要用**无主语动作短语**：它会变成真正的玩家消息，固定主语（我/你）会和玩家角色身份或视角错配。
 
+## Pass A 文本防火墙
+
+结算侧（Pass A）只应产生工具调用和 direction packet；任何 assistant text 都不是玩家正文。要在两个位置清理泄漏：
+
+- `message_end` / session entry 落盘时：工具调用 assistant message 若混入 text part，删 text、保留 thinking/tool call。
+- prompt/context 注入时：已持久化的 Pass A 泄漏也要过滤，不能因为历史里已有就回灌给模型或玩家。
+
+玩家可见 prose 只来自 Pass B 的 custom message（如 `xxx-prose`）。这条必须有测试：纯文本 assistant message（真正 meta 回复）不删；tool-call assistant 的 text 泄漏才删。
+
+## 玩家选择 UI 生命周期
+
+如果 packet 生成 suggestedActions / choice widget：
+
+- UI 展示文本必须和真正提交的 user message 一致，不能只显示摘要而提交隐藏长串。
+- turn_start 清空旧 widget，防止下一轮沿用 stale choices。
+- reroll 时从新 prose / 新 packet 重新持久化 suggestedActions；隐藏 leaf、审计 entry、custom prose entry 不能让 reroll target 失效。
+- suggestedActions 属于玩家界面提示，不是叙事正文；不要塞进 endWindow 或 prose。
+
 ## 渲染器历史：缓存友好分层
 
 渲染 prompt 不要做「单条 user 字符串 + 滑动窗口 + 相对回合编号」——每回合首字节都变，provider prefix cache 永不命中。正确形态是 append-only 对话：
