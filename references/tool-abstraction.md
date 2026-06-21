@@ -140,6 +140,8 @@ RP 模型最自然的引用顺序：
 
 优先提供：`current beat`、`resolveAllObjectives`、`ownerActorId`、角色别名、objective summary、item label、claim + evidence。内部 ID 可以返回给日志和精确操作，但不要成为唯一入口。
 
+引用类参数的 description 要统一写清“这是已存在对象的 id”；创建类参数不要套这个模板，避免让模型误以为新建 id 必须预先存在。schema 宽松（`Type.String` / `Type.Unknown`）后，description 就是 LLM 填参的主提示通道，引用字段、创建字段、natural handle 字段要分开写。
+
 ### 复杂 beat 成对设计入口和出口
 
 复杂场景不只需要进入接口，也需要收口接口。

@@ -33,6 +33,8 @@ grep -rnE 'update_state|patch_state|直接修改状态|JSON Patch' \
 - [ ] TH scripts / regex scripts 已审计。
 - [ ] 章节/大型设定未全量塞 prompt。
 - [ ] 主角设定若存在，已进入世界书 / start skill / actor state / memory / 可选 prompt module；不默认生成 `data/user.json`。
+- [ ] 主角/操控者地位由指针表达，运行时不散落硬编码 id 判断；seed id 若存在只在初始化/迁移常量里出现。
+- [ ] public registry key 不泄露 hidden truth；真名、凶手、阵营秘密不出现在 actor/item/location id。
 - [ ] 多 agent 场景有 project-scope subagent，显式 tools/extensions，不拿 `code_act`，不继承完整项目上下文/技能目录。
 - [ ] evented 方案有 `engine/events.ts`、`engine/reducers.ts`、protected paths、session-backed state。
 - [ ] reducer 测试覆盖关键事件；secret/public/player knowledge 分层有测试或 fixture。

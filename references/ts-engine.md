@@ -9,6 +9,8 @@
 - `INITIAL_STATE` + schema 是当前唯一结构。
 - 旧字段只在 migration 里读，运行时不长期 fallback。
 - 身份建模成 role/facet，不建 actor kind。主角是 `protagonistActorId` 指向的角色；契约身份是可得可失的 role 字段；特殊形态是可挂载的 facet 对象。为每种身份造实体子类型，后面必然出现「既是 A 又是 B」的角色塞不进去。
+- 主角/当前操控者这类地位只由指针表达；不要让 actor id 本身编码地位，也不要在运行时散落 `id === "protagonist"` 这种判断。若需要种子 id，集中成单一常量，仅初始化/迁移使用。
+- public registry key 是可见侧信道，默认用 opaque/stable id；不要把隐藏真名、凶手身份、阵营秘密写进 actor id / item id / location id。玩家可见名字、渲染名、内部 canonical name 分字段处理。
 - 派生值运行时计算，不落盘。
 - 所有写入走领域事件、engine 函数或 CodeAct domain API；LLM 不直接改对象。
 - 写入返回 domain event、before/after 摘要和叙事 hook，方便审计、叙事和测试。
