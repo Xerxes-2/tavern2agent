@@ -24,7 +24,15 @@ packet 是两段之间唯一通道，过防火墙（按 secrets 路径整包拒�
 
 渲染器只能看见 packet；结算器漏写的内容玩家永远看不到。合同口径：**宁可多一条，不可少一条**。不要让渲染器偷看 state 来兜底——那会把秘密防火墙打穿。
 
-packet 至少含：playerAction、resolvedChanges（所有落地的状态变化）、场景指示、eventWeight（节拍权重，映射到具体字数下限，见 `prompt-composition.md`）。
+packet 至少含：playerAction、resolvedChanges（所有落地的状态变化）、NPC 主动动作指导、场景指示、eventWeight（节拍权重，映射到具体字数下限，见 `prompt-composition.md`）。
+
+多角色场景要给重要 NPC 一个 player-safe stance block，例如 `npcStances[] = { actorId, stance, wants, move, refusesToSay }`：
+
+- `stance` / `wants` 给渲染器理解语气和当前欲望。
+- `move` 是 binding：该 NPC 本轮为了推进 `wants` 主动说出/做出的一个具体行为、要求、肢体动作或插话。重要 NPC 缺 `move` 是 packet bug；renderer 会自然把他写成背景板。
+- `move` 必须是可公开演出的表层动作，不写隐藏目的；隐藏动机留在 state/secrets，最多通过 `wants` 的 player-safe 表述和一个身体细节让 renderer 间接表现。
+- `refusesToSay` 只描述该角色回避的话题类别，不写秘密本体；整包仍过 secret firewall。
+- 渲染提示要声明 `move` 不得降级成「观望/小心走/沉默/被动反应」，而要写成 NPC 自己的 initiative，并用该角色 voice signature 演出来。
 
 packet 里面向玩家的建议字段（如 suggestedActions 的 submitText）要用**无主语动作短语**：它会变成真正的玩家消息，固定主语（我/你）会和玩家角色身份或视角错配。
 

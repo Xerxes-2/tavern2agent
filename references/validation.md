@@ -74,6 +74,7 @@ cd 项目目录
 - 多系统连续触发后 state 是否仍符合 schema。
 - hidden-canonical 是否没有串进 public memory。
 - 两段式项目是否没有 Pass A assistant text 泄进玩家正文或后续 prompt；玩家可见 prose 只来自渲染 custom message。
+- 多角色场景的 packet 是否给重要 NPC 提供 binding `move` / voice guidance；渲染结果里 NPC 没有退化成背景板、旁观者或纯反应机器。
 - suggestedActions / choice widget 是否在 turn_start 清空旧项、reroll 后重建，显示文本与提交文本一致。
 - 后续要清除/解决/更新的条目是否可用 id 或 summary 片段再次寻址，错误能列候选。
 - external research 是否只作为只读证据，没有覆盖卡片 canonical facts。

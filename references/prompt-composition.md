@@ -180,7 +180,7 @@ NPC 传感器：NPC 只播报情报，没有位置、动作和代价。
 报告句       → render protocol 要求工具结果变成可感知后果。
 否定反转     → style-blacklist 禁坏味；render/story-driver 提供物理过程或角色动作替代。
 作者总结     → story-driver 要求降级成身体 / 物件 / 视线三类现场痕迹。
-NPC 传感器   → social/render 要求重要 NPC 有位置、动作、上一事件代价。
+NPC 传感器   → direction packet 给重要 NPC binding `move` + voice guidance；render 要求位置、动作、上一事件代价。
 ```
 
 ## 长度要求要给具体地板
