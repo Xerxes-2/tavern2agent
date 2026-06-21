@@ -367,8 +367,10 @@ protected path /economy/funds: 请使用 adjustMoney / purchase。
 
 1. 一行用途。
 2. 使用边界 bullet（何时用 / 该用哪个替代）。
-3. 严禁 bullet（只列真会误用的，不穷举）；四层优先级 scene/action > turn commit / transaction > domain composition > primitive/debug 一行带过。
+3. 禁区 bullet（只列真会误用的，不穷举）；四层优先级 scene/action > turn commit / transaction > domain composition > primitive/debug 一行带过。
 4. 若是 CodeAct，嵌入 `.d.ts`。
+
+生成项目应加一个 registry/source-level 测试：遍历生产工具文件，禁止 `【必须调用的场景】`、`【必须】`、`【严禁的行为】`、`【严禁】` 等 checklist heading 回流。这个测试不检查文案内容，只防止体例倒退。
 
 ## 交互测试驱动加深
 
@@ -419,6 +421,7 @@ CodeAct 载体的适用点、沙箱契约、`.d.ts` 权威和实现校验见 `re
 - [ ] GM 规则写清四层优先级和禁区。
 - [ ] 状态写入走 session-backed state。
 - [ ] 工具契约与实现同文件；registry 只是清单，并有 loose-schema 守卫测试。
+- [ ] 工具 description 没有 checklist heading，并有 source-level 守卫测试防回流。
 - [ ] 归一化走共享 schema 模块，无手写 assert 克隆。
 - [ ] 工具清单整局稳定，无运行时 toolset 切换。
 - [ ] 根据下场误用至少检查一次是否需要加深 API。

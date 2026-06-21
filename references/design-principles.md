@@ -83,7 +83,7 @@ prompt 只做阅读滤镜、工具纪律、叙事渲染和输出合同；大数�
 
 ## 12. 工具 description 是决策入口
 
-模型是否调工具，主要看工具 description：必须调用场景、严禁行为、职责边界、错误后的下一步。模板见 `references/pi-integration.md` 的工具 description 节。
+模型是否调工具，主要看工具 description：一行用途、使用边界、禁区、错误后的下一步。description 是决策入口，不是操作手册；不要用「必须调用/严禁行为」checklist 标题。模板见 `references/pi-integration.md` 的工具 description 节。
 
 ## 13. 工具粒度按领域事件
 

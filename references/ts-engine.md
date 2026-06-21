@@ -122,7 +122,7 @@ patches.jsonl = debug log, not source of truth
 
 每个工具一个文件，导出完整定义：name、description、parameters、execute 同文件。`tools/registry.ts` 只是注册清单（import 各定义、循环注册），`extension.ts` 只调用 `registerAllTools(pi)`。
 
-fsn 把契约集中在 registry 时，registry 长到 1087 行，改一个工具要跨文件对照参数和实现；合并后 registry 剩 60 行。registry 测试做两件事：遍历所有工具文件断言 LLM-facing schema 保持宽松（无复杂 union/enum），断言 registry 本身没有长出逻辑。
+fsn 把契约集中在 registry 时，registry 长到 1087 行，改一个工具要跨文件对照参数和实现；合并后 registry 剩 60 行。registry 测试至少做三件事：遍历所有工具文件断言 LLM-facing schema 保持宽松（无复杂 union/enum）、禁止 checklist heading 回流、断言 registry 本身没有长出逻辑。大块输出工具不要逐个写 UI 逻辑；registry 单点附加共享 `renderResult`，折叠态摘要给人看，展开态完整 `content` 给人/模型对照。
 
 工具原则：
 

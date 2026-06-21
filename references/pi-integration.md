@@ -94,26 +94,31 @@ final-contract：短输出闸门
 
 工具内部可返回结构化对象，但注册层要统一包装成 pi 可消费的 tool result。不要让每个工具各写一套格式。
 
+### TUI 折叠渲染
+
+LLM 需要完整 `content`，人类 TUI 不该被大块工具输出淹没。任何会返回多行正文的读取/快照工具（GM brief、lookup、memory list、session/audit 摘要）都应由 registry 统一附加 `renderResult`：
+
+- 折叠态（ctrl-O 收起）：首条非空行 + 有效行数。
+- 展开态（ctrl-O 展开）：完整 `content`，优先 Markdown 渲染。
+- `details` 仍只放 TUI/日志/hook 结构化数据；不要把模型必须读的事实只放 `details`。
+- 摘要提取做成纯函数并测试；Component 渲染胶水不必逐像素测试。
+- 优先在 `tools/registry.ts` 单点附加共享 renderer，避免 30+ 工具逐个复制 `renderResult`。
+
+这条来自 fsn 实测：工具输出对 LLM 友好不等于对人友好；没有 `renderResult` 时 pi fallback 会把 GM brief / lookup 等整段摊开，ctrl-O 看不到有用摘要。
+
 ## 工具 description
 
-description 是模型是否调用工具的主入口。每个关键工具都写三段：
+description 是模型是否调用工具的主入口，但不是操作手册。每个关键工具收成紧凑三段：
 
 ```txt
-功能：一句话。
+一句话用途：这个工具改变/读取什么领域事实。
 
-必须调用：
-- 具体场景
-- 具体场景
+使用边界：何时用；相邻工具怎么分工；工具失败后下一步。
 
-严禁：
-- 凭记忆编造
-- 绕过工具写具体数值/事实
-
-职责：
-- 你不是结果创造者；你把工具结果翻译成叙事。
+禁区：只列真会误用的行为，例如凭记忆编造、绕过工具写具体数值/事实、把 debug 工具当常规玩法。
 ```
 
-读取类工具尤其要强：地点、NPC、价格、任务、战斗判定。否则强叙事模型会自己编。
+不要写「必须调用：」/「严禁：」长清单标题；checklist 体例是 reasoning-bait，会诱导模型先复述规约再行动。读取类工具仍要明确边界：地点、NPC、价格、任务、战斗判定等 canonical facts 必须来自 lookup/领域工具。
 
 ## 机械层 / 叙事层
 

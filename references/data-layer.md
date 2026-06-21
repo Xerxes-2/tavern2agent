@@ -17,8 +17,9 @@ external research    现实题材、开放网络资料、GitHub/论文/新闻等
 2. GM 只通过 `lookup`/领域工具读取预设事实。
 3. 现实世界 / 开源项目 / 活资料优先走 web/search/fetch/code-search 工具，不手工复制成静态知识库。
 4. 大数据集用索引查，再按需返回正文。地点 ≥20、NPC ≥5、DLC/物价表存在时，必须配查询工具。
-5. 结果放 `content`；`details` 只给 TUI/日志。
-6. 工具 description 写清必须调用场景和禁编规则。
+5. 结果放 `content`；`details` 只给 TUI/日志，不能承载模型必须读取的事实。
+6. 大块读取结果（GM brief、lookup、memory list）要配共享 `renderResult`：折叠态显示首条非空行 + 行数，展开态显示完整 `content`。
+7. 工具 description 写成紧凑的「一行用途 + 使用边界 bullet + 禁区 bullet」，不要用 checklist 标题。
 
 ## 目录
 

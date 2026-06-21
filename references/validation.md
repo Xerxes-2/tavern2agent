@@ -105,6 +105,6 @@ grep -cE '"name":"(commit_turn|record_relationship_shift|reveal_secret|spend_mon
 | hidden truth 进 public memory | visibility policy / secret pack 失败 |
 | web 资料改写原卡设定 | fact source policy 失败 |
 | subagent 直接写 state | subagent tool/extension 边界失败 |
-| 工具存在但模型不用 | description 缺「必须调用/严禁编造」，或 tool surface 太浅/太像字段 setter |
+| 工具存在但模型不用 | description 没写清用途/使用边界/禁区，或 tool surface 太浅/太像字段 setter |
 
 报告问题时给 turn、GM 原话、预期行为。

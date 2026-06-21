@@ -132,7 +132,7 @@ engine/migrations.ts
 - ST 宏、强化思考链、JSON Patch 输出格式、HTML 状态栏默认剥离，只迁移语义。
 - state 真相源是 pi session custom entry；`state/` 只做 debug export，不发布。
 - schema 变更要 bump version + deterministic migration。
-- 工具 description 写调用场景和禁区，但忌「【必须】/【严禁】」长清单——清单体例是 reasoning-bait，会诱导模型动手前逐条复述，拖慢非 GPT 模型并撑长思维链；收成「一行用途 + 边界 bullet + 严禁 bullet」。结构化数据不能只放 `details`。
+- 工具 description 写调用边界和禁区，但忌「【必须】/【严禁】」长清单——清单体例是 reasoning-bait，会诱导模型动手前逐条复述，拖慢非 GPT 模型并撑长思维链；收成「一行用途 + 边界 bullet + 禁区 bullet」。结构化数据不能只放 `details`；大块工具输出要配共享 `renderResult`，折叠态给人看摘要，展开态给完整 `content`。
 - LLM-facing tool schema 不要用复杂 union/enum 当 serde；schema 挡基本形状，工具入口 `unknown → typed input`，归一化用共享 schema 模块而非手写 assert 克隆，错误用领域语言，engine/state 继续严格。
 - state 写入收口到单一 runner：clone draft → 纯 `(draft, event)` 领域函数 → 校验 → commit；领域函数不碰 store，失败即不提交。
 - 工具契约与实现同文件；`tools/registry.ts` 只是注册清单。
