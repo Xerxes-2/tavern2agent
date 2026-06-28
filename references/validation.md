@@ -43,6 +43,8 @@ grep -rnE 'update_state|patch_state|直接修改状态|JSON Patch' \
 - [ ] 标准方案若使用 CodeAct，其 API 提交领域事件，不暴露 raw state setter。
 - [ ] 常规玩法没有万能 `update_state` / 裸 `patch_state`。
 - [ ] 现实题材 external research 与本地 canonical data 边界清楚；虚构世界默认禁 web。
+- [ ] 重叙事/长轮项目提供可观测开关：逐 pass API 输入导出 + 强制压缩演练（见「可观测性开关」），便于长轮验证而不必堆满上下文窗口。
+- [ ] 两段式项目可逐 pass 导出每次 LLM 输入（结算多次调用分别留痕、渲染调用单独留痕），用于核对 prompt 组装、防火墙、缓存前缀、packet 内容。
 
 ## 会话 JSONL 审计
 
@@ -79,6 +81,30 @@ cd 项目目录
 - 后续要清除/解决/更新的条目是否可用 id 或 summary 片段再次寻址，错误能列候选。
 - external research 是否只作为只读证据，没有覆盖卡片 canonical facts。
 - subagent 返回是否是候选/审计，且由 GM 转成领域事件。
+
+## 可观测性开关（dev，建议提供）
+
+长轮验证里两件事最难只靠通读转录确认：① 每次 LLM API 到底看到什么；② 接管压缩/压缩路径是否如设计触发。建议项目提供两个 env 开关，均 env-gated、生产/测试环境自动禁用、只写 gitignore 的 debug 目录。
+
+### 逐 pass API 输入导出
+
+开关开启时，把**当前轮次**每次 LLM 调用的输入落盘成可读 transcript：
+
+- 结算 pass 的每次 agent-loop 调用分别留痕（`passA-1`、`passA-2`…，模型多轮工具调用 = 多个文件）；两段式的渲染调用单独留痕（`passB`）。
+- 每个文件含完整 system prompt + 逐条消息（role 标注、工具调用展开为 `→ tool: name` + JSON 参数、custom message 标 customType）。
+- 每轮开始清空上一轮的 per-pass 快照（但保留压缩产物，见下）。
+
+用途：核对注入栈是否如预期（模块数、顺序）、Pass-A 文本是否被防火墙剥离、渲染历史的缓存前缀是否逐轮稳定、packet 字段是否完整、hidden-canonical 是否没串进任一 pass。
+
+### 强制压缩演练
+
+压缩通常要堆满上下文窗口才触发，长轮 soak 成本高。开关开启时把压缩预算调到极低 + 在回合开始手动触发一次压缩，零成本演练接管压缩路径并落盘压缩产物（确定性摘要 / LLM 摘要均可观测）。两个实现要点（踩过的坑）：
+
+- **改对配置文件**：若 launcher 用 `PI_CODING_AGENT_DIR` 把配置目录重定向（如 `.pi/agent/`），pi 读的是该目录下的 `settings.json`，不是项目根 `.pi/settings.json`；预算（`compaction.keepRecentTokens` / `reserveTokens`）要写进 pi 真正读的那个文件。预算默认较大（keepRecent 20000 + reserve 16384），小会话会报「session too small」而不压缩。
+- **在 loop 内触发才落盘**：`ctx.compact()` 是 fire-and-forget；在 `turn_end` 之类回合末触发，headless `-p` 会赛跑进程退出而不持久化。在**回合开始**（如 `before_agent_start`）触发，pi 在自身 loop 内同步跑完压缩，`-p` 下也能落盘 compaction entry。
+- 开关关闭时 launcher 应自动移除低预算，正常游玩不受影响。
+
+验证落点：`onComplete` 回调拿到 `firstKeptEntryId`、session JSONL 出现 `"type":"compaction"` 条目、压缩产物文件内容符合设计（如确定性索引头部钉死「state 才是真相源」、近若干轮保留完整裁决脉络）。
 
 ## 查 state / 工具调用
 

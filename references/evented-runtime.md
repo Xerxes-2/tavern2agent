@@ -143,6 +143,8 @@ GM 纪律凡是能落账的，从 prompt 搬进 state-backed ledger 由 engine �
 
 强制力度与可验证性匹配：漏掉一个 `add-wound` 事件是机器可查的 → 硬拒；时钟/钩子的叙事跟进不可机检 → 只催办 + 强制留痕（outcomeSummary、novelty、reason），对不可验证的主张上硬闸只会训练出空话填表。硬拒之所以可负担，前提是两段式拆分让结算侧幕后重试（见 `two-pass-rendering.md`）。
 
+台账能不能扣住 compaction 是可验证的，别只口说：设计期接一个强制压缩演练开关（见 `validation.md` 的「可观测性开关」），压缩后看 state/台账是否仍能解释世界、确定性摘要是否只留索引而把事实指回 state——而不是等上下文窗口堆满才第一次发现台账在 compaction 后漏了。
+
 ## 时间与 turn envelope
 
 只要 runtime 有连续叙事，canonical turn 必须带时间裁决：

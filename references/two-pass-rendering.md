@@ -43,7 +43,7 @@ packet 里面向玩家的建议字段（如 suggestedActions 的 submitText）�
 - `message_end` / session entry 落盘时：工具调用 assistant message 若混入 text part，删 text、保留 thinking/tool call。
 - prompt/context 注入时：已持久化的 Pass A 泄漏也要过滤，不能因为历史里已有就回灌给模型或玩家。
 
-玩家可见 prose 只来自 Pass B 的 custom message（如 `xxx-prose`）。这条必须有测试：纯文本 assistant message（真正 meta 回复）不删；tool-call assistant 的 text 泄漏才删。
+玩家可见 prose 只来自 Pass B 的 custom message（如 `xxx-prose`）。这条必须有测试：纯文本 assistant message（真正 meta 回复）不删；tool-call assistant 的 text 泄漏才删。设计期就接一个逐 pass API 输入导出开关（见 `validation.md` 的「可观测性开关」）：`passA-*` 应见 text 已剥离、`passB` 是唯一 prose 来源，长轮里只靠它就能逐轮肉眼确认防火墙没破。
 
 ## 玩家选择 UI 生命周期
 
@@ -68,7 +68,7 @@ packet 里面向玩家的建议字段（如 suggestedActions 的 submitText）�
 [final user(本回合输入 + packet)]
 ```
 
-全量层边界用高低水位滞回（一次跳 6 回合，而不是每回合滑 1），prefix 每 ~6 回合才失效一次；再加字符预算提前降级超重旧回合。lint 重试用 base messages + assistant(draft) + user(violations) 的形态，复用首次调用的 prefix。
+全量层边界用高低水位滞回（一次跳 6 回合，而不是每回合滑 1），prefix 每 ~6 回合才失效一次；再加字符预算提前降级超重旧回合。lint 重试用 base messages + assistant(draft) + user(violations) 的形态，复用首次调用的 prefix。缓存前缀稳定性既要单测钉死（同一水位桶内 `floor(n)` 恒定、桶内逐字节相等），也要能用逐 pass API 导出在 live 里核对——比对同桶内相邻回合 `passB` 的前缀是否逐字节一致。
 
 ## 工程细节
 
@@ -94,6 +94,8 @@ Pass B 是纯 prose 生成，不需要长推理；但 thinking 模型在渲染�
 领域模型付清后（事实在 state、prose 连续性在渲染器自管窗口），旧结算回合没有不可替代信息。compaction 可以退化成确定性截断：每回合从 packet 机械提取一行（玩家输入摘录 + playerAction + resolvedChanges），与上次摘要的索引行折叠，封顶 N 行并显式声明丢弃指向 state。无 LLM、无 prompt 策略文件、即时、零成本、不会漂移。摘要头部钉死合同：这是索引，state 才是真相。
 
 通过 `session_before_compact` hook 接管手动 `/compact` 和自动 compaction，不要另设自定义命令。
+
+设计期顺手接一个强制压缩演练开关（见 `validation.md` 的「可观测性开关」），把这条路径变成零成本可观测，而不是等长轮 soak 才偶遇：开关开时调低压缩预算 + 在**回合开始**（`before_agent_start`）触发 `ctx.compact()`，pi 在自身 loop 内同步跑完、headless `-p` 也落盘；压缩产物落 debug 目录便于核对（确定性索引头部钉死「state 才是真相」、近若干轮保留完整裁决脉络）。两个坑：预算要写进 launcher 经 `PI_CODING_AGENT_DIR` 重定向后 pi 真正读的那个 `settings.json`；`ctx.compact()` 是 fire-and-forget，回合末触发会赛跑 `-p` 退出而不持久化。
 
 ## 什么时候不拆
 
