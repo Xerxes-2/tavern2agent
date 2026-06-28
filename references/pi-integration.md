@@ -134,7 +134,7 @@ GM prompt 可用这个框架：
 
 ## Compaction 接管
 
-长跑叙事 runtime 不要依赖默认 LLM compaction：它会丢领域事实、不确定、有成本。用 `session_before_compact` hook 接管手动 `/compact` 和自动 compaction，不要另设自定义命令。领域模型付清后（事实在 state、prose 在渲染器自管窗口），compaction 可退化成确定性截断索引，零 LLM 成本，见 `references/two-pass-rendering.md`。
+长跑叙事 runtime 不要依赖默认 LLM compaction：它会丢领域事实、不确定、有成本。用 `session_before_compact` hook 接管手动 `/compact` 和自动 compaction，不要另设自定义命令。领域模型付清后（事实在 state、prose 在渲染器自管窗口），compaction 可退化成确定性截断索引，零 LLM 成本，见 `references/two-pass-rendering.md`。接管时**复用 pi 已在 `preparation` 算好的 `firstKeptEntryId` / `tokensBefore`，只替换 `summary` 字段**——不要自己重算保留边界，否则与 pi 的预算判断打架。会话 ≤ keepRecent+reserve 时 `prepareCompaction` 返回 undefined（“session too small”），接管逻辑要容这种空跑。
 
 ## 项目文件
 

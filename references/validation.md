@@ -38,6 +38,8 @@ grep -rnE 'update_state|patch_state|直接修改状态|JSON Patch' \
 - [ ] 多 agent 场景有 project-scope subagent，显式 tools/extensions，不拿 `code_act`，不继承完整项目上下文/技能目录。
 - [ ] evented 方案有 `engine/events.ts`、`engine/reducers.ts`、protected paths、session-backed state。
 - [ ] reducer 测试覆盖关键事件；secret/public/player knowledge 分层有测试或 fixture。
+- [ ] 4X/容器型 pack（单位/建筑/项目集合）：环上限等边界 reducer 有测试；若实体类别字段与事件判别字段同名（都叫 `kind` 之类），CodeAct 路径要强制嵌套避免被覆盖。
+- [ ] 公式重的系统（制造/经济）：总量等派生量由 reducer 权威计算，不接受 LLM 传入；系数表对照原卡锚点有单测，原卡内部矛盾（表与示例冲突）在代码注释里钉死取舍。
 - [ ] prompt orchestrator 只渲染 Runtime Plan 和 state projection，不维护领域正确性。
 - [ ] TS 产物通过 typecheck/lint/format（基线见 `references/engineering-discipline.md`）。
 - [ ] 标准方案若使用 CodeAct，其 API 提交领域事件，不暴露 raw state setter。
@@ -74,6 +76,7 @@ cd 项目目录
 - 叙事里不裸露 `+200 好感` 这类数值指令。
 - 长跑后前后设定、价格、地点、NPC 记忆是否一致。
 - 多系统连续触发后 state 是否仍符合 schema。
+- 4X/容器型 pack：资产登记、项目立项→推进→完成、离屏世界推进都能落账，且在 state projection 有对应段；环型结构（如新闻环）不超上限；离屏事件不围绕玩家转。
 - hidden-canonical 是否没有串进 public memory。
 - 两段式项目是否没有 Pass A assistant text 泄进玩家正文或后续 prompt；玩家可见 prose 只来自渲染 custom message。
 - 多角色场景的 packet 是否给重要 NPC 提供 binding `move` / voice guidance；渲染结果里 NPC 没有退化成背景板、旁观者或纯反应机器。

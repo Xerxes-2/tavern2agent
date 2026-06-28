@@ -54,6 +54,15 @@ packet 里面向玩家的建议字段（如 suggestedActions 的 submitText）�
 - reroll 时从新 prose / 新 packet 重新持久化 suggestedActions；隐藏 leaf、审计 entry、custom prose entry 不能让 reroll target 失效。
 - suggestedActions 属于玩家界面提示，不是叙事正文；不要塞进 endWindow 或 prose。
 
+## 长轮上下文：差异化精简 + 恒定前缀
+
+两段式不只是拆职责，也是长轮上下文管理的骨架。一条总原则：**每个 LLM 调用只看其职责所需，且每个调用的前缀逐回合恒定**。两个 pass 的上下文需求是不对称的，各精简到自己的活：
+
+- **结算 pass** 要 canonical 事实（已在 state，不必塞进历史）+ 近期裁决脉络 → 接管压缩，退化成状态派生的确定性索引（下「接管压缩」）。
+- **渲染 pass** 要 prose 连续性 → append-only 历史 + 桶滞回（下「渲染器历史」）。
+
+两者共享三条纪律：差异化精简（不把全量上下文给每个 pass）、前缀缓存稳定（绝不按当轮输入变前缀，见 `engineering-discipline.md`）、能确定性的地方不调 LLM。两个 pass 的历史还可共用同一份回合重建（从 session 分支重建 `TurnRecord[]`），避免两套口径。
+
 ## 渲染器历史：缓存友好分层
 
 渲染 prompt 不要做「单条 user 字符串 + 滑动窗口 + 相对回合编号」——每回合首字节都变，provider prefix cache 永不命中。正确形态是 append-only 对话：
@@ -89,9 +98,9 @@ Pass B 是纯 prose 生成，不需要长推理；但 thinking 模型在渲染�
 
 范围只限 Pass B（渲染 + lint 重试 + reroll）；Pass A 结算需要推理纪律，原生思维链是资产不动。这与「瘦身 prompt / 避免 checklist reasoning-bait」同一主题：都是在该快的环节刪减不必要的推理耗时。
 
-## compaction 顺带解决
+## 接管压缩：结算 pass 的确定性索引
 
-领域模型付清后（事实在 state、prose 连续性在渲染器自管窗口），旧结算回合没有不可替代信息。compaction 可以退化成确定性截断：每回合从 packet 机械提取一行（玩家输入摘录 + playerAction + resolvedChanges），与上次摘要的索引行折叠，封顶 N 行并显式声明丢弃指向 state。无 LLM、无 prompt 策略文件、即时、零成本、不会漂移。摘要头部钉死合同：这是索引，state 才是真相。
+领域模型付清后（事实在 state、prose 连续性在渲染器自管窗口），旧结算回合没有不可替代信息。compaction 可以退化成确定性裁断索引，且**与渲染历史共用同一份回合重建**：一个纯函数从 session 分支重建 `TurnRecord[]`（玩家输入 + packet + prose），结算压缩与渲染历史都吃它，不要两套口径。压缩做**两层**而非单行：最近 N 轮保留**完整裁决脉络**（源 = 玩家输入 + packet 的 playerAction/resolvedChanges，与渲染 pass 选史对称），更早的回合各压成一行索引，整体封顶 M 行并显式声明丢弃指向 state。无 LLM、无 prompt 策略文件、即时、零成本、不漂移。摘要头部钉死合同：这是索引，state 才是真相。
 
 通过 `session_before_compact` hook 接管手动 `/compact` 和自动 compaction，不要另设自定义命令。
 
