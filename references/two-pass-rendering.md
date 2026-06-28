@@ -63,6 +63,8 @@ packet 里面向玩家的建议字段（如 suggestedActions 的 submitText）�
 
 两者共享三条纪律：差异化精简（不把全量上下文给每个 pass）、前缀缓存稳定（绝不按当轮输入变前缀，见 `engineering-discipline.md`）、能确定性的地方不调 LLM。两个 pass 的历史还可共用同一份回合重建（从 session 分支重建 `TurnRecord[]`），避免两套口径。
 
+**为什么能做到「不调 LLM」：packet 本身就是天生摘要。** 它在结算 pass——LLM 刚把整回合推理完、吐出结构化裁决的那个 context 峰值时刻——被产出，本是给渲染当导演指令，但它已蒸馏了 playerAction + resolvedChanges + 场景指令，天然就是该回合的持久摘要。于是下游全是它的确定性复用：渲染导演、压缩索引行、渲染历史 digest 层，同一份产物喂三个消费者，全程不存在第二次摘要，也就无从漂移。换句话：摘要只在「context 最饱满、意图最明确」的一刻发生一次，落进 packet；之后一切都是机械读取。这也反过来括出 packet 设计的一条隐含要求：packet 字段要足以独立重建该回合的裁决脉络，不能依赖 prose 才说得清。
+
 ## 渲染器历史：缓存友好分层
 
 渲染 prompt 不要做「单条 user 字符串 + 滑动窗口 + 相对回合编号」——每回合首字节都变，provider prefix cache 永不命中。正确形态是 append-only 对话：
