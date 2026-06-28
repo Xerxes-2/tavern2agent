@@ -2,6 +2,37 @@
 
 MVU 条目是卡作者写给 LLM 的系统设计文档。不要整块丢弃，也不要把输出格式原样搬到 pi。先区分「游戏语义」和「ST 补丁」，再把语义进入 Card Semantic IR。
 
+## MVU 实情（先读，别想当然）
+
+分析 MVU 卡前先校准心智模型，否则容易凭直觉编。MVU（MagVarUpdate）是独立酒馆助手脚本，**两层结构**：
+
+1. **LLM 提议层**：AI 按 `[mvu_update]变量更新规则` 的 `check[]`（自然语言）决定改什么，在回复末尾吐 `<UpdateVariable>` 块，里面是 JSON Patch 风格命令（`replace`/`delta`/`insert`/`remove`/`move`）。这一步确实靠 LLM 自觉。
+2. **代码兜底层（确定性，非 prose）**：MVU 解析命令后,依次过
+   - `schema.ts` 的 zod `transform`：解析即施加软约束（clamp、上限、淘汰旧键）；
+   - `COMMAND_PARSED` 钩子：改/补/删 LLM 提的命令（如修繁体、加命令）；
+   - `VARIABLE_UPDATE_ENDED` 钩子：拿到更新前后变量，可 clamp、限幅、甚至**整个取消** AI 的更新；
+   - 写回 `stat_data`。
+
+数据存在楼层变量的 `stat_data`；初值来自 `[initvar]` + schema `.prefault`。
+
+**反幻觉清单（实际审计中出现过的错误概括）：**
+
+- ❌「MVU 全靠 LLM 自觉」→ 错。有 transform + 事件钩子两道确定性强制层。
+- ❌「派生计算 = prose check[] 靠 LLM」→ 错。`check[]` 是**更新规则**（何时改/改多少），不是派生计算；派生值在**代码**里算（schema transform / 事件钩子 / 前端 store），不在 prose。
+- ❌「数值是绝对赋值」→ 错。数值多用 `delta` 增量（相对值）。
+- ❌「JSON Patch 有 add 算子」→ 错。算子是 replace/delta/insert/remove/move,无 add。
+- ❌「`[mvu_plot]` 是 MVU 条目」→ 不存在。只有 `[initvar]` 和 `[mvu_update]`。
+- 不确定 MVU 某行为时,**说「未确认」并去读卡内 schema.ts / 变量更新规则 / 事件脚本**,不要编。
+
+移植到 pi 时,MVU 的「代码兜底层」正好对应 pi 的 reducer/engine——这是程度提升（把兜底变成唯一真相），不是「MVU 没有、pi 才有」。
+
+**权威原文（按需 fetch 核实事实，别凭记忆概括 MVU）：**
+
+- 框架 API / 事件 / `stat_data` 存储 / `parseMessage`：`https://github.com/StageDog/tavern_helper_template/raw/refs/heads/main/.cursor/rules/mvu变量框架.mdc`
+- schema 契约（zod 4、幂等增量解析、transform 软约束）/ 世界书条目结构（`[initvar]`、`变量列表`、`[mvu_update]变量更新规则/变量输出格式`）：`https://github.com/StageDog/tavern_helper_template/raw/refs/heads/main/.cursor/rules/mvu角色卡.mdc`
+
+守则:这是 ST **作者向**文档,**只用于核实 MVU 行为事实**,不是移植指令。其中 pnpm / pinia (`defineMvuDataStore`/`store.ts`) / 文件夹结构 / `registerMvuSchema` 等 ST 写法**别移植**(违背「提语义丢外壳」)。许可为 AFPL,只引用链接、不复制原文进本仓库。
+
 ## 审计流程
 
 1. 建索引：列出所有世界书条目的 index、enabled、comment、keys、长度、前几行。

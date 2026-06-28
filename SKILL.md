@@ -75,7 +75,7 @@ subagent 只给建议、候选事件或文本；状态写入仍由 GM 走主 eng
 | 总原则 | `references/design-principles.md` |
 | 方案分档与临界判定 | `references/decision-tree.md` |
 | TH/regex 脚本 | `references/script-analysis.md` |
-| 世界书/MVU/initvar | `references/mvu-mapping.md` |
+| 世界书/MVU/initvar | `references/mvu-mapping.md`（概括 MVU 前必读「MVU 实情」节；拿不准就 fetch 官方原文，不凭记忆编） |
 | 开局 setup | `references/setup.md` |
 | 工具抽象 / typed tools vs CodeAct 取舍 | `references/tool-abstraction.md` |
 | CodeAct 沙箱契约 / `.d.ts` | `references/codeact.md` |
