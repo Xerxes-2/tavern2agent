@@ -41,13 +41,22 @@ python3 scripts/get_entry.py card.json <index>
 
 ## 状态来源顺序
 
-1. TH Zod schema：字段、类型、约束。
-2. `[initvar]`：初始值权威来源。
-3. `[mvu_update]`：何时变化、变化规则。
+1. TH Zod schema：字段、类型、约束。注意软约束（clamp、上限、淘汰旧键）多写在 `z.transform` 里，是 MVU 自带的约束层，不是「无约束」。
+2. `[initvar]`：初始值主来源。但 schema 的 `.prefault(...)` 也会播种默认值，两者并存时以 initvar 显式值为准。
+3. `[mvu_update]`：何时变化、变化规则。数值字段在 MVU 里多用 `delta` 增量更新（±N，相对值），不是绝对赋值——这正是它们要落成领域事件而非裸字段的根因。
 4. regex / 状态栏：字段、展示和触发提示。
 5. 没有前几者时，从自然语言规则反推。
 
 用户创建字段通常不在 InitVar：姓名、性别、外貌、背景、开局选择。它们来自 `first_mes`、user 模板、start skill，也要进入 setup、actor state 或 fixed profile。
+
+## 读 `[mvu_update]变量更新规则`
+
+该条目是 yaml，每个变量带 `type` / `range` / `category` / `check[]`。这是机制金矿，逐项提取，别当普通字段：
+
+- `check[]`：每条是「何时改、改多少、单次幅度上限」的自然语言规则 → 映射成 mechanic 的触发条件和 reducer 内的幅度约束（如「单次 ±不超过 10」「仅角色知情时才变」）。
+- `range` / `category`：值域和分档 → 落成 reducer 校验或 schema clamp，不是展示文案。
+- 名字以 `_` 开头的字段是只读 → 不生成更新通路。
+- 抓到的规则进 IR 的 mechanic，再选 event pack；`check` 不能原样塞进 GM prompt 当输出格式。
 
 ## Mutable concept 映射
 
@@ -89,7 +98,7 @@ python3 scripts/get_entry.py card.json <index>
 - `INITIAL_STATE` 预声明所有 canonical root。
 - `engine/events.ts` 定义允许改变世界的领域事件。
 - `engine/reducers.ts` 是状态变化唯一实现。
-- `replace` 目标必须存在；不要指望 GM 选对 add/replace。
+- MVU 的 JSON Patch 算子是 `replace`/`delta`/`insert`/`remove`/`move`（无 `add`，数值增量用 `delta`，新建路径用 `insert`）。`replace` 目标必须已存在；不要指望 GM 选对 insert/delta/replace。
 - 顶层 root 白名单。
 - 有规则的字段走领域事件/组合 API，禁止裸 patch。
 - 派生值不落盘。

@@ -47,7 +47,7 @@ PY
 curl -sL '<URL>' | head -100
 ```
 
-抓不到时，从 `[mvu_plot]` / `[mvu_update]` 推规则。
+抓不到时，从 `[mvu_update]`（变量更新规则）/ `[initvar]` 推规则。
 
 ## regex_scripts
 

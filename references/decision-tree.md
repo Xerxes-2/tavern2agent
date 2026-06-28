@@ -38,7 +38,7 @@
 
 ## 信号
 
-- 有 `[mvu_update]` / `[mvu_plot]` / Zod schema：至少 evented light。
+- 有 `[mvu_update]`（变量更新规则/输出格式）/ `[initvar]` / Zod schema：至少 evented light。
 - 有骰子、战斗、伤害公式、经济流通、多字段联动：evented standard。
 - 状态键 ≤10 且只有简单加减：evented light，不是裸 patch。
 - 只有 1-2 个偶发 roll：可 light；若 roll 改变状态，仍要事件。
