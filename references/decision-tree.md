@@ -26,7 +26,7 @@
 - 隐藏身份、凶手、秘密真相、玩家知道但角色未必知道的信息。
 - NPC 后台行动、阵营计划、多视角。
 
-状态键数量不是核心标准；**有没有领域不变量和可审计变化**才是标准。
+状态键数量不是核心标准；**有没有领域不变量和可审计变化**才是标准。更不是「有没有 MVU」：domain event ⊃ MVU，MVU 只是可见、常带表演的特例。一次性不可逆拐点（初吻/背叛/跨线，即使无任何数字）与玩家不该看见的隐藏状态也是标准；后者优先 secret/hidden 事件——MVU 本是显示机制，表达不了隐藏真相。
 
 ## 第二问：typed tools 还是 CodeAct？
 
@@ -46,6 +46,8 @@
 - 死亡回溯/读档/撤销：不升档；用 session tree/fork。
 - 周目继承记忆：加 `meta/persistent.json` 或 permanent custom entry。
 - 非 MVU 自定义变量：按语义映射到 mutable concept，不单开方案。
+- 没有 MVU/initvar/schema，但有不可逆拐点或隐藏真相（玩家不该看见的怀疑值/背叛决定/好感真值）：进 evented，优先 secret/hidden/one-way 事件。
+- 满屏 MVU/状态栏字段：先祛魅，只把承重且需可靠查询的概念立事件，其余当 prompt 或丢；别把状态栏表演在 TS 里重造。
 
 - 伤害公式 + 装备护甲 + 命中：standard，通常用 CodeAct。
 - 稳定 RP 场景流程（进入 beat、完成 beat、撤退记录）：standard 可用少数深 typed tools，不必强上 CodeAct。
@@ -61,6 +63,8 @@
 | 30+ 键值状态，简单 ± | evented light，按领域 pack 分组 |
 | 偶发 `{{roll:1d6}}` 占卜，不写状态 | prompt-only 或 light lookup |
 | 偶发 roll 影响关系/资源 | evented light |
+| 无数值/无 MVU，但有初吻/背叛等一次性不可逆拐点 | evented light + one-way 事件 |
+| 玩家不该看见的隐藏真相（怀疑值/凶手），无 MVU | secret pack，必要时 subagent 隔离 |
 | 伤害公式 + 装备护甲 + 命中 | evented standard / combat pack |
 | 秘密身份、凶手、真名 | secret pack，必要时 subagent 隔离 |
 | 死亡循环只是叙事 | 按计算复杂度判 |

@@ -106,12 +106,15 @@ python3 scripts/get_entry.py card.json <index>
 
 每个 mutable concept 必须记录：初始值、触发规则、合法改变通路、可见性层级。
 
+事件候选不只来自变量/状态栏：一次性不可逆拐点（初吻/背叛/跨线）与玩家不该看见的隐藏真相（怀疑、背叛决定、好感真值）即使无对应 MVU 字段，也映射成 one-way / secret / hidden 事件。MVU 是显示机制，表达不了隐藏真相。
+
 ## 轻量 vs 标准
 
-方案分档主表见 `references/decision-tree.md`。本文只补两条：
+方案分档主表见 `references/decision-tree.md`。本文只补三条：
 
 - 条目只有 ST 输出格式：丢弃补丁，只保留语义。
 - 已走 standard 时，相关状态规则尽量统一进 event packs，不要一部分 prompt 规则、一部分 engine。
+- domain event 不限于 MVU：没有任何 MVU 的卡，若有不可逆拐点或隐藏真相，事件来源是开场一次性分支、`creator_notes` 秘密、阵营视角，而非变量表；是否进 evented 看「承重 + 可靠查询」，不看有没有 MVU。
 
 ## Data 映射
 

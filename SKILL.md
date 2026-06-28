@@ -40,6 +40,7 @@ python3 scripts/get_entry.py card.json <index>
 | 世界书 | `character_book.entries[]` | worldbookEntries + disposition |
 | 初始状态 | `[initvar]`、YAML、变量表 | mutableConcepts initial values |
 | 规则更新 | `[mvu_update]`、变量变化 | mechanics + event candidates |
+| 不可逆拐点/隐藏真相 | 一次性开场分支、世界书一次性条目、`creator_notes` 秘密、阵营视角；可无 MVU | one-way / secret / hidden event candidates |
 | TH scripts | Zod、外链、游戏脚本 | schema / mechanics / reducer hints |
 | regex scripts | 非 UI 注入、状态栏 | fields + triggers；丢 UI 外壳 |
 | 作者说明 | `creator_notes` | hidden rules / play constraints / visibility facts |
@@ -49,6 +50,8 @@ python3 scripts/get_entry.py card.json <index>
 ## 方案
 
 三档：prompt-only（纯设定，无可变世界、无秘密边界）、evented light（少量可变概念，无复杂公式）、evented standard（骰子/战斗/经济/多字段联动/时间压缩）。秘密视角叠加 secret / faction / offscreen pack 与 project subagent；现实题材叠加 web/fetch/code-search 只读事实源。主表与临界场景见 `references/decision-tree.md`。
+
+分档信号不是「卡里有没有 MVU/公式」，而是「有没有承重且必须被后续可靠查询的转换或隐藏真相」。domain event ⊃ MVU——MVU 只是可见、常带表演的那个特例。没有任何 MVU 的纯叙事卡，若有不可逆拐点（初吻/背叛/跨线一次性门）或玩家不该看见的隐藏状态（怀疑值、是否已决定背叛、好感真值），照样进 evented，并优先用 secret/hidden 事件——MVU 本是显示机制，表达不了隐藏真相。爆款卡的 MVU 多半是状态栏表演，先祛魅、只把承重的那几样编译进引擎，其余当 prompt 或丢弃；别在 TS 里把 MVU 表演重新发明一遍。
 
 typed tools 与 CodeAct 只是执行载体之争，取舍见 decision-tree 第二问；无论载体如何，状态变化都落成 domain event 并经 reducer。
 
@@ -127,7 +130,7 @@ engine/migrations.ts
 ## 硬约束
 
 - prompt 极简；计算进 engine；大数据进 data + lookup；状态变化进 domain event。
-- 每个 mutable concept 必须有 event pack、变成 immutable data，或有明确丢弃理由。
+- 每个 mutable concept 必须有 event pack、变成 immutable data，或有明确丢弃理由。判据是可查询性：下游要以保证正确的方式查询它（gate 行为/防重复触发/锁单向门/隔离秘密）才立事件；能从正文重新读出、只给下一段染色的氛围留 prose。触发信号是承重转换或隐藏真相，与卡里有没有 MVU 无关——MVU-less 叙事卡照样可能该上事件，MVU 满屏的卡可能大半该丢。
 - patch 纪律唯一权威见 `references/evented-runtime.md`：常规玩法不暴露万能 setter，裸 patch 不碰受保护路径。
 - ST 宏、强化思考链、JSON Patch 输出格式、HTML 状态栏默认剥离，只迁移语义。
 - state 真相源是 pi session custom entry；`state/` 只做 debug export，不发布。
