@@ -43,6 +43,7 @@ grep -rnE 'update_state|patch_state|直接修改状态|JSON Patch' \
 - [ ] prompt orchestrator 只渲染 Runtime Plan 和 state projection，不维护领域正确性。
 - [ ] TS 产物通过 typecheck/lint/format（基线见 `references/engineering-discipline.md`）。
 - [ ] 标准方案若使用 CodeAct，其 API 提交领域事件，不暴露 raw state setter。
+- [ ] typed tool 的参数 schema 暴露 reducer/buildEvent 消费的**每一个**字段；schema 漏字段 = LLM 物理上填不进 = 该字段静默落空（如装备词条 effects 只在 buildEvent 读、不在 schema 声明）。这类缺口直営 reducer 的单测测不到（单测绕过 schema），只有下场实测现形。
 - [ ] 常规玩法没有万能 `update_state` / 裸 `patch_state`。
 - [ ] 现实题材 external research 与本地 canonical data 边界清楚；虚构世界默认禁 web。
 - [ ] 重叙事/长轮项目提供可观测开关：逐 pass API 输入导出 + 强制压缩演练（见「可观测性开关」），便于长轮验证而不必堆满上下文窗口。
@@ -53,6 +54,13 @@ grep -rnE 'update_state|patch_state|直接修改状态|JSON Patch' \
 重叙事项目建议附带一个读 session JSONL 的审计脚本：叙事 lint 规则（坏味句式、泄密、长度下限）与运行时 lint 共享同一模块，避免两套口径。两段式项目分别 lint 渲染面（prose custom message）与结算面（direction packet）。允许项目/玩家追加本地 prose lint regex，作为口味层覆盖；内置规则管硬禁区，本地规则管个人文风厌恶。台账化的纪律（obligations、hooks）用对账方式审计，不要通读转录。
 
 ## 下场实测
+
+下场实测（交互调真 LLM、多轮）与确定性引擎测试是两个**不可互替**的轴，各抓不同的 bug：
+
+- 确定性集成测试（构造 event 直営 reducer/单一写入通道）抓：公式错、状态漂移、事件组合炸。但它**绕过了 GM prompt 与 tool schema**，所以抓不到「GM 该调的工具没调、prompt 没喂到、schema 漏字段」。
+- 下场实测抓：prompt→行为→工具选择→参数填充→两-pass 渲染→压缩。两个典型只能被它抓到的缺口：① 机器就绪但玩法分支规则/花名册没接进 GM prompt（GM 从不发起该玩法）；② typed tool schema 漏了 reducer 消费的字段（LLM 填不进→该字段静默落空，而单测全绿）。
+
+结论：单测全绿 **不等于** 系统能跑。如果某个系统靠 prompt 驱动或靠 tool schema 暴露，它的「能用」只能由下场实测证明。
 
 最小流程：
 
@@ -71,7 +79,7 @@ cd 项目目录
 - 开局是否一轮列完缺失项。
 - 开场是否有具体时间、地点、情境。
 - GM 是否跳过 lookup 直接编预设事实。
-- 状态是否真的写入。
+- 状态是否真的写入；写入的**字段是否齐**（如装备/道具的词条、机制描述）——schema 漏字段会表现为“落账了但某子字段空”，需查 tool 调用参数是否含该字段。
 - evented 方案是否调用领域事件工具或 `code_act` domain API，且用组合/场景 API，不只裸 patch。
 - 叙事里不裸露 `+200 好感` 这类数值指令。
 - 长跑后前后设定、价格、地点、NPC 记忆是否一致。
