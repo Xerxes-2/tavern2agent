@@ -43,7 +43,7 @@ grep -rnE 'update_state|patch_state|直接修改状态|JSON Patch' \
 - [ ] prompt orchestrator 只渲染 Runtime Plan 和 state projection，不维护领域正确性。
 - [ ] TS 产物通过 typecheck/lint/format（基线见 `references/engineering-discipline.md`）。
 - [ ] 标准方案若使用 CodeAct，其 API 提交领域事件，不暴露 raw state setter。
-- [ ] typed tool 的参数 schema 暴露 reducer/buildEvent 消费的**每一个**字段；schema 漏字段 = LLM 物理上填不进 = 该字段静默落空（如装备词条 effects 只在 buildEvent 读、不在 schema 声明）。这类缺口直営 reducer 的单测测不到（单测绕过 schema），只有下场实测现形。
+- [ ] typed tool 的参数 schema 暴露 reducer/buildEvent 消费的**每一个**字段；schema 漏字段 = LLM 物理上填不进 = 该字段静默落空（如装备词条 effects 只在 buildEvent 读、不在 schema 声明）。这类缺口直调 reducer 的单测测不到（单测绕过 schema），只有下场实测现形。
 - [ ] 常规玩法没有万能 `update_state` / 裸 `patch_state`。
 - [ ] 现实题材 external research 与本地 canonical data 边界清楚；虚构世界默认禁 web。
 - [ ] 重叙事/长轮项目提供可观测开关：逐 pass API 输入导出 + 强制压缩演练（见「可观测性开关」），便于长轮验证而不必堆满上下文窗口。
@@ -57,7 +57,7 @@ grep -rnE 'update_state|patch_state|直接修改状态|JSON Patch' \
 
 下场实测（交互调真 LLM、多轮）与确定性引擎测试是两个**不可互替**的轴，各抓不同的 bug：
 
-- 确定性集成测试（构造 event 直営 reducer/单一写入通道）抓：公式错、状态漂移、事件组合炸。但它**绕过了 GM prompt 与 tool schema**，所以抓不到「GM 该调的工具没调、prompt 没喂到、schema 漏字段」。
+- 确定性集成测试（构造 event 直调 reducer/单一写入通道）抓：公式错、状态漂移、事件组合炸。但它**绕过了 GM prompt 与 tool schema**，所以抓不到「GM 该调的工具没调、prompt 没喂到、schema 漏字段」。
 - 下场实测抓：prompt→行为→工具选择→参数填充→两-pass 渲染→压缩。两个典型只能被它抓到的缺口：① 机器就绪但玩法分支规则/花名册没接进 GM prompt（GM 从不发起该玩法）；② typed tool schema 漏了 reducer 消费的字段（LLM 填不进→该字段静默落空，而单测全绿）。
 
 结论：单测全绿 **不等于** 系统能跑。如果某个系统靠 prompt 驱动或靠 tool schema 暴露，它的「能用」只能由下场实测证明。
