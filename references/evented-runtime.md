@@ -140,6 +140,7 @@ GM 纪律凡是能落账的，从 prompt 搬进 state-backed ledger 由 engine �
 - **回合义务账**（obligations ledger）：裁决类工具（如战斗交换）登记必须落地的状态变化，领域事件按 FIFO 销账；任何债务未清，`commit_turn` 整体硬拒。
 - **阵营时钟 / 排程事件**：BITD 式进度钟，到期/填满项在 canonical commit 返回值里催办（dunning）。
 - **悬念钩子账**：钩子生命周期入 state，同时施压钩子设硬上限（如 2 条），每次重现强制写 novelty。
+- **pending-harvest 账**：后台导演 spawn/收割拆成两轮后，已产出的候选不能因遗忘或敷衍 no-change 而静默丢失；牙齿放在丢弃点（未收割则 resolve 硬拒），软层逐轮催办。见 `multi-agent-architecture.md`。
 
 强制力度与可验证性匹配：漏掉一个 `add-wound` 事件是机器可查的 → 硬拒；时钟/钩子的叙事跟进不可机检 → 只催办 + 强制留痕（outcomeSummary、novelty、reason），对不可验证的主张上硬闸只会训练出空话填表。硬拒之所以可负担，前提是两段式拆分让结算侧幕后重试（见 `two-pass-rendering.md`）。
 
@@ -179,7 +180,7 @@ parallel-line/offscreen  后台事件候选
 timeline/showrunner      drift、beat closure、NPC autonomy 审计
 ```
 
-所有 subagent 必须 project-scope、显式 tools、显式 extensions；不继承完整项目上下文和技能目录。候选输出由 GM 审核后转成 domain event。
+in-process subagent 必须 project-scope、显式 tools、显式 extensions；不继承完整项目上下文和技能目录。需要知密的后台导演用 engine 自持的密闭 spawn 接缝（进程隔离 + 零工具 + 落地前审核）。候选输出均由 GM 审核后转成 domain event。详见 `multi-agent-architecture.md`。
 
 ## 生成物基线
 

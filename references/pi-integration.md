@@ -104,7 +104,7 @@ LLM 需要完整 `content`，人类 TUI 不该被大块工具输出淹没。任�
 - 摘要提取做成纯函数并测试；Component 渲染胶水不必逐像素测试。
 - 优先在 `tools/registry.ts` 单点附加共享 renderer，避免 30+ 工具逐个复制 `renderResult`。
 
-这条来自 fsn 实测：工具输出对 LLM 友好不等于对人友好；没有 `renderResult` 时 pi fallback 会把 GM brief / lookup 等整段摊开，ctrl-O 看不到有用摘要。
+这条来自实测：工具输出对 LLM 友好不等于对人友好；没有 `renderResult` 时 pi fallback 会把 GM brief / lookup 等整段摊开，ctrl-O 看不到有用摘要。
 
 ## 工具 description
 

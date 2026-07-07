@@ -40,7 +40,8 @@ deadcode
 
 - 业务代码零 `any`；外部 `any/unknown` 在边界立即窄化。
 - `as` 只能贴近验证点使用，或带安全理由。
-- 边界窄化用共享 schema 模块（如 TypeBox tagged union + 统一 parse 入口），不为每个工具克隆手写 assert。手写 assert 会繁殖：fsn 迁移到 schema 校验时删掉 70 多个。
+- 边界窄化用共享 schema 模块（如 TypeBox tagged union + 统一 parse 入口），不为每个工具克隆手写 assert。手写 assert 会繁殖：实战项目迁移到 schema 校验时一次删掉 70 多个。
+- state/领域类型从 schema 派生（TypeBox `Static<typeof SCHEMA>`），schema 是类型唯一事实源。不维护手写平行类型 + parity 测试对齐双轨——双轨必漂移，parity check 是在给本不该存在的重复买保险，逐域迁移到派生类型后就该整个删掉。手写类型只留给没有 schema 的纯内部结构。
 - 禁止 unsafe type assertion；能用 type guard / assert function 窄化就不用 `as`。
 - 禁止 `as unknown as T`。
 - 导出函数标注返回类型。
@@ -53,6 +54,7 @@ deadcode
 - 不堆 god module：类型词汇表、store 生命周期、session 持久化、边界归一化、ID 分配各归各文件。某文件既导出类型又导出 store 又导出胶水时就该拆了。
 - engine 纯函数优先；领域事件收 `(draft, event)`，不读写 store；确定性逻辑可单测。
 - 长跑项目维护 `CONTEXT.md` 领域词汇（每个术语带「不要叫成什么」）和 `docs/adr/`；命名和拆分跟着词汇走。
+- 目录名拒绝歧义泛名。长跑项目长大后集中返工过的命名：`data/`→`world-data/`（与运行时 state 混）、`state/`→`runtime/`（它装的是 debug 导出不是 canonical state）、`agents/`→`prompts/`（装的是 prompt 素材，与 `.pi/agents/` 的真 subagent 定义撞名）、`engine/direction/`→`engine/render/`、`tools/state/`→`tools/settlement/`。新项目直接用无歧义名；engine 变大后按领域拆子目录（actor/scene/turn/memory/secrets/economy/backstage），prompt 素材按 pass 分目录、文件名对齐 preset 模块 id。
 - 不写「以后可能用」的抽象。
 - 死代码、注释掉的代码、未注册工具直接删。
 - 注释解释为什么，不复述代码。
@@ -62,7 +64,7 @@ deadcode
 非 GPT 模型在重结算回合普遍跑得慢、思维链异常冗长，根因常是 prompt 栈过重 + 工具 description 堆「【必须调用的场景】/【严禁的行为】」式长清单。
 
 - **checklist 体例是 reasoning-bait**。这种清单会诱导模型动手前先把整套规约逐条复述一遍。工具 description 收成「一行用途 + 使用边界 bullet + 严禁 bullet」的紧凑格式；prompt 模块只把规则讲清一次，不靠反复堆清单「加固」。
-- **纯静态瘦身，不引入动态前缀**。体量超重就禁掉无关模块、压缩文字（fsn：结算主干 42558→16768 字符 -60%，工具 description -33%，行为/schema 零改动）。绝不按当轮输入改 prompt 前缀：fsn 试过 meta-turn 动态裁剪（`isLikelyMetaTurn`/`chooseSettlementPromptProfile`）随后整体回退——任何按输入变前缀的逻辑都击穿 prefix cache，每回合重新计费整段系统提示。
+- **纯静态瘦身，不引入动态前缀**。体量超重就禁掉无关模块、压缩文字（实测：结算主干 42558→16768 字符 -60%，工具 description -33%，行为/schema 零改动）。绝不按当轮输入改 prompt 前缀：有项目试过 meta-turn 动态裁剪随后整体回退——任何按输入变前缀的逻辑都击穿 prefix cache，每回合重新计费整段系统提示。
 - **注入栈用测试钉死**。固定模块数（如 `injected.length === 11`）+ slot 顺序，让「删文字」类改动一旦越界立即被 gate 拦下。瘦身的安全边界靠 packet 契约、工具 schema 宽松性、注入栈结构这些机器可校验项兑现。
 - 这条与「Prompt 不是防线」一脉相承：真纪律落在 engine ledger（见 `evented-runtime.md`），prompt 只负责把规则说清楚一次。
 

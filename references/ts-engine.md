@@ -6,7 +6,7 @@
 
 ## State 契约
 
-- `INITIAL_STATE` + schema 是当前唯一结构。
+- `INITIAL_STATE` + schema 是当前唯一结构；state 类型从 schema `Static<>` 派生，不维护手写平行类型（见 `engineering-discipline.md` 类型纪律）。
 - 旧字段只在 migration 里读，运行时不长期 fallback。
 - 身份建模成 role/facet，不建 actor kind。主角是 `protagonistActorId` 指向的角色；契约身份是可得可失的 role 字段；特殊形态是可挂载的 facet 对象。为每种身份造实体子类型，后面必然出现「既是 A 又是 B」的角色塞不进去。
 - 主角/当前操控者这类地位只由指针表达；不要让 actor id 本身编码地位，也不要在运行时散落 `id === "protagonist"` 这种判断。若需要种子 id，集中成单一常量，仅初始化/迁移使用。
@@ -33,7 +33,7 @@ state/state.json          debug / 旧存档导入，不发布
 不要把类型、store、持久化、归一化堆进一个 `state.ts` 杂物抽屉。按职责分文件：
 
 ```txt
-state.ts             纯类型词汇表，零函数
+state.ts             纯类型词汇表（从 schema 派生/再导出），零函数
 state-store.ts       store 生命周期：hydrate / getState / commit / reset
 state-persistence.ts session custom entry 读写胶水
 ids.ts               ID 分配（扫描 draft，不用模块级计数器）
@@ -61,7 +61,7 @@ clone draft ← store
 
 事件抛错 = 丢弃 draft，store 原样。不需要事务回滚机制；「失败即不提交」就是回滚。
 
-禁止嵌套写入。fsn 曾在一次 `updateState` 回调里再调一次 `updateState`，外层 commit 把内层产生的 offscreen 事件覆盖丢失。单一 runner 收口后这类 bug 无处发生。
+禁止嵌套写入。曾有项目在一次 `updateState` 回调里再调一次 `updateState`，外层 commit 把内层产生的 offscreen 事件覆盖丢失。单一 runner 收口后这类 bug 无处发生。
 
 纯化的红利：领域事件可以直接构造 draft 喂参数做单测，不需要 `resetState()` 仪式；`createId` 扫描 draft 分配，同一次 commit 内不撞 ID，测试之间 ID 不漂移。
 
@@ -90,6 +90,22 @@ extension 负责：
 - RFC 6902 的 `replace` 只能改已存在路径；初始化时要先建全字段。
 
 standard 方案中，`patch` 若作为 CodeAct 原语存在，也必须 debug-only 或受相同保护；常规玩法脚本优先调用 domain API。
+
+## 记忆分层：举证成本对齐记忆重量
+
+长跑项目的 campaign memory 不要只有一种重量级。多个长跑项目收敛出的分层：
+
+```txt
+pin-fact       稳定设定事实            claims 可选
+major-event    承重剧情事件            claims/evidence 必填，持久化且可 recall 检索
+daily-summary  日结                    claims 可选
+daily-event    日常纹理（可枚举 kind：  免 claims/evidence，不计入回合成本账
+               mundane/relationship/
+               shopping/meeting/travel/
+               observation 等）
+```
+
+要点：**举证与成本要求与记忆重量匹配**。若轻量日常记录也要填 claims、也占回合成本，模型要么停止记录日常纹理（长跑一致性受损），要么编造空话证据应付硬门。只对承重事件强制 claims，并把 claims 持久化进事件日志供 recall 检索；日常事件用可枚举 kind 保持可查询，但零举证门槛。这与台账的「强制力度对齐可验证性」是同一条原则在记忆侧的投影。
 
 ## 永久记忆
 
@@ -124,7 +140,7 @@ patches.jsonl = debug log, not source of truth
 
 每个工具一个文件，导出完整定义：name、description、parameters、execute 同文件。`tools/registry.ts` 只是注册清单（import 各定义、循环注册），`extension.ts` 只调用 `registerAllTools(pi)`。
 
-fsn 把契约集中在 registry 时，registry 长到 1087 行，改一个工具要跨文件对照参数和实现；合并后 registry 剩 60 行。registry 测试至少做三件事：遍历所有工具文件断言 LLM-facing schema 保持宽松（无复杂 union/enum）、禁止 checklist heading 回流、断言 registry 本身没有长出逻辑。大块输出工具不要逐个写 UI 逻辑；registry 单点附加共享 `renderResult`，折叠态摘要给人看，展开态完整 `content` 给人/模型对照。
+有项目把契约集中在 registry 时，registry 长到 1087 行，改一个工具要跨文件对照参数和实现；合并后 registry 剩 60 行。registry 测试至少做三件事：遍历所有工具文件断言 LLM-facing schema 保持宽松（无复杂 union/enum）、禁止 checklist heading 回流、断言 registry 本身没有长出逻辑。大块输出工具不要逐个写 UI 逻辑；registry 单点附加共享 `renderResult`，折叠态摘要给人看，展开态完整 `content` 给人/模型对照。
 
 工具原则：
 

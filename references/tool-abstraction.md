@@ -59,9 +59,11 @@ Typed tools   GM 调 pi tools；工作流由每个工具 interface 固化
 
 设计目标：让模型选择叙事命令，并填写少量玩家可见字段；内部 ID、当前 beat、arc、objective id、默认 reason、storyWindow 账本字段由工具补齐。
 
-### Macro 覆盖后要隐藏半底层工具
+### 入口收敛：命令面板或单提交，不要两套并存
 
-高频叙事动作一旦有 macro tool，就不要继续把它覆盖的半底层工具暴露给 GM，否则模型会在多个近似入口之间摇摆。
+同一个叙事动作只能有一个 LLM 可见入口，否则模型在近似入口间摇摆。收敛有两个终点形态，选一个：
+
+**命令面板形态**：macro tools 是日常入口，turn commit 是非常规组合 fallback：
 
 ```txt
 保留可见：start_scene_beat, finish_current_beat, commit_turn
@@ -69,10 +71,16 @@ Typed tools   GM 调 pi tools；工作流由每个工具 interface 固化
 保留内部：beginSceneBeat, transitionSceneBeat, moveToSceneBeat engine functions
 ```
 
-原则：
+**one-commit-per-turn 形态**（多个长跑项目独立收敛于此）：每个叙事回合以恰好一次 `commit_turn(time, summary, events=[...])` 收尾；beat 生命周期不再是独立工具，而是扁平 scene 子事件（`{kind:"begin-beat", title, objectives, ...}` / `{kind:"complete-beat", outcome, memory?, nextBeat?, ...}`），macro 语义收进子事件 kind（complete-beat 内部包办 transition + memory + presence + situation 收尾）。驱动因素：
 
-- scene/action macro 是日常入口。
-- turn commit 是非常规组合 / fallback。
+- 引擎台账把 canonical commit 当硬闸（义务账硬拒、时钟催办、pending-harvest 提醒都挂在它上）时，两个 canonical 落地工具 = 闸门被剪成两半，每条强制都要在两处重复实现和重复解释。
+- 两段式结算侧本来就要求「每轮恰好落地一次」，单入口把合同变成结构事实。
+- 工具面更小更稳，子事件 schema 复用共享子 schema（单一事实源），审计只看一个工具的调用流。
+
+选型信号：有引擎台账硬闸 / 两段式结算 / 需要「每轮单次落地」审计合同 → one-commit；单段、无闸、工具少 → 命令面板。**反嵌套教训在两种形态下都成立**：one-commit 的子事件必须是扁平 `{kind, ...字段}`，不是 `{kind, event:{kind, input:{...}}}` 三层套娃；内部账本字段仍由工具补齐。
+
+两种形态共同原则：
+
 - domain primitives 可以继续存在于 engine 和测试中，但不一定注册成 LLM 可见工具。
 - 不做运行时 toolset 切换。工具清单是 prompt cache 前缀的一部分，动态增删工具每次都作废缓存；可见性在注册期决定，条件限制写进 description 和工具错误。
 
@@ -221,7 +229,7 @@ parameters: Type.Object({
 
 仍然要保留严格性，但严格性放在工具 normalizer 和 engine：
 
-- 归一化用共享 schema 模块：内部 TypeBox tagged-union + 统一 parse 入口，错误翻译成领域语言。单个 enum 才值得手写 assert；手写 assert 会繁殖成几十个克隆（fsn 迁移时删了 70+）。
+- 归一化用共享 schema 模块：内部 TypeBox tagged-union + 统一 parse 入口，错误翻译成领域语言。单个 enum 才值得手写 assert；手写 assert 会繁殖成几十个克隆（实战迁移时一次删了 70+）。
 - 每个 union object 由 `kind` 或当前工具语义选择一个 parser，不让 LLM-facing JSON Schema 同时尝试所有分支。
 - 必填业务字段在 parser 报「缺少 npc.actorId」，不要让 validator 报多个分支缺字段。
 - parser 返回 typed input；不要让 `any` 扩散进 engine。
@@ -284,7 +292,7 @@ patch([{ path: "/scene/objectives/0", value: "确认结界" }]);
 
 ### Turn Commit / Transaction
 
-turn commit 横跨 scene、memory、economy、condition 等领域，解决「一轮回复中多个状态变化如何按顺序安全落地」。它不是 scene/action 的子项。
+turn commit 横跨 scene、memory、economy、condition 等领域，解决「一轮回复中多个状态变化如何按顺序安全落地」。它不是 scene/action 的子项。在 one-commit-per-turn 形态下（见上「入口收敛」），它升格为每轮唯一的 canonical 落地入口。
 
 ```ts
 declare function commitTurn(input: {
@@ -415,7 +423,7 @@ CodeAct 载体的适用点、沙箱契约、`.d.ts` 权威和实现校验见 `re
 
 - [ ] primitive/debug 层 + domain composition 层存在。
 - [ ] 有活动单元时 scene/action macro 层存在，覆盖高频进入/收口动作。
-- [ ] macro 覆盖半底层入口后，半底层工具不再暴露给 GM。
+- [ ] 入口已收敛：命令面板形态下 macro 覆盖的半底层工具不再暴露；one-commit 形态下不存在与 commit_turn 并列的第二个 canonical 落地工具。
 - [ ] 多状态变化有 turn commit / transaction。
 - [ ] 组合工具子事件接受原工具的 flat payload，或至少兼容 flat payload。
 - [ ] 事务 summary 能为子事件 reason 提供默认值。

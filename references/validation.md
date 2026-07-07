@@ -35,9 +35,10 @@ grep -rnE 'update_state|patch_state|直接修改状态|JSON Patch' \
 - [ ] 主角设定若存在，已进入世界书 / start skill / actor state / memory / 可选 prompt module；不默认生成 `data/user.json`。
 - [ ] 主角/操控者地位由指针表达，运行时不散落硬编码 id 判断；seed id 若存在只在初始化/迁移常量里出现。
 - [ ] public registry key 不泄露 hidden truth；真名、凶手、阵营秘密不出现在 actor/item/location id。
-- [ ] 多 agent 场景有 project-scope subagent，显式 tools/extensions，不拿 `code_act`，不继承完整项目上下文/技能目录。
+- [ ] 多 agent 场景：in-process subagent 是 project-scope，显式 tools/extensions，不拿 `code_act`，不继承完整项目上下文/技能目录；知密导演子进程带 `--no-tools --no-approve --no-context-files`，session 落 gitignored 目录，有 harvest + pending-harvest 台账。
 - [ ] evented 方案有 `engine/events.ts`、`engine/reducers.ts`、protected paths、session-backed state。
 - [ ] reducer 测试覆盖关键事件；secret/public/player knowledge 分层有测试或 fixture。
+- [ ] 多台账/多领域项目有一条**引擎集成走查**（见「下场实测」前的三层划分）：在工具层把开局→beat→混合领域 commit→战斗/义务闭环→秘密防漏→收口全链路走一遍。
 - [ ] 4X/容器型 pack（单位/建筑/项目集合）：环上限等边界 reducer 有测试；若实体类别字段与事件判别字段同名（都叫 `kind` 之类），CodeAct 路径要强制嵌套避免被覆盖。
 - [ ] 公式重的系统（制造/经济）：总量等派生量由 reducer 权威计算，不接受 LLM 传入；系数表对照原卡锚点有单测，原卡内部矛盾（表与示例冲突）在代码注释里钉死取舍。
 - [ ] prompt orchestrator 只渲染 Runtime Plan 和 state projection，不维护领域正确性。
@@ -55,10 +56,11 @@ grep -rnE 'update_state|patch_state|直接修改状态|JSON Patch' \
 
 ## 下场实测
 
-下场实测（交互调真 LLM、多轮）与确定性引擎测试是两个**不可互替**的轴，各抓不同的 bug：
+下场实测（交互调真 LLM、多轮）与确定性引擎测试是两个**不可互替**的轴；确定性一轴内部又分两层，共三层各抓不同的 bug：
 
-- 确定性集成测试（构造 event 直调 reducer/单一写入通道）抓：公式错、状态漂移、事件组合炸。但它**绕过了 GM prompt 与 tool schema**，所以抓不到「GM 该调的工具没调、prompt 没喂到、schema 漏字段」。
-- 下场实测抓：prompt→行为→工具选择→参数填充→两-pass 渲染→压缩。两个典型只能被它抓到的缺口：① 机器就绪但玩法分支规则/花名册没接进 GM prompt（GM 从不发起该玩法）；② typed tool schema 漏了 reducer 消费的字段（LLM 填不进→该字段静默落空，而单测全绿）。
+- 单域测试（构造 event 直调 reducer）抓：公式错、单域状态漂移。
+- **引擎集成走查**（确定性、不调 LLM，但走**工具层**这个唯一写入面）：一条测试把迷你战役从开局走到收口——new-game init → NPC/presence → begin-beat → 混合领域 commit（伤势/经济/威胁/多层记忆）→ 战斗交换 + 义务销账 → 后台义务硬阻→解除闭环 → 钩子/时钟 → 秘密不漏进 public/brief → complete-beat。它抓的是跨域回归：台账互相联动时炸、migration/invariant 不协同，而单域测试全绿。
+- 下场实测抓：prompt→行为→工具选择→参数填充→两-pass 渲染→压缩。前两层都**绕过了 GM prompt**（集成走查虽经过 tool schema，但输入是人写的合法值），所以抓不到「GM 该调的工具没调、prompt 没喂到、schema 漏字段致 LLM 填不进」。两个典型只能被下场实测抓到的缺口：① 机器就绪但玩法分支规则/花名册没接进 GM prompt（GM 从不发起该玩法）；② typed tool schema 漏了 reducer 消费的字段（LLM 填不进→该字段静默落空，而单测全绿）。
 
 结论：单测全绿 **不等于** 系统能跑。如果某个系统靠 prompt 驱动或靠 tool schema 暴露，它的「能用」只能由下场实测证明。
 

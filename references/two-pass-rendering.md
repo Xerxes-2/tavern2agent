@@ -102,7 +102,9 @@ Pass B 是纯 prose 生成，不需要长推理；但 thinking 模型在渲染�
 
 ## 接管压缩：结算 pass 的确定性索引
 
-领域模型付清后（事实在 state、prose 连续性在渲染器自管窗口），旧结算回合没有不可替代信息。compaction 可以退化成确定性裁断索引，且**与渲染历史共用同一份回合重建**：一个纯函数从 session 分支重建 `TurnRecord[]`（玩家输入 + packet + prose），结算压缩与渲染历史都吃它，不要两套口径。压缩做**两层**而非单行：最近 N 轮保留**完整裁决脉络**（源 = 玩家输入 + packet 的 playerAction/resolvedChanges，与渲染 pass 选史对称），更早的回合各压成一行索引，整体封顶 M 行并显式声明丢弃指向 state。无 LLM、无 prompt 策略文件、即时、零成本、不漂移。摘要头部钉死合同：这是索引，state 才是真相。
+领域模型付清后（事实在 state、prose 连续性在渲染器自管窗口），旧结算回合没有不可替代信息。compaction 可以退化成确定性裁断索引，且**与渲染历史共用同一份回合重建**：一个纯函数从 session 分支重建 `TurnRecord[]`（玩家输入 + packet + prose），结算压缩与渲染历史都吃它，不要两套口径。压缩做**两层**而非单行：最近 N 轮保留**完整裁决脉络**（源 = 玩家输入 + packet 的 playerAction/resolvedChanges，与渲染 pass 选史对称；细节如 endWindow、binding NPC move、短 prose 摘录挂在该轮索引行下方），更早的回合各压成一行索引，整体封顶 M 行并显式声明丢弃指向 state。无 LLM、无 prompt 策略文件、即时、零成本、不漂移。摘要头部钉死合同：这是索引，state 才是真相。
+
+两层格式要**自退化**：细节行用与索引行不同的行首前缀（如索引行 `- ` 开头、细节行不以 `- ` 开头），于是旧摘要被下一次 compaction 折叠时，只有索引行被机械识别保留，细节行自动降级消失——不需要任何「二次压缩」专门逻辑，前一份摘要（previousSummary）的折叠处理顺带完成梯度递降。用测试钉死「折叠后细节行不存活」。
 
 通过 `session_before_compact` hook 接管手动 `/compact` 和自动 compaction，不要另设自定义命令。
 

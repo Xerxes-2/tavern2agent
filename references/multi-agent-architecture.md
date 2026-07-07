@@ -4,6 +4,15 @@
 
 当前推荐设计来自 evented runtime：**subagent 不写 state，不拿 CodeAct，不当陪聊 NPC；它只输出候选、视角反应或审计意见，由 GM 转成领域事件。**
 
+载体有两种，按「子代理要不要知道秘密」选：
+
+```txt
+in-process 顾问型   pi subagent 定义 + extension 注入 player-safe 投影；
+                    适合审计、视角反应、无密候选
+detached 导演型     engine 直接 spawn 无工具 pi 子进程，喂入完整隐藏知识；
+                    适合秘密承载的后台平行线（见「密闭导演」节）
+```
+
 ## 什么时候用
 
 至少满足一项：
@@ -88,7 +97,7 @@ extension 注入必须带游戏内日期、时间和时区。subagent 拿不到�
 
 ### parallel-line
 
-用于后台平行线候选。它不写新闻稿，不替代事件本体；只输出可被 GM 审核的 offscreen 候选。
+用于后台平行线候选。它不写新闻稿，不替代事件本体；只输出可被 GM 审核的 offscreen 候选。需要读隐藏真相/阵营私有目标才能产出候选时，用密闭导演型载体（见「密闭导演」节），不要把秘密塞进 in-process 注入。
 
 输出必须是 bare JSON：
 
@@ -185,12 +194,60 @@ subagent 需要的 state 投影，不要让它自己读 `state/state.json`——
 - agent 合同里写明上下文以追加形式到达，并定义缺块时的降级行为。
 - 投影的无密性要有测试。
 
+本节适用于 in-process 顾问型。密闭导演型在 spawn 点由 engine 组装完整 prompt（见下节），不走 hook 注入。
+
+## 密闭导演：engine 自持薄 spawn 接缝
+
+后台平行线导演需要**知密**才有戏：它要读未揭示的秘密和阵营私有目标，才能产出有分量的 offscreen 候选。这与「subagent 不知道秘密」的顾问型注入是另一形态——防火墙**不是**「子代理无秘密」，而是四条构造保证：进程隔离 + 零工具 + 写不了 canon + 落地前审核。实战定型做法：
+
+```txt
+run_parallel_line 工具
+  → engine 组装完整导演 prompt（persona + 安全投影 + privateFacts）
+  → child_process.spawn("pi", ["-p", "--no-tools", "--no-approve",
+      "--no-context-files", "--model", 后台模型,
+      "--session-dir", 密闭目录, "--session-id", runId, prompt])
+      detached + unref，立即返回 run_id
+下一轮 harvest 工具
+  → engine 按 runId glob 子进程 session jsonl，取最终 assistant text
+  → parse 门校验结构（return-trip gate），过了才可转成 offscreen 事件
+```
+
+构造点逐条对应不变量，替换底座时一条都不能少：
+
+- `--no-tools`：子进程物理上调不了任何领域工具，写不了 canon。
+- `--no-approve --no-context-files`：不加载项目 extension / AGENTS.md / settings，没有任何回到 canonical state 的路径。
+- 独立进程 + 独立 session：秘密只进子进程工作记忆，不进主 GM context。
+- reviewed-before-landing：父进程的 parse 门 + 台账是候选变成 offscreen 事件的唯一通路。
+- secrets-at-rest：子进程 transcript 必然含 privateFacts，`--session-dir` 指向 gitignored 的项目隔离目录（与 `PI_CODING_AGENT_DIR` 下的敏感文件同级），不进发布包。
+
+### 不要用 subagent 框架
+
+曾对 8 个 pi 生态多 agent 框架逐一调研（含 spike 实测），全部不采用：它们都是 coding-agent 形态——子代理为读文件、跑 shell、改代码而生，带工具是它们的卖点，恰好与秘密防火墙正面冲突；它们的杠杆在调度/注册表/并发配额/phase DAG，而这正是这里不需要的部分。采纳任何一个 = 用 5% 框架、对抗 95%。通用定律：**领域不变量越硬，build-vs-buy 越倾向自持薄接缝**——正确性脊柱（台账、审核门）本来就活在 engine 里，底座只需要做好框架反而做不到的一件事：密闭。
+
+接缝可生长而不长成框架，每项都只是几行：
+
+- 持久记忆导演：按阵营 pin `--session-id`，子进程续自己的 transcript。
+- swarm：并发 fork N 个导演，session 天然互不污染。
+- 跨阵营协调：engine 把一个导演的输出（如 `ordersToAllies`）穿针进另一个的下轮 prompt；GM/canonical state 是唯一共享板。
+
+### pending-harvest 台账：产出的候选不能静默丢失
+
+spawn/harvest 拆成两轮后出现新失败面：GM 忘了收割，或用一个敷衍的 `no-change` 解决掉平行线，**把导演已产出的候选整个扔掉**。义务账（见 `evented-runtime.md` 引擎台账节）只保证「落地了什么」，不保证「收割了这个 run」。对策是第二本账，强制力度照旧对齐可验证性：
+
+- spawn 时记 `{runId, lineId, spawnedAt}` 入账；harvest 按 runId 销账；候选落地按 lineId 销账（覆盖手动落地路径）。
+- **牙齿放在丢弃点**：存在未收割 run 时，resolve/丢弃该平行线的工具硬拒，强制先收割——收割后「导演自己说 no-change」的正路仍然通。
+- 软层是催办：canonical commit 返回值逐轮列出 pending run，没挂义务的 run 也不会被遗忘。
+
+结果是自愈环：spawn →（催办）→ harvest（销账 + 展示候选与落地指引）→ 落地或解决。engine 拥有读写两端；不要让 GM 自己去 session 目录翻 jsonl（文件名带不可预测时间戳前缀，LLM 做不到），也不要依赖框架的 inspect 工具（它不知道 engine 分叉的进程）。
+
 ## 反模式
 
 - 每个 NPC 都拆 agent。
 - 子代理持有完整 state。
 - 子代理负责修正 GM 遗漏的 patch。
 - 子代理拿 `code_act` 或 debug/migration 工具。
+- 知密后台导演跑在 in-process 框架里（防不住工具与上下文继承），或子进程不带 `--no-tools --no-approve --no-context-files`。
+- 知密子进程的 session 落在非 gitignored 目录。
 - 用 subagent 代替工具 description、strict path、migration。
 - 单线程场景硬拆并行。
 - 候选 subagent 输出 Markdown 长文，迫使 GM 再抽结构。
