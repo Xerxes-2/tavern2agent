@@ -153,3 +153,11 @@ grep -cE '"name":"(commit_turn|record_relationship_shift|reveal_secret|spend_mon
 | 工具存在但模型不用 | description 没写清用途/使用边界/禁区，或 tool surface 太浅/太像字段 setter |
 
 报告问题时给 turn、GM 原话、预期行为。
+
+## 回访原卡（完工后可选加深）
+
+重读原卡聊天楼层/开场分支/世界书表演层，把迁移时祛魅丢弃的东西里真正有工程价值的捞回来——可结构化的剧情窗口约束、认知隔离、记忆日志格式、多阵营节奏。
+
+吸收判据：可落 state/tools/memory 的事实才吸收；标签外壳、思考链、状态栏表演、小数好感度不吸收。
+
+产出：逐项转成 event pack / ledger / prompt module 提案给用户，由用户决定是否吸收。
