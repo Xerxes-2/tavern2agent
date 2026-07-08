@@ -13,7 +13,7 @@ external research    现实题材、开放网络资料、GitHub/论文/新闻等
 
 ## 原则
 
-1. `data/*.json` 是卡片内世界观、NPC、地点、物价、规则的权威源。
+1. `world-data/*.json` 是卡片内世界观、NPC、地点、物价、规则的权威源。
 2. GM 只通过 `lookup`/领域工具读取预设事实。
 3. 现实世界 / 开源项目 / 活资料优先走 web/search/fetch/code-search 工具，不手工复制成静态知识库。
 4. 大数据集用索引查，再按需返回正文。地点 ≥20、NPC ≥5、DLC/物价表存在时，必须配查询工具。
@@ -24,7 +24,7 @@ external research    现实题材、开放网络资料、GitHub/论文/新闻等
 ## 目录
 
 ```txt
-data/
+world-data/
 ├── locations.json
 ├── characters.json
 ├── factions.json
@@ -70,7 +70,7 @@ lookup({ query: string, type?: "location" | "npc" | "faction" | "monster" | "rul
 
 ## 外部 research 工具
 
-当卡片题材依赖现实世界、近期资料或开源项目时，不要把外部知识复制成 `data/world.json`。给 GM 一个只读 research seam：
+当卡片题材依赖现实世界、近期资料或开源项目时，不要把外部知识复制成 `world-data/world.json`。给 GM 一个只读 research seam：
 
 | 工具 | 用途 |
 |---|---|

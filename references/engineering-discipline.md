@@ -55,6 +55,22 @@ deadcode
 - engine 纯函数优先；领域事件收 `(draft, event)`，不读写 store；确定性逻辑可单测。
 - 长跑项目维护 `CONTEXT.md` 领域词汇（每个术语带「不要叫成什么」）和 `docs/adr/`；命名和拆分跟着词汇走。
 - 目录名拒绝歧义泛名。长跑项目长大后集中返工过的命名：`data/`→`world-data/`（与运行时 state 混）、`state/`→`runtime/`（它装的是 debug 导出不是 canonical state）、`agents/`→`prompts/`（装的是 prompt 素材，与 `.pi/agents/` 的真 subagent 定义撞名）、`engine/direction/`→`engine/render/`、`tools/state/`→`tools/settlement/`。新项目直接用无歧义名；engine 变大后按领域拆子目录（actor/scene/turn/memory/secrets/economy/backstage），prompt 素材按 pass 分目录、文件名对齐 preset 模块 id。
+- 长跑项目的成熟形态（以旗舰实战仓为准，供长大时对照，不是起步模板）：
+
+  ```txt
+  engine/core/<domain>/      # actor/scene/turn/memory/secrets/economy/backstage…
+  engine/prompt-assembly/    # 注入栈组装
+  engine/render/             # 两段式渲染侧
+  engine/audit/  engine/debug/
+  tools/settlement/  tools/lookup/  tools/debug/  tools/runtime/
+  prompts/<pass>/            # 素材按 pass 分目录；preset-<pass>.json 对齐模块 id
+  world-data/                # 静态世界数据与索引（含 card-ir/runtime-plan）
+  runtime/                   # debug 导出快照，gitignored，非 canonical state
+  extensions/<capability>/   # compaction-policy/player-panel/subagents/two-pass-render…
+  skills/<protocol>/SKILL.md # start-game 之外可拆输入协议/时间感等玩法协议
+  tests/  docs/adr/  CONTEXT.md  CHANGELOG.md
+  ```
+
 - 不写「以后可能用」的抽象。
 - 死代码、注释掉的代码、未注册工具直接删。
 - 注释解释为什么，不复述代码。

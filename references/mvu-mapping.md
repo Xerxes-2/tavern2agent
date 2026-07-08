@@ -39,7 +39,7 @@ MVU 条目是卡作者写给 LLM 的系统设计文档。不要整块丢弃，�
 2. 逐条分类，含 disabled。
 3. 只对需要的条目读取全文。
 4. 抽取 mutable concept、mechanic、visibility fact、worldbook disposition。
-5. 输出 `data/card-ir.json`，再从 IR 生成 Runtime Plan。
+5. 输出 `world-data/card-ir.json`，再从 IR 生成 Runtime Plan。
 
 大卡不要 dump 全文进 context。
 
@@ -59,10 +59,10 @@ python3 scripts/get_entry.py card.json <index>
 
 | 类型 | 信号 | IR / runtime 去向 |
 |---|---|---|
-| 系统规则/术语 | 常驻设定、规则说明 | settingFacts / `data/world.json` |
-| 地区/场景 | 城市、区域、地点 | settingFacts / `data/locations.json` / lookup |
-| NPC/角色模板 | `<character_card>`、角色名 | persona / `data/characters.json` / subagent |
-| 章节剧情 | 第 X 卷、章节、事件模板 | quest mechanic / `data/chapters.json` / lookup |
+| 系统规则/术语 | 常驻设定、规则说明 | settingFacts / `world-data/world.json` |
+| 地区/场景 | 城市、区域、地点 | settingFacts / `world-data/locations.json` / lookup |
+| NPC/角色模板 | `<character_card>`、角色名 | persona / `world-data/characters.json` / subagent |
+| 章节剧情 | 第 X 卷、章节、事件模板 | quest mechanic / `world-data/chapters.json` / lookup |
 | 初始状态 | `[initvar]`、YAML/JSON 初始值 | mutableConcept initial values |
 | 更新规则 | `[mvu_update]`、变量变化 | mechanics + event pack candidates |
 | 骰子/公式 | `{{roll}}`、DC、伤害、经济 | mechanic + reducer / CodeAct API |
@@ -118,9 +118,9 @@ python3 scripts/get_entry.py card.json <index>
 
 ## Data 映射
 
-- 角色多：`data/characters.json`，GM prompt 只放一句话摘要。
-- 地点多：`data/locations.json` + location index。
-- 章节多：`data/chapters.json` + chapter lookup。
+- 角色多：`world-data/characters.json`，GM prompt 只放一句话摘要。
+- 地点多：`world-data/locations.json` + location index。
+- 章节多：`world-data/chapters.json` + chapter lookup。
 - DLC/路线：独立数据文件 + setup/state 开关。
 
 大数据进 lookup，不进 prompt。

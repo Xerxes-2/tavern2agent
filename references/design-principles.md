@@ -51,7 +51,7 @@ CodeAct 只是承载领域 API 的一种执行载体，禁止当自由脚本入�
 
 所有写入走工具 / CodeAct API / engine，保留结构化 domain event 和 turn log。
 
-状态真相源是 pi session custom entry。`state/` 只做 debug export，不发布。读档靠 session tree/fork 分支恢复。
+状态真相源是 pi session custom entry。`runtime/` 只做 debug export，不发布。读档靠 session tree/fork 分支恢复。
 
 ## 7. Public / hidden / player knowledge 分层
 
@@ -61,7 +61,7 @@ CodeAct 只是承载领域 API 的一种执行载体，禁止当自由脚本入�
 
 ## 8. Prompt 按职责拆分，由编排器渲染
 
-Prompt orchestrator 是 Runtime Plan 的 view/compiler backend；领域规则不归它管。复杂 RP 项目用 `agents/preset.json` 管理模块开关、slot 和 priority，具体文本拆到 `agents/gm-*.md`；slot 设计与模块拆分见 `references/prompt-composition.md`。
+Prompt orchestrator 是 Runtime Plan 的 view/compiler backend；领域规则不归它管。复杂 RP 项目用 `prompts/preset.json` 管理模块开关、slot 和 priority，具体文本拆到 `prompts/gm-*.md`；slot 设计与模块拆分见 `references/prompt-composition.md`。
 
 prompt 只做阅读滤镜、工具纪律、叙事渲染和输出合同；大数据进 data + lookup，状态进 engine。
 
@@ -79,7 +79,7 @@ prompt 只做阅读滤镜、工具纪律、叙事渲染和输出合同；大数�
 
 ## 11. Data 按需查
 
-大数据不进 prompt：世界事实进 `data/*.json`，GM 通过 lookup 读取。目录约定、查询工具阈值与外部 research 边界见 `references/data-layer.md`。
+大数据不进 prompt：世界事实进 `world-data/*.json`，GM 通过 lookup 读取。目录约定、查询工具阈值与外部 research 边界见 `references/data-layer.md`。
 
 ## 12. 工具 description 是决策入口
 

@@ -56,7 +56,7 @@ curl -sL '<URL>' | head -100
 | 变量清理 | `UpdateVariable` | 丢弃 |
 | AI 隐藏 | `StatusPlaceHolder` 且 replace 空 | 丢弃 |
 | UI 状态面板 | 大段 HTML/CSS | 丢 UI，提取字段 |
-| 游戏内容注入 | replace 内有 JSON/棋子/规则 | 提取到 data/engine |
+| 游戏内容注入 | replace 内有 JSON/棋子/规则 | 提取到 world-data/engine |
 
 快速分类：
 

@@ -25,7 +25,7 @@ tavern2agent 是 pi-native。不要承诺跨平台。换 host 意味着重做 ho
 - 隔离项目级 pi 配置，避免污染用户全局环境。
 - 自动处理项目依赖。
 - 支持继续会话、指定模型、开发模式。
-- 发布物不要包含 `.pi/agent/`、`.pi/npm/`、`sessions/`、`state/`。
+- 发布物不要包含 `.pi/agent/`、`.pi/npm/`、`sessions/`、`runtime/`。
 
 不要在文档里复制一份 start.sh 逻辑；模板文件是唯一来源。
 
@@ -141,8 +141,8 @@ GM prompt 可用这个框架：
 ```txt
 .pi/settings.json       项目包声明
 .pi/agents/*.md         子代理定义
-agents/preset.json       prompt composition manifest
-agents/gm-*.md           GM prompt 模块
+prompts/preset.json       prompt composition manifest
+prompts/gm-*.md           GM prompt 模块
 skills/start-game/      开局 skill
 tools/registry.ts       工具注册清单；契约与实现在各工具文件
 extension.ts            pi 注册入口

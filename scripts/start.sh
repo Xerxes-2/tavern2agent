@@ -16,8 +16,8 @@ echo "启动《$(basename "$PWD")》..."
 # 会话存档放在项目内，方便打包带走；发布前删除 sessions/。
 mkdir -p ./sessions
 
-# state/ 是 session-backed 状态的 debug export / legacy fallback，真实存档在 pi session 快照中。
-# 生成项目时应把 state/ 写进 .gitignore；发布包不要包含 state/。
+# runtime/ 是 session-backed 状态的 debug export / legacy fallback，真实存档在 pi session 快照中。
+# 生成项目时应把 runtime/ 写进 .gitignore；发布包不要包含 runtime/。
 
 # ---- 项目隔离 ----
 # PI_CODING_AGENT_DIR 将 pi 的配置目录从 ~/.pi/agent/ 切换到 .pi/agent/，

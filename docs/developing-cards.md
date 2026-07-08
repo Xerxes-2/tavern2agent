@@ -8,15 +8,15 @@
 my-card/
 ├── .git/                 # 建议启用
 ├── .pi/settings.json     # 项目包
-├── agents/preset.json   # prompt 组织开关/顺序
-├── agents/gm-*.md       # prompt 模块
-├── data/*.json
+├── prompts/preset.json   # prompt 组织开关/顺序
+├── prompts/gm-*.md       # prompt 模块
+├── world-data/*.json
 ├── engine/*.ts
 ├── tools/registry.ts
 ├── extension.ts
 ├── start.sh
 ├── sessions/             # 不进 git
-└── state/                # debug export，不进 git
+└── runtime/              # debug export，不进 git
 ```
 
 ## 工作流
@@ -29,7 +29,7 @@ my-card/
 
 - 下场前 commit，方便区分代码和游玩产物。
 - `sessions/` 是会话/存档，不进 git。
-- `state/` 不是真相源，不进 git。
+- `runtime/` 不是真相源，不进 git。
 - 每张卡独立目录，别共享 sessions。
 
 ## State 心智
@@ -37,13 +37,13 @@ my-card/
 真相源：pi session custom entry。
 
 ```txt
-session snapshot → in-memory state → state/state.json(debug)
+session snapshot → in-memory state → runtime/state.json(debug)
 ```
 
 规则：
 
 - 切 session/tree/fork 后，从当前分支最近快照恢复。
-- `state/state.json` 只给人看，或做旧存档导入。
+- `runtime/state.json` 只给人看，或做旧存档导入。
 - 老存档先 migration，再继续玩。
 - 不要运行时长期兼容旧字段。
 
@@ -53,7 +53,7 @@ session snapshot → in-memory state → state/state.json(debug)
 node_modules/
 dist/
 sessions/
-state/
+runtime/
 .pi/agent/
 .pi/npm/
 meta/     # 仅死亡循环/跨周目永久记忆需要
@@ -63,7 +63,7 @@ meta/     # 仅死亡循环/跨周目永久记忆需要
 
 ### 改 GM prompt
 
-优先改 `agents/preset.json` 调整模块开关、slot 和顺序；改具体文本时编辑 `agents/gm-*.md`。重启或继续下一轮即可。不需要迁移 state。
+优先改 `prompts/preset.json` 调整模块开关、slot 和顺序；改具体文本时编辑 `prompts/gm-*.md`。重启或继续下一轮即可。不需要迁移 state。
 
 ### 改 engine
 
@@ -106,7 +106,7 @@ git add -A && git commit -m "wip before rerun"
 
 ## 禁区
 
-- 跑游戏中手改 `state/state.json`
-- 把 `state/` 加回 git
+- 跑游戏中手改 `runtime/state.json`
+- 把 `runtime/` 加回 git
 - 跨项目共享 `sessions/`
-- 发布 `.pi/agent/auth.json`、`sessions/`、`state/`
+- 发布 `.pi/agent/auth.json`、`sessions/`、`runtime/`

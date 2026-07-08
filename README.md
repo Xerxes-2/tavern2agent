@@ -58,7 +58,7 @@ pi
 # 对 agent 说：帮我转换这张角色卡
 ```
 
-agent 会解包、审计世界书和脚本、生成 `data/card-ir.json`、给出 Runtime Plan、选择 event packs、事实源和 subagent roles，再生成 pi 项目并下场校验。复杂卡写代码前会先给你看 Runtime Plan、state schema、event catalog、工具/API 清单和子代理边界。
+agent 会解包、审计世界书和脚本、生成 `world-data/card-ir.json`、给出 Runtime Plan、选择 event packs、事实源和 subagent roles，再生成 pi 项目并下场校验。复杂卡写代码前会先给你看 Runtime Plan、state schema、event catalog、工具/API 清单和子代理边界。
 
 ## 产物形态
 
@@ -69,11 +69,11 @@ agent 会解包、审计世界书和脚本、生成 `data/card-ir.json`、给出
 ```txt
 project/
 ├── .pi/settings.json
-├── agents/preset.json
-├── agents/gm-*.md
-├── data/card-ir.json
-├── data/runtime-plan.json
-├── data/*.json
+├── prompts/preset.json
+├── prompts/gm-*.md
+├── world-data/card-ir.json
+├── world-data/runtime-plan.json
+├── world-data/*.json
 ├── engine/events.ts
 ├── engine/reducers.ts
 ├── engine/state.ts
@@ -85,7 +85,7 @@ project/
 
 按需追加：`engine/migrations.ts`、`engine/codeact.ts`、`engine/codeact-sandbox.d.ts`、`extensions/subagents/*`、`.pi/agents/*`、event-pack 专用数据和测试。
 
-`state/`、`sessions/`、`.pi/agent/`、`.pi/npm/` 不发布。
+`runtime/`、`sessions/`、`.pi/agent/`、`.pi/npm/` 不发布。
 
 ## 方案
 
@@ -101,7 +101,7 @@ project/
 
 CodeAct 只是承载领域 API 的执行载体。无论用 typed tools 还是 CodeAct，状态变化都必须落成领域事件并经过 reducer。
 
-网络搜索 / 抓取 / code search 可以取代手工知识库，但只能作为只读事实源；卡片 canonical facts 仍由本地 data/lookup 管。subagent 只输出视角反应、后台候选或审计意见，不直接写 state。
+网络搜索 / 抓取 / code search 可以取代手工知识库，但只能作为只读事实源；卡片 canonical facts 仍由本地 world-data/lookup 管。subagent 只输出视角反应、后台候选或审计意见，不直接写 state。
 
 ## 文档
 

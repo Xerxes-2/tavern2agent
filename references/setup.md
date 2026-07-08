@@ -16,7 +16,7 @@
 
 ## ST 宏剥离
 
-写入 `agents/`、`skills/`、`data/` 前处理：
+写入 `prompts/`、`skills/`、`world-data/` 前处理：
 
 | 残留 | 处理 |
 |---|---|
@@ -30,7 +30,7 @@
 检查：
 
 ```bash
-grep -rnE '\{\{(user|char|random|roll|pick|getvar|setvar)' agents/ skills/ data/
+grep -rnE '\{\{(user|char|random|roll|pick|getvar|setvar)' prompts/ skills/ world-data/
 ```
 
 不应有命中。
@@ -73,7 +73,7 @@ description: 开始/重新开始《卡片名》游戏。收集用户角色信息
 |---|---|
 | 无缺失 | 无需额外信息，直接进入开场。 |
 | 缺少少数字段 | 列字段 + 默认值，请确认或修改。 |
-| 主角设定全缺 | 生成可选身份模板或默认开局立场；不要默认落 `data/user.json`。 |
+| 主角设定全缺 | 生成可选身份模板或默认开局立场；不要默认落 `world-data/user.json`。 |
 | 开局选项 | 列选项 + 推荐默认项。 |
 | 多类混合 | 合并一轮问完。 |
 

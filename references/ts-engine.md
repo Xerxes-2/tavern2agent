@@ -23,7 +23,7 @@ pi session custom entry   真相源，跟随 session 分支
         ↓ hydrate
 in-memory/global store    工具和沙箱读写
         ↓ export
-state/state.json          debug / 旧存档导入，不发布
+runtime/state.json        debug / 旧存档导入，不发布
 ```
 
 读档、回退、章节存档用 pi session tree/fork。不要自建事件溯源回滚系统。
@@ -167,7 +167,7 @@ patches.jsonl = debug log, not source of truth
 ## 禁区
 
 - 复制示例字段当 schema。
-- 把 `state/state.json` 当真相源。
+- 把 `runtime/state.json` 当真相源。
 - 在运行时兼容多代旧字段。
 - 让 GM 手写 migration patch。
 - 标准方案再生成一堆独立 dice/combat/economy 字段 setter。

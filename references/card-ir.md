@@ -100,7 +100,7 @@ discarded       ST 补丁或重复内容
 2. 先抽 mutable concept 和 visibility fact，再整理 prompt 文风。
 3. 审计 initvar / MVU / TH script / regex script，补 mechanic。
 4. 为每条世界书记录 disposition。
-5. 输出 `data/card-ir.json`。
+5. 输出 `world-data/card-ir.json`。
 6. 从 IR 生成 Runtime Plan；不要直接从原卡文本生成代码。
 
 ## 反模式
@@ -113,7 +113,7 @@ discarded       ST 补丁或重复内容
 
 ## IR 验收
 
-本清单是 IR 阶段闸门，在输出 `data/card-ir.json` 时跑；完工闸门见 `references/validation.md`。
+本清单是 IR 阶段闸门，在输出 `world-data/card-ir.json` 时跑；完工闸门见 `references/validation.md`。
 
 - [ ] 所有 alternate greetings / group greetings 有去向。
 - [ ] 所有世界书条目含 disabled 有 disposition。

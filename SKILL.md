@@ -13,11 +13,11 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 1. 解包卡片，确认输出目录。目录存在时先问：覆盖、增量、另建？
 2. 先读 `references/evented-runtime.md`、`references/card-ir.md`、`references/event-packs.md`、`references/design-principles.md`。
 3. 全量审计 `data` 字段、世界书、TH scripts、regex scripts、开场白。
-4. 先输出或草拟 `data/card-ir.json`；不要直接从原卡文本生成代码。
+4. 先输出或草拟 `world-data/card-ir.json`；不要直接从原卡文本生成代码。
 5. 从 IR 形成 Runtime Plan：archetype、event packs、state roots、visibility policy、fact sources、tool surface、subagent roles、prompt modules、validation plan。
 6. 写代码前先给用户看 Runtime Plan；复杂卡还要给 state schema、event catalog、reducer/API 清单、事实源边界和子代理边界。
 
-增量更新：先看 `git log -20` + `git diff`。只改本次需求相关文件；不碰 `sessions/`、`state/`、`.pi/agent/`。
+增量更新：先看 `git log -20` + `git diff`。只改本次需求相关文件；不碰 `sessions/`、`runtime/`、`.pi/agent/`。
 
 ## 探索命令
 
@@ -104,11 +104,11 @@ subagent 只给建议、候选事件或文本；状态写入仍由 GM 走主 eng
 evented light 基础：
 
 ```txt
-agents/preset.json
-agents/gm-*.md
-data/card-ir.json
-data/runtime-plan.json
-data/world.json
+prompts/preset.json
+prompts/gm-*.md
+world-data/card-ir.json
+world-data/runtime-plan.json
+world-data/world.json
 skills/start-game/SKILL.md
 start.sh
 extension.ts
@@ -117,6 +117,8 @@ engine/events.ts
 engine/reducers.ts
 engine/state.ts
 .pi/settings.json
+package.json
+tsconfig.json
 ```
 
 standard 按需追加：
@@ -127,7 +129,7 @@ engine/codeact-sandbox.d.ts
 engine/migrations.ts
 ```
 
-按需追加：`data/*_index.json`、`extensions/subagents/*.ts`、`.pi/agents/*.md`、migration/debug 工具、event-pack 测试。
+按需追加：`world-data/*_index.json`、`extensions/subagents/*.ts`、`.pi/agents/*.md`、migration/debug 工具、event-pack 测试。
 
 小项目扁平布局即可；项目长大后按领域拆 engine 子目录、prompt 素材按 pass 分目录，且目录名拒绝歧义泛名（`data/` vs 运行时 state、`agents/` vs `.pi/agents/` 撞名等返工教训见 `references/engineering-discipline.md` 结构纪律）。
 
@@ -164,7 +166,7 @@ engine/migrations.ts
 
 **事实源与 subagent**
 
-- 现实题材可用 web/fetch/code-search 取代手工知识库；虚构 canonical facts 默认只走本地 data/lookup。
+- 现实题材可用 web/fetch/code-search 取代手工知识库；虚构 canonical facts 默认只走本地 world-data/lookup。
 - subagent 不写 state、不拿 CodeAct、不当陪聊 NPC；后台候选必须能转成领域事件，落地前审核，secrets-at-rest gitignored。载体红线见「多 agent 判定」，细节唯一权威 `references/multi-agent-architecture.md`。
 
 **架构与工程**

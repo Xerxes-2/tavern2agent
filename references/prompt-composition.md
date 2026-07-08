@@ -49,7 +49,7 @@ final-contract  给模型最终输出的短硬门禁，必须简短。
       "slot": "pre-history",
       "priority": 10,
       "header": "creative_constitution",
-      "source": "agents/gm-creative-constitution.md"
+      "source": "prompts/gm-creative-constitution.md"
     },
     {
       "id": "world-context",
@@ -57,7 +57,7 @@ final-contract  给模型最终输出的短硬门禁，必须简短。
       "slot": "pre-history",
       "priority": 20,
       "header": "world_context",
-      "source": "agents/gm-context.md"
+      "source": "prompts/gm-context.md"
     },
     {
       "id": "style-blacklist",
@@ -65,7 +65,7 @@ final-contract  给模型最终输出的短硬门禁，必须简短。
       "slot": "pre-history",
       "priority": 45,
       "header": "style_blacklist",
-      "source": "agents/gm-style-blacklist.md"
+      "source": "prompts/gm-style-blacklist.md"
     },
     {
       "id": "tool-policy",
@@ -73,7 +73,7 @@ final-contract  给模型最终输出的短硬门禁，必须简短。
       "slot": "pre-response",
       "priority": 20,
       "header": "tool_policy",
-      "source": "agents/gm-tool-policy.md"
+      "source": "prompts/gm-tool-policy.md"
     },
     {
       "id": "output-contract",
@@ -81,7 +81,7 @@ final-contract  给模型最终输出的短硬门禁，必须简短。
       "slot": "final-contract",
       "priority": 10,
       "header": "output_contract",
-      "source": "agents/gm-output-contract.md"
+      "source": "prompts/gm-output-contract.md"
     }
   ]
 }
@@ -94,7 +94,7 @@ enabled: boolean
 slot: pre-history | pre-response | final-contract
 priority: integer
 header: XML-ish tag name
-source: agents/*.md | runtime:state-brief | runtime:event-pack:<id>
+source: prompts/*.md | runtime:state-brief | runtime:event-pack:<id>
 ```
 
 `runtime:event-pack:<id>` 只渲染该 pack 的工具纪律和叙事渲染提示；pack 的正确性仍由 tool normalizer、engine invariant 和 reducer 维护。
@@ -106,25 +106,25 @@ source: agents/*.md | runtime:state-brief | runtime:event-pack:<id>
 从 ST 预设迁移时，优先提炼成这些 pi 模块：
 
 ```txt
-agents/gm-creative-constitution.md  创作强调、禁止 meta、信息边界、场景推进底线
-agents/gm-context.md                世界索引、可查询资料、世界书入口；不要塞工具速查
-agents/gm-input-guide.md            用户输入可见性：台词、内心、OOC、自然语言动作
-agents/gm-social-guide.md           本音与建前、NPC 行为、关系微动作
-agents/gm-style-blacklist.md        坏味 linter：禁交付语、否定反转、作者总结、空泛氛围等
-agents/gm-style.md                  文风基调、题材味、段落形态
-agents/gm-render.md                 状态/工具结果如何压成身体、队形、关系负担
-agents/gm-tool-policy.md            工具调用策略和禁区
-agents/gm-story-driver.md           本轮内部 driver：玩家做了什么、NPC 想要什么、状态压到哪里
-agents/gm-output-contract.md        最终短合同：只输出正文、禁交付语、禁分割线、坏句式限频
+prompts/gm-creative-constitution.md  创作强调、禁止 meta、信息边界、场景推进底线
+prompts/gm-context.md                世界索引、可查询资料、世界书入口；不要塞工具速查
+prompts/gm-input-guide.md            用户输入可见性：台词、内心、OOC、自然语言动作
+prompts/gm-social-guide.md           本音与建前、NPC 行为、关系微动作
+prompts/gm-style-blacklist.md        坏味 linter：禁交付语、否定反转、作者总结、空泛氛围等
+prompts/gm-style.md                  文风基调、题材味、段落形态
+prompts/gm-render.md                 状态/工具结果如何压成身体、队形、关系负担
+prompts/gm-tool-policy.md            工具调用策略和禁区
+prompts/gm-story-driver.md           本轮内部 driver：玩家做了什么、NPC 想要什么、状态压到哪里
+prompts/gm-output-contract.md        最终短合同：只输出正文、禁交付语、禁分割线、坏句式限频
 ```
 
-不要默认生成 `data/user.json`。酒馆作者通常把主角设定写在世界书、开局、状态栏或首轮对话里。迁移主角设定时优先考虑：
+不要默认生成 `world-data/user.json`。酒馆作者通常把主角设定写在世界书、开局、状态栏或首轮对话里。迁移主角设定时优先考虑：
 
 1. 世界书条目 / lookup data。
 2. 开局 skill。
 3. actor 初始 state。
 4. memory 初始事实。
-5. 可选 `agents/protagonist-lore.md` 普通 prompt module。
+5. 可选 `prompts/protagonist-lore.md` 普通 prompt module。
 
 只有用户明确要求结构化主角档案时，才生成静态 profile 文件。
 
@@ -206,7 +206,7 @@ stop-slop 不只管输出 prose，也管 prompt 模块本身的文字：
 
 ## 死模块要删
 
-从未被 manifest 注入的 prompt 模块是负资产：独有检查项并入存活模块后删除文件。定期用 manifest 对账 `agents/*.md`。
+从未被 manifest 注入的 prompt 模块是负资产：独有检查项并入存活模块后删除文件。定期用 manifest 对账 `prompts/*.md`。
 
 ## 测试建议
 
@@ -214,7 +214,7 @@ prompt composition 也要有 smoke tests：
 
 - manifest schema valid。
 - Runtime Plan 中引用的 event pack prompt fragment 都存在。
-- source 文件存在，且只能读 `agents/*.md` 或已知 runtime source。
+- source 文件存在，且只能读 `prompts/*.md` 或已知 runtime source。
 - 每轮重新读取 manifest / `.md` 模块，prompt 调参不需要重启 session。
 - module id 唯一。
 - 注入顺序符合 slot + priority。

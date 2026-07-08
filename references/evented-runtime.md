@@ -187,14 +187,14 @@ in-process subagent 必须 project-scope、显式 tools、显式 extensions；�
 有任何 mutable concept 的项目，至少生成：
 
 ```txt
-data/card-ir.json
-data/runtime-plan.json
+world-data/card-ir.json
+world-data/runtime-plan.json
 engine/state.ts
 engine/events.ts
 engine/reducers.ts
 tools/registry.ts
-agents/preset.json
-agents/gm-*.md
+prompts/preset.json
+prompts/gm-*.md
 skills/start-game/SKILL.md
 ```
 

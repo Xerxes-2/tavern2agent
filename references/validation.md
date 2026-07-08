@@ -8,23 +8,23 @@
 
 ```bash
 grep -rnE "UpdateVariable|JSON Patch|<%_|\{\{getvar:|\{\{setvar:|__结束__|强化思考要求" \
-  agents/ engine/ data/ skills/ 2>/dev/null && echo "↑ 有残留" || echo "✓"
+  prompts/ engine/ world-data/ skills/ 2>/dev/null && echo "↑ 有残留" || echo "✓"
 
 grep -rnE '\{\{(user|char|random|roll|pick|getvar|setvar)' \
-  agents/ skills/ data/ 2>/dev/null && echo "↑ 有 ST 宏残留" || echo "✓"
+  prompts/ skills/ world-data/ 2>/dev/null && echo "↑ 有 ST 宏残留" || echo "✓"
 
 grep -rnE 'update_state|patch_state|直接修改状态|JSON Patch' \
-  agents/ tools/ engine/ skills/ 2>/dev/null && echo "↑ 检查是否是 debug-only" || echo "✓"
+  prompts/ tools/ engine/ skills/ 2>/dev/null && echo "↑ 检查是否是 debug-only" || echo "✓"
 ```
 
 游戏字段如生命值、好感度、回溯次数不是残留；把它们当作可裸 patch 字段才是问题。
 
 ## 人工清单
 
-- [ ] `data/card-ir.json` 存在，所有 mutable concept、visibility fact、worldbook disposition 有去向。
-- [ ] `data/runtime-plan.json` 存在，event pack、state root、fact source、tool surface、subagent role、prompt module、validation plan 清楚。
-- [ ] `agents/preset.json` 存在，slot 顺序清楚，source 只指向 `agents/*.md` 或已知 runtime source。
-- [ ] `agents/gm-*.md` 按职责拆分；没有把世界书、工具说明、硬规则、输出合同塞成一坨。
+- [ ] `world-data/card-ir.json` 存在，所有 mutable concept、visibility fact、worldbook disposition 有去向。
+- [ ] `world-data/runtime-plan.json` 存在，event pack、state root、fact source、tool surface、subagent role、prompt module、validation plan 清楚。
+- [ ] `prompts/preset.json` 存在，slot 顺序清楚，source 只指向 `prompts/*.md` 或已知 runtime source。
+- [ ] `prompts/gm-*.md` 按职责拆分；没有把世界书、工具说明、硬规则、输出合同塞成一坨。
 - [ ] 开局 skill 存在，setup 字段齐，默认值齐。
 - [ ] `first_mes` 已剥离 HTML/状态栏/ST 宏。
 - [ ] `alternate_greetings` / `group_only_greetings` 有去向。
@@ -32,7 +32,7 @@ grep -rnE 'update_state|patch_state|直接修改状态|JSON Patch' \
 - [ ] `[initvar]` 转成 mutable concept + `INITIAL_STATE`，不是直接搬成 LLM 可 patch 字段。
 - [ ] TH scripts / regex scripts 已审计。
 - [ ] 章节/大型设定未全量塞 prompt。
-- [ ] 主角设定若存在，已进入世界书 / start skill / actor state / memory / 可选 prompt module；不默认生成 `data/user.json`。
+- [ ] 主角设定若存在，已进入世界书 / start skill / actor state / memory / 可选 prompt module；不默认生成 `world-data/user.json`。
 - [ ] 主角/操控者地位由指针表达，运行时不散落硬编码 id 判断；seed id 若存在只在初始化/迁移常量里出现。
 - [ ] public registry key 不泄露 hidden truth；真名、凶手、阵营秘密不出现在 actor/item/location id。
 - [ ] 多 agent 场景：in-process subagent 是 project-scope，显式 tools/extensions，不拿 `code_act`，不继承完整项目上下文/技能目录；知密导演子进程带 `--no-tools --no-approve --no-context-files`，session 落 gitignored 目录，有 harvest + pending-harvest 台账。
@@ -124,7 +124,7 @@ cd 项目目录
 ```bash
 python3 - <<'PY'
 import json
-s=json.load(open('state/state.json'))
+s=json.load(open('runtime/state.json'))
 print(json.dumps(s,ensure_ascii=False,indent=2)[:2000])
 PY
 
