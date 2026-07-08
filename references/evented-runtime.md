@@ -200,7 +200,7 @@ skills/start-game/SKILL.md
 
 按需追加：`engine/migrations.ts`、`engine/codeact.ts`、`engine/codeact-sandbox.d.ts`、`extensions/subagents/*`、`.pi/agents/*`、pack-specific data、external research tool wiring。
 
-纯设定、无运行状态、无秘密边界的卡可以生成 prompt-only 项目；这是 v2 的退化形态，仅限满足上述条件的卡。
+纯设定、无运行状态、无秘密边界的卡不转换：收益不抵成本，建议用户直接玩原卡（判定唯一权威见 `references/decision-tree.md`）。
 
 ## 验收
 

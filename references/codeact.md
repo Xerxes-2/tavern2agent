@@ -2,7 +2,7 @@
 
 CodeAct 是四层 API 的一种执行方式：单个 `code_act` 工具承载 typed command layer。GM 写受限 JS，沙箱执行计算、随机、状态写入、查询，再把结构化结果交给 GM 叙事。typed tools 与 CodeAct 的取舍见 `references/tool-abstraction.md` 的「选择取舍」；四层 API 与 protected paths 同样适用于 CodeAct。
 
-纯 prompt / light 不要套 CodeAct。沙箱只产机械结果、结算摘要和叙事钩子；禁止在沙箱里写小说正文，禁止当自由脚本入口。
+light 档不要套 CodeAct。沙箱只产机械结果、结算摘要和叙事钩子；禁止在沙箱里写小说正文，禁止当自由脚本入口。
 
 ## 适用点
 

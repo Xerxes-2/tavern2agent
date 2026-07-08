@@ -49,7 +49,7 @@ python3 scripts/get_entry.py card.json <index>
 
 ## 方案
 
-三档：prompt-only（纯设定，无可变世界、无秘密边界）、evented light（少量可变概念，无复杂公式）、evented standard（骰子/战斗/经济/多字段联动/时间压缩）。秘密视角叠加 secret / faction / offscreen pack 与 project subagent；现实题材叠加 web/fetch/code-search 只读事实源。主表与临界场景见 `references/decision-tree.md`。
+先过退出闸门：纯设定、无可变世界、无秘密边界的卡**不转换**——收益不抵成本，向用户说明并建议直接玩原卡。过闸的卡分两档：evented light（少量可变概念，无复杂公式）、evented standard（骰子/战斗/经济/多字段联动/时间压缩）。秘密视角叠加 secret / faction / offscreen pack 与 project subagent；现实题材叠加 web/fetch/code-search 只读事实源。主表与临界场景见 `references/decision-tree.md`。
 
 分档信号不是「卡里有没有 MVU/公式」，而是「有没有承重且必须被后续可靠查询的转换或隐藏真相」——无任何 MVU 的不可逆拐点或隐藏真相照样进 evented，满屏 MVU 先祛魅只编译承重项。展开论证与信号清单的唯一权威是 `references/decision-tree.md`。
 
@@ -101,7 +101,7 @@ subagent 只给建议、候选事件或文本；状态写入仍由 GM 走主 eng
 
 ## 产出
 
-prompt-only 退化形态：
+evented light 基础：
 
 ```txt
 agents/preset.json
@@ -111,11 +111,6 @@ data/runtime-plan.json
 data/world.json
 skills/start-game/SKILL.md
 start.sh
-```
-
-evented light / standard 追加：
-
-```txt
 extension.ts
 tools/registry.ts
 engine/events.ts

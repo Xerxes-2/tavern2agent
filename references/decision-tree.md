@@ -6,7 +6,7 @@
 
 | 条件 | 方案 | 形态 |
 |---|---|---|
-| 纯设定，无可变世界、无秘密边界 | prompt-only | `agents/` + `data/` + start skill；v2 退化形态 |
+| 纯设定，无可变世界、无秘密边界 | 不转换 | 建议直接玩原卡；转换收益不抵成本 |
 | 少量可变概念，无复杂公式 | evented light | `engine/events.ts`、`engine/reducers.ts`、少数 typed domain tools |
 | 骰子/战斗/经济/多字段联动/时间压缩/级联 | evented standard | event packs + reducer + typed tools / CodeAct API |
 | 隐藏信息/秘密视角/多阵营 | pack 叠加 | secret / faction / offscreen + project subagent |
@@ -16,7 +16,7 @@
 
 ## 第一问：有没有 mutable concept？
 
-没有可变世界、没有秘密边界、没有持续记忆要求：可以 prompt-only。
+没有可变世界、没有秘密边界、没有持续记忆要求：**不转换**，向用户说明并建议直接玩原卡。本 skill 的收益集中在有承重转换或秘密边界的卡型；纯设定卡转换收益不抵成本。
 
 只要出现以下任一项，就进入 evented：
 
@@ -58,10 +58,10 @@
 
 | 特征 | 档位 |
 |---|---|
-| 纯地理/势力/NPC，无变量、无秘密边界 | prompt-only |
-| 只有开局选阵营/难度，之后不维护状态 | prompt-only + start skill |
+| 纯地理/势力/NPC，无变量、无秘密边界 | 不转换 |
+| 只有开局选阵营/难度，之后不维护状态 | 默认不转换；用户坚持要 pi 形态时给最小 evented light + start skill |
 | 30+ 键值状态，简单 ± | evented light，按领域 pack 分组 |
-| 偶发 `{{roll:1d6}}` 占卜，不写状态 | prompt-only 或 light lookup |
+| 偶发 `{{roll:1d6}}` 占卜，不写状态 | light lookup；若全卡仅此一点动态则不转换 |
 | 偶发 roll 影响关系/资源 | evented light |
 | 无数值/无 MVU，但有初吻/背叛等一次性不可逆拐点 | evented light + one-way 事件 |
 | 玩家不该看见的隐藏真相（怀疑值/凶手），无 MVU | secret pack，必要时 subagent 隔离 |

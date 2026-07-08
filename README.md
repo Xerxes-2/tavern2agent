@@ -62,20 +62,9 @@ agent 会解包、审计世界书和脚本、生成 `data/card-ir.json`、给出
 
 ## 产物形态
 
-无可变世界的纯设定卡可以退化成 prompt-only：
+无可变世界、无秘密边界的纯设定卡不转换——收益不抵成本，建议直接玩原卡。
 
-```txt
-project/
-├── agents/preset.json
-├── agents/gm-*.md
-├── data/card-ir.json
-├── data/runtime-plan.json
-├── data/world.json
-├── skills/start-game/SKILL.md
-└── start.sh
-```
-
-有任何 mutable concept 的卡默认生成 evented runtime：
+有 mutable concept 的卡生成 evented runtime：
 
 ```txt
 project/
@@ -104,7 +93,7 @@ project/
 
 | 卡片特征 | v2 方案 |
 |---|---|
-| 无可变世界、无秘密边界 | prompt-only 退化形态 |
+| 无可变世界、无秘密边界 | 不转换，直接玩原卡 |
 | 少量可变概念 | evented light：typed domain tools + reducer |
 | 多字段联动、骰子、战斗、经济、时间压缩 | evented standard：event packs + reducer + typed tools / CodeAct API |
 | 隐藏信息、秘密视角、多阵营 | 叠加 secret / faction / offscreen pack 和 project subagent |
