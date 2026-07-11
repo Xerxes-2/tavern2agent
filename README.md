@@ -1,8 +1,10 @@
 # tavern2agent
 
-把 SillyTavern 角色卡编译成 pi-native 互动叙事 runtime。
+[中文](README_ZH.md)
 
-v2 不再把角色卡视为 prompt、世界书和状态栏的拼接物。它先提取卡片语义，再生成领域事件驱动的 runtime：
+Compile SillyTavern character cards into pi-native interactive narrative runtimes.
+
+v2 no longer treats a character card as a bundle of prompts, lorebooks, and status panels. It first extracts the card's semantics, then generates a domain-event-driven runtime:
 
 ```txt
 SillyTavern card
@@ -13,58 +15,58 @@ SillyTavern card
   → pi project
 ```
 
-核心宪法：**prompt 描述世界，领域事件改变世界。**
+The core principle: **prompts describe the world; domain events change it.**
 
-## 范围
+## Scope
 
-支持输入：
+Supported inputs:
 
-- ST v1/v2/v3：PNG、WEBP、JPEG、JSON
-- 纯设定卡
-- 世界书/MVU 卡
-- 骰子、战斗、好感度、经济、任务、时间等系统卡
-- 隐藏信息、多 NPC、多 agent 场景
+- ST v1/v2/v3 cards in PNG, WEBP, JPEG, or JSON format
+- Setting-only cards
+- Lorebook/MVU cards
+- System-heavy cards with dice, combat, affinity, economy, quests, time, and similar mechanics
+- Hidden-information, multi-NPC, and multi-agent scenarios
 
-默认剥离：HTML 状态栏、前端面板、文生图提示词、ST 宏运行时补丁、COT 标签、JSON Patch 输出格式。可迁移其背后的字段、规则、触发条件和 prompt composition 思路。
+The compiler removes HTML status panels, frontend UI, image-generation prompts, ST macro runtime patches, chain-of-thought tags, and JSON Patch output formats by default. The underlying fields, rules, trigger conditions, and prompt-composition ideas can still be migrated.
 
-## 安装
+## Installation
 
-用 [`npx skills`](https://github.com/vercel-labs/skills)（推荐）：
+Using [`npx skills`](https://github.com/vercel-labs/skills) (recommended):
 
 ```bash
 npx skills add Xerxes-2/tavern2agent
 ```
 
-或 git clone：
+Or clone the repository:
 
 ```bash
 git clone --depth 1 https://github.com/Xerxes-2/tavern2agent \
   ~/.pi/agent/skills/tavern2agent
 ```
 
-更新：
+To update:
 
 ```bash
-npx skills update            # npx skills 安装
-cd ~/.pi/agent/skills/tavern2agent && git pull   # git clone 安装
+npx skills update            # Installed with npx skills
+cd ~/.pi/agent/skills/tavern2agent && git pull   # Installed with git clone
 ```
 
-## 使用
+## Usage
 
 ```bash
 mkdir my-card && cd my-card
 cp ~/Downloads/card.png .
 pi
-# 对 agent 说：帮我转换这张角色卡
+# Tell the agent: Convert this character card for me.
 ```
 
-agent 会解包、审计世界书和脚本、生成 `world-data/card-ir.json`、给出 Runtime Plan、选择 event packs、事实源和 subagent roles，再生成 pi 项目并下场校验。复杂卡写代码前会先给你看 Runtime Plan、state schema、event catalog、工具/API 清单和子代理边界。
+The agent unpacks the card, audits its lorebooks and scripts, generates `world-data/card-ir.json`, proposes a Runtime Plan, selects event packs, sources of truth, and subagent roles, then generates and validates a pi project. For complex cards, it presents the Runtime Plan, state schema, event catalog, tool/API list, and subagent boundaries before writing code.
 
-## 产物形态
+## Output
 
-无可变世界、无秘密边界的纯设定卡不转换——收益不抵成本，建议直接玩原卡。
+Setting-only cards with no mutable world or secrecy boundaries are not converted—the benefit does not justify the cost, so using the original card is recommended.
 
-有 mutable concept 的卡生成 evented runtime：
+Cards with mutable concepts produce an evented runtime:
 
 ```txt
 project/
@@ -83,46 +85,46 @@ project/
 └── start.sh
 ```
 
-按需追加：`engine/migrations.ts`、`engine/codeact.ts`、`engine/codeact-sandbox.d.ts`、`extensions/subagents/*`、`.pi/agents/*`、event-pack 专用数据和测试。
+Additional files may include `engine/migrations.ts`, `engine/codeact.ts`, `engine/codeact-sandbox.d.ts`, `extensions/subagents/*`, `.pi/agents/*`, event-pack-specific data, and tests.
 
-`runtime/`、`sessions/`、`.pi/agent/`、`.pi/npm/` 不发布。
+`runtime/`, `sessions/`, `.pi/agent/`, and `.pi/npm/` are not published.
 
-## 方案
+## Approach
 
-面向读者的速览；权威判定见 `references/decision-tree.md`。
+This table is a reader-friendly overview. See `references/decision-tree.md` for the authoritative decision process.
 
-| 卡片特征 | v2 方案 |
+| Card characteristics | v2 approach |
 |---|---|
-| 无可变世界、无秘密边界 | 不转换，直接玩原卡 |
-| 少量可变概念 | evented light：typed domain tools + reducer |
-| 多字段联动、骰子、战斗、经济、时间压缩 | evented standard：event packs + reducer + typed tools / CodeAct API |
-| 隐藏信息、秘密视角、多阵营 | 叠加 secret / faction / offscreen pack 和 project subagent |
-| 现实题材、开源/API/活资料 | external research tools + local canonical data |
+| No mutable world or secrecy boundaries | Do not convert; use the original card |
+| A few mutable concepts | Evented light: typed domain tools + reducer |
+| Interdependent fields, dice, combat, economy, or time compression | Evented standard: event packs + reducer + typed tools / CodeAct API |
+| Hidden information, secret viewpoints, or multiple factions | Add secret / faction / offscreen packs and project subagents |
+| Real-world settings, open-source projects, APIs, or live information | External research tools + local canonical data |
 
-CodeAct 只是承载领域 API 的执行载体。无论用 typed tools 还是 CodeAct，状态变化都必须落成领域事件并经过 reducer。
+CodeAct is only an execution environment for domain APIs. Whether the runtime uses typed tools or CodeAct, every state change must become a domain event and pass through a reducer.
 
-网络搜索 / 抓取 / code search 可以取代手工知识库，但只能作为只读事实源；卡片 canonical facts 仍由本地 world-data/lookup 管。subagent 只输出视角反应、后台候选或审计意见，不直接写 state。
+Web search, web fetching, and code search can replace manually maintained knowledge bases, but only as read-only fact sources. Canonical card facts remain in local `world-data` and lookup modules. Subagents produce viewpoint reactions, offscreen candidates, or audit opinions; they never write state directly.
 
-## 文档
+## Documentation
 
 ```txt
-SKILL.md                         agent 入口流程
-references/evented-runtime.md    v2 宪法
-references/card-ir.md            卡片语义 IR
-references/event-packs.md        领域事件包
-references/data-layer.md         本地 lookup 与外部 research 边界
-references/multi-agent-architecture.md 子代理设计
-references/two-pass-rendering.md   两段式结算/渲染与 compaction
-references/                      迁移细节
-docs/developing-cards.md         迁移后维护
-docs/tooling.md                  可选工具
-scripts/                         卡片解包/审计脚本
+SKILL.md                         Agent entry workflow
+references/evented-runtime.md    v2 constitution
+references/card-ir.md            Card Semantic IR
+references/event-packs.md        Domain event packs
+references/data-layer.md         Local lookup and external research boundaries
+references/multi-agent-architecture.md Subagent design
+references/two-pass-rendering.md Settlement/rendering split and compaction
+references/                      Migration details
+docs/developing-cards.md         Post-migration maintenance
+docs/tooling.md                  Optional tools
+scripts/                         Card unpacking and audit scripts
 ```
 
-## 实战样本
+## Production Example
 
-本技能的方法论在 [fate-sandbox](https://github.com/lolo-s-Cosmos/fate-sandbox) 上持续验证迭代——一个型月世界观沙盒，13 条世界线（FSN 冬木、strange Fake、月姬、空之境界等）。这里的两段式结算/渲染拆分、引擎台账、确定性 compaction、缓存友好渲染历史等经验均出自它的长跑实测。想看一个完整的 evented standard + 多 subagent + 两段式项目长什么样，读它的源码和 `docs/adr/`。
+This skill's methodology is continuously validated and refined in [fate-sandbox](https://github.com/lolo-s-Cosmos/fate-sandbox), a Type-Moon universe sandbox spanning 13 timelines, including FSN Fuyuki, strange Fake, Tsukihime, and The Garden of Sinners. Its settlement/rendering split, engine ledger, deterministic compaction, and cache-friendly rendering history all grew out of long-running production use there. To see a complete evented standard project with multiple subagents and two-pass processing, read its source and `docs/adr/`.
 
-## 理念
+## Philosophy
 
-不复刻 ST 运行时补丁。读懂卡作者想做的游戏，再用 pi 原生能力重建：事实可查，规则可算，事件可审计，状态可迁移，秘密不串层，叙事不破墙。
+Do not reproduce ST runtime patches. Understand the game the card author intended, then rebuild it with pi-native capabilities: facts are queryable, rules are computable, events are auditable, state is migratable, secrets do not leak across layers, and the narrative never breaks the fourth wall.
